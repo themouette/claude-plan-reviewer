@@ -10,17 +10,17 @@
 - [x] **HOOK-01**: Binary reads Claude Code ExitPlanMode PermissionRequest JSON from stdin on invocation
 - [x] **HOOK-02**: Binary writes valid PermissionRequest decision JSON exclusively to stdout on exit
 - [x] **HOOK-03**: All diagnostic output goes to stderr only — stdout contains only the final JSON response
-- [ ] **HOOK-04**: Binary exits cleanly within 3 seconds of decision submission
-- [ ] **HOOK-05**: Binary self-terminates with a deny response before the Claude Code hook timeout (default 10 min) is reached
+- [x] **HOOK-04**: Binary exits cleanly within 3 seconds of decision submission
+- [x] **HOOK-05**: Binary self-terminates with a deny response before the Claude Code hook timeout (default 10 min) is reached
 
 ### Plan Review UI
 
-- [ ] **UI-01**: Binary spawns a local HTTP server on an OS-assigned port (port 0) and opens the system browser
+- [x] **UI-01**: Binary spawns a local HTTP server on an OS-assigned port (port 0) and opens the system browser
 - [ ] **UI-02**: Plan markdown is rendered as formatted HTML in the browser (headings, lists, code blocks, tables)
 - [ ] **UI-03**: User can approve the plan with a single action (keyboard: Enter)
 - [ ] **UI-04**: User can deny the plan with a message
 - [ ] **UI-05**: Browser tab shows a confirmation page and self-closes after decision is submitted
-- [ ] **UI-06**: Binary prints the review URL to stderr in case the browser fails to open
+- [x] **UI-06**: Binary prints the review URL to stderr in case the browser fails to open
 
 ### Annotations
 
@@ -90,14 +90,14 @@
 | HOOK-01 | Phase 1 | Complete |
 | HOOK-02 | Phase 1 | Complete |
 | HOOK-03 | Phase 1 | Complete |
-| HOOK-04 | Phase 1 | Pending |
-| HOOK-05 | Phase 1 | Pending |
-| UI-01 | Phase 1 | Pending |
+| HOOK-04 | Phase 1 | Complete |
+| HOOK-05 | Phase 1 | Complete |
+| UI-01 | Phase 1 | Complete |
 | UI-02 | Phase 1 | Pending |
 | UI-03 | Phase 1 | Pending |
 | UI-04 | Phase 1 | Pending |
 | UI-05 | Phase 1 | Pending |
-| UI-06 | Phase 1 | Pending |
+| UI-06 | Phase 1 | Complete |
 | CONF-01 | Phase 1 | Pending |
 | CONF-02 | Phase 1 | Complete |
 | ANN-01 | Phase 2 | Pending |
