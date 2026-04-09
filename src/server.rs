@@ -41,6 +41,10 @@ async fn get_plan(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     Json(serde_json::json!({ "plan_html": state.plan_html }))
 }
 
+async fn get_diff(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    Json(serde_json::json!({ "diff": state.diff_content }))
+}
+
 async fn post_decide(
     State(state): State<Arc<AppState>>,
     Json(body): Json<Decision>,
@@ -89,6 +93,7 @@ pub async fn start_server(
     // 5. Build router — API routes take priority; everything else falls back to SPA
     let app = Router::new()
         .route("/api/plan", get(get_plan))
+        .route("/api/diff", get(get_diff))
         .route("/api/decide", post(post_decide))
         .fallback_service(spa)
         .with_state(state);
