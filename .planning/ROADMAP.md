@@ -13,7 +13,7 @@ Three phases deliver the tool end-to-end. Phase 1 wires the complete approve/den
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Hook & Review UI** - Core approve/deny loop wired end-to-end via ExitPlanMode hook (completed 2026-04-09)
-- [ ] **Phase 2: Annotations & Diff** - Structured feedback surface with text annotations and code diff view
+- [x] **Phase 2: Annotations & Diff** - Structured feedback surface with text annotations and code diff view (completed 2026-04-09)
 - [ ] **Phase 3: Distribution** - Cross-platform binary release with curl | sh installer
 
 ## Phase Details
@@ -53,7 +53,7 @@ Plans:
 - [x] 02-01-PLAN.md — Rust backend: git2 diff extraction, AppState.diff_content, GET /api/diff route
 - [x] 02-02-PLAN.md — Frontend types, utilities, hooks, and components (TabBar, DiffView, AnnotationSidebar)
 - [x] 02-03-PLAN.md — App.tsx integration: two-column layout, tabs, annotations, updated deny flow
-- [ ] 02-04-PLAN.md — End-to-end human verification of all Phase 2 functionality
+- [x] 02-04-PLAN.md — End-to-end human verification of all Phase 2 functionality
 
 **UI hint**: yes
 
@@ -76,5 +76,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Hook & Review UI | 4/4 | Complete   | 2026-04-09 |
-| 2. Annotations & Diff | 0/4 | Planning complete | - |
+| 2. Annotations & Diff | 4/4 | Complete | 2026-04-09 |
 | 3. Distribution | 0/TBD | Not started | - |
