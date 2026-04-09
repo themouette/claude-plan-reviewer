@@ -28,7 +28,14 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Submitting a deny message in the browser writes a valid `behavior: deny` JSON with the message to stdout, then the process exits cleanly
   4. All diagnostic output (server URL, errors) goes to stderr — stdout contains only the final JSON object
   5. If the browser fails to open, the review URL is printed to stderr and the `--no-browser` flag skips auto-open entirely
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Rust project scaffold with protocol types, CLI, stdin/stdout round-trip, comrak rendering
+- [ ] 01-02-PLAN.md — axum HTTP server with decision pipeline, browser launch, timeout, clean exit
+- [ ] 01-03-PLAN.md — React+TS+Vite frontend with Tailwind, full plan review UI, build.rs integration
+- [ ] 01-04-PLAN.md — Wire embedded SPA into binary, end-to-end integration, human verification
+
 **UI hint**: yes
 
 ### Phase 2: Annotations & Diff
@@ -61,6 +68,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Hook & Review UI | 0/TBD | Not started | - |
+| 1. Hook & Review UI | 0/4 | Planned | - |
 | 2. Annotations & Diff | 0/TBD | Not started | - |
 | 3. Distribution | 0/TBD | Not started | - |
