@@ -160,3 +160,27 @@ body {
   background: var(--color-annotation-highlight);
   border-radius: 3px;
 }
+
+/* CSS Custom Highlight for locked text selection — persists when focus leaves the plan area */
+::highlight(selection-lock) {
+  background-color: rgba(59, 130, 246, 0.35);
+  color: inherit;
+}
+
+/* Persistent annotation highlights — applied via CSS Custom Highlight API, no DOM mutation */
+::highlight(annotation-comment) {
+  background-color: rgba(59, 130, 246, 0.22);
+}
+
+::highlight(annotation-delete) {
+  background-color: rgba(239, 68, 68, 0.2);
+}
+
+::highlight(annotation-replace) {
+  background-color: rgba(245, 158, 11, 0.2);
+}
+
+/* Hover emphasis — brightens whichever annotation type is under the cursor */
+::highlight(annotation-hover) {
+  background-color: rgba(255, 255, 255, 0.14);
+}

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Annotation, AnnotationType, Tab } from './types'
 import { serializeAnnotations } from './utils/serializeAnnotations'
-import { useTextSelection } from './hooks/useTextSelection'
+import { useTextSelection, rangeFromOffsets } from './hooks/useTextSelection'
 import { TabBar } from './components/TabBar'
 import { DiffView } from './components/DiffView'
 import { AnnotationSidebar } from './components/AnnotationSidebar'
@@ -169,9 +169,16 @@ export default function App() {
   const [diff, setDiff] = useState<string>('')
   const [annotations, setAnnotations] = useState<Annotation[]>([])
   const [overallComment, setOverallComment] = useState<string>('')
+  const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null)
+  const [focusAnnotationId, setFocusAnnotationId] = useState<string | null>(null)
   const planRef = useRef<HTMLDivElement>(null)
+  const planTabRef = useRef<HTMLDivElement>(null)
   const sidebarRef = useRef<HTMLDivElement>(null)
-  const selectedText = useTextSelection(planRef)
+  const [selectedText, resetTextSelection, getSelectionOffsets] = useTextSelection(planRef)
+  const annotationOffsetsRef = useRef<Map<string, { start: number; end: number }>>(new Map())
+  // Ref copy of annotations so scroll handlers see fresh data without stale closure.
+  const annotationsRef = useRef(annotations)
+  useEffect(() => { annotationsRef.current = annotations }, [annotations])
 
   // Fetch plan HTML on mount
   useEffect(() => {
@@ -239,86 +246,215 @@ export default function App() {
     }
   }, [denyOpen])
 
-  // --- Anchor highlight helpers (D-03) ---
-
-  /**
-   * Walk all text nodes under planRef.current and return the character offset
-   * where `anchorText` first appears in the concatenated text content.
-   * Returns Infinity if not found (appends to end).
-   */
-  function getAnchorOffset(anchorText: string): number {
-    if (!planRef.current) return Infinity
-    const walker = document.createTreeWalker(planRef.current, NodeFilter.SHOW_TEXT)
-    let charOffset = 0
-    let node: Text | null
-    while ((node = walker.nextNode() as Text | null)) {
-      const text = node.textContent ?? ''
-      const idx = text.indexOf(anchorText)
-      if (idx >= 0) {
-        return charOffset + idx
-      }
-      charOffset += text.length
+  // Escape key handler to dismiss active text selection
+  useEffect(() => {
+    if (denyOpen || !selectedText) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') resetTextSelection()
     }
-    return Infinity
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [denyOpen, selectedText, resetTextSelection])
+
+  // Hover over annotated text → highlight matching sidebar card.
+  // Attached to document (not planRef) so it works regardless of when the plan
+  // div mounts. planRef.current is read fresh on each event, not at setup time.
+  useEffect(() => {
+    type CaretPos = { offsetNode: Node; offset: number }
+    type DocWithCaret = Document & { caretPositionFromPoint?: (x: number, y: number) => CaretPos | null }
+
+    function getCaretOffset(x: number, y: number): number | null {
+      const container = planRef.current
+      if (!container) return null
+
+      let range: Range | null = null
+      if (typeof document.caretRangeFromPoint === 'function') {
+        range = document.caretRangeFromPoint(x, y)
+      } else {
+        const pos = (document as DocWithCaret).caretPositionFromPoint?.(x, y)
+        if (pos) {
+          range = document.createRange()
+          range.setStart(pos.offsetNode, pos.offset)
+        }
+      }
+      if (!range || !container.contains(range.startContainer)) return null
+
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
+      let count = 0
+      let node: Node | null
+      while ((node = walker.nextNode())) {
+        if (node === range.startContainer) return count + range.startOffset
+        count += (node.textContent ?? '').length
+      }
+      return null
+    }
+
+    const onMove = (e: MouseEvent) => {
+      // Skip if the pointer is outside the plan content area.
+      if (!planRef.current?.contains(e.target as Node)) {
+        setHoveredAnnotationId((prev) => (prev !== null ? null : prev))
+        return
+      }
+      const offset = getCaretOffset(e.clientX, e.clientY)
+      if (offset === null) {
+        setHoveredAnnotationId((prev) => (prev !== null ? null : prev))
+        return
+      }
+      for (const [id, ann] of annotationOffsetsRef.current) {
+        if (offset >= ann.start && offset < ann.end) {
+          setHoveredAnnotationId((prev) => (prev !== id ? id : prev))
+          return
+        }
+      }
+      setHoveredAnnotationId((prev) => (prev !== null ? null : prev))
+    }
+
+    document.addEventListener('mousemove', onMove)
+    return () => document.removeEventListener('mousemove', onMove)
+  }, [])
+
+  // Focus the comment/replace textarea of a newly added annotation.
+  useLayoutEffect(() => {
+    if (!focusAnnotationId || !sidebarRef.current) return
+    const textarea = sidebarRef.current.querySelector<HTMLTextAreaElement>(
+      `[data-annotation-id="${focusAnnotationId}"] textarea`
+    )
+    if (textarea) {
+      textarea.focus()
+      setFocusAnnotationId(null)
+    }
+  }, [focusAnnotationId, annotations])
+
+  // Rebuild CSS annotation highlights after every render using fresh Ranges from
+  // stored offsets. useLayoutEffect (no deps) ensures the highlights are valid
+  // even after React reconciliation touches plan-prose and collapses stored Ranges.
+  useLayoutEffect(() => {
+    if (!planRef.current || typeof CSS === 'undefined' || !CSS.highlights) return
+    const comment: Range[] = []
+    const del: Range[] = []
+    const replace: Range[] = []
+    for (const a of annotations) {
+      const offsets = annotationOffsetsRef.current.get(a.id)
+      if (!offsets) continue
+      const range = rangeFromOffsets(planRef.current, offsets.start, offsets.end)
+      if (!range) continue
+      if (a.type === 'comment') comment.push(range)
+      else if (a.type === 'delete') del.push(range)
+      else replace.push(range)
+    }
+    comment.length > 0
+      ? CSS.highlights.set('annotation-comment', new Highlight(...comment))
+      : CSS.highlights.delete('annotation-comment')
+    del.length > 0
+      ? CSS.highlights.set('annotation-delete', new Highlight(...del))
+      : CSS.highlights.delete('annotation-delete')
+    replace.length > 0
+      ? CSS.highlights.set('annotation-replace', new Highlight(...replace))
+      : CSS.highlights.delete('annotation-replace')
+  })
+
+  // --- Aligned card layout ---
+
+  function computeAndApplyLayout() {
+    const planTab = planTabRef.current
+    const sidebar = sidebarRef.current
+    if (!planTab || !sidebar || !planRef.current) return
+
+    const planRect = planTab.getBoundingClientRect()
+    const planScrollTop = planTab.scrollTop
+    const CARD_GAP = 8
+
+    // Compute document-relative desired Y for each annotation.
+    const entries = annotationsRef.current.map((a) => {
+      const offsets = annotationOffsetsRef.current.get(a.id)
+      if (!offsets || !planRef.current) return { id: a.id, type: a.type, desired: 0 }
+      const range = rangeFromOffsets(planRef.current, offsets.start, offsets.end)
+      if (!range) return { id: a.id, type: a.type, desired: 0 }
+      const rect = range.getBoundingClientRect()
+      // Convert viewport-relative Y to document-relative (scroll-independent).
+      const docY = rect.top - planRect.top + planScrollTop
+      return { id: a.id, type: a.type, desired: Math.max(0, docY) }
+    })
+
+    // Greedy forward-pass: push cards down so they never overlap.
+    // Estimated heights: delete ≈ 100px, comment/replace ≈ 212px.
+    let cursor = 0
+    for (const { id, type, desired } of entries) {
+      const top = Math.max(desired, cursor)
+      const wrapper = sidebar.querySelector<HTMLElement>(`[data-annotation-id="${id}"]`)
+      if (wrapper) wrapper.style.top = `${top}px`
+      cursor = top + (type === 'delete' ? 100 : 212) + CARD_GAP
+    }
+
+    // Size the inner container to match plan scroll height so the synced
+    // scroll area can reach every position the plan can reach.
+    const cardsInner = sidebar.querySelector<HTMLElement>('[data-cards-inner]')
+    if (cardsInner) cardsInner.style.height = `${planTab.scrollHeight}px`
+
+    // Sync scroll so cards move with the plan text.
+    const cardsScroll = sidebar.querySelector<HTMLElement>('[data-cards-scroll]')
+    if (cardsScroll) cardsScroll.scrollTop = planScrollTop
   }
 
+  // Recompute after every render (catches annotation add/remove and initial mount).
+  useLayoutEffect(() => { computeAndApplyLayout() })
+
+  // Recompute on plan scroll — attach after plan tab mounts (appState → 'reviewing').
+  useEffect(() => {
+    const planTab = planTabRef.current
+    if (!planTab) return
+    planTab.addEventListener('scroll', computeAndApplyLayout)
+    return () => planTab.removeEventListener('scroll', computeAndApplyLayout)
+  }, [appState])
+
+  // Recompute on window resize.
+  useEffect(() => {
+    window.addEventListener('resize', computeAndApplyLayout)
+    return () => window.removeEventListener('resize', computeAndApplyLayout)
+  }, [])
+
+  // --- Anchor highlight helpers ---
+
   function highlightAnchor(anchorText: string) {
-    if (!planRef.current) return
-    const walker = document.createTreeWalker(planRef.current, NodeFilter.SHOW_TEXT)
-    let node: Text | null
-    while ((node = walker.nextNode() as Text | null)) {
-      const idx = node.textContent?.indexOf(anchorText) ?? -1
-      if (idx >= 0) {
-        try {
-          const range = document.createRange()
-          range.setStart(node, idx)
-          range.setEnd(node, idx + anchorText.length)
-          const mark = document.createElement('mark')
-          mark.className = 'annotation-highlighted'
-          mark.setAttribute('aria-label', 'Annotated text')
-          range.surroundContents(mark)
-        } catch {
-          // surroundContents throws if range crosses element boundaries -- skip highlight
-        }
-        break
-      }
-    }
+    if (!planRef.current || typeof CSS === 'undefined' || !CSS.highlights) return
+    const annotation = annotations.find((a) => a.anchorText === anchorText)
+    if (!annotation) return
+    const offsets = annotationOffsetsRef.current.get(annotation.id)
+    if (!offsets) return
+    const range = rangeFromOffsets(planRef.current, offsets.start, offsets.end)
+    if (!range) return
+    CSS.highlights.set('annotation-hover', new Highlight(range))
   }
 
   function clearHighlights() {
-    if (!planRef.current) return
-    const marks = planRef.current.querySelectorAll('mark.annotation-highlighted')
-    marks.forEach((mark) => {
-      const parent = mark.parentNode
-      if (parent) {
-        while (mark.firstChild) {
-          parent.insertBefore(mark.firstChild, mark)
-        }
-        parent.removeChild(mark)
-      }
-    })
+    if (typeof CSS === 'undefined' || !CSS.highlights) return
+    CSS.highlights.delete('annotation-hover')
   }
 
   // --- Annotation handlers ---
 
   function handleAddAnnotation(type: AnnotationType, anchorText: string) {
+    const id = crypto.randomUUID()
+
+    // Capture character offsets before resetTextSelection clears them.
+    // Offsets survive React reconciliation; live Range objects don't.
+    const offsets = getSelectionOffsets()
+    if (offsets) annotationOffsetsRef.current.set(id, offsets)
+
     const newAnnotation: Annotation = {
-      id: crypto.randomUUID(),
+      id,
       type,
       anchorText,
       comment: '',
       replacement: '',
     }
-    // D-03: Insert in positional order (top-to-bottom as anchor text appears in the plan).
-    // Compute the character offset of the new annotation's anchorText in the plan DOM,
-    // then find the correct insertion index in the sorted annotations array.
-    const newOffset = getAnchorOffset(anchorText)
+    // Insert in positional order using the stored start offset.
+    const newStart = offsets?.start ?? Infinity
     setAnnotations((prev) => {
-      // Find insertion index: first annotation whose offset is greater than newOffset
-      const offsets = prev.map((a) => getAnchorOffset(a.anchorText))
       let insertIdx = prev.length
-      for (let i = 0; i < offsets.length; i++) {
-        if (offsets[i] > newOffset) {
+      for (let i = 0; i < prev.length; i++) {
+        const prevStart = annotationOffsetsRef.current.get(prev[i].id)?.start ?? Infinity
+        if (prevStart > newStart) {
           insertIdx = i
           break
         }
@@ -327,11 +463,15 @@ export default function App() {
       next.splice(insertIdx, 0, newAnnotation)
       return next
     })
-    // Clear browser selection after adding annotation
-    document.getSelection()?.removeAllRanges()
+    // Auto-focus the textarea for comment and replace annotations.
+    if (type === 'comment' || type === 'replace') {
+      setFocusAnnotationId(id)
+    }
+    resetTextSelection()
   }
 
   function handleRemoveAnnotation(id: string) {
+    annotationOffsetsRef.current.delete(id)
     setAnnotations((prev) => prev.filter((a) => a.id !== id))
   }
 
@@ -397,11 +537,13 @@ export default function App() {
       <PageHeader activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Non-reviewing states: loading, error, confirmed */}
-      <div style={{ flexGrow: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-        {appState === 'loading' && <LoadingSpinner />}
-        {appState === 'error' && <ErrorView />}
-        {appState === 'confirmed' && decision && <ConfirmationView decision={decision} />}
-      </div>
+      {appState !== 'reviewing' && (
+        <div style={{ flexGrow: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          {appState === 'loading' && <LoadingSpinner />}
+          {appState === 'error' && <ErrorView />}
+          {appState === 'confirmed' && decision && <ConfirmationView decision={decision} />}
+        </div>
+      )}
 
       {/* Two-column layout — only shown during review */}
       {appState === 'reviewing' && (
@@ -415,6 +557,7 @@ export default function App() {
         >
           {/* Left column: plan tab panel */}
           <div
+            ref={planTabRef}
             id="tabpanel-plan"
             role="tabpanel"
             aria-labelledby="tab-plan"
@@ -447,14 +590,13 @@ export default function App() {
           {/* Right column: annotation sidebar */}
           <AnnotationSidebar
             annotations={annotations}
-            overallComment={overallComment}
-            onOverallCommentChange={setOverallComment}
             onAddAnnotation={handleAddAnnotation}
             onRemoveAnnotation={handleRemoveAnnotation}
             onUpdateAnnotation={handleUpdateAnnotation}
             selectedText={selectedText}
             activeTab={activeTab}
             sidebarRef={sidebarRef}
+            hoveredAnnotationId={hoveredAnnotationId}
             onAnnotationHover={(anchorText) => { clearHighlights(); highlightAnchor(anchorText); }}
             onAnnotationLeave={() => clearHighlights()}
           />
@@ -472,6 +614,50 @@ export default function App() {
             padding: '16px 32px',
           }}
         >
+          {/* Overall comment */}
+          <div style={{ marginBottom: '16px' }}>
+            <label
+              htmlFor="overall-comment"
+              style={{
+                display: 'block',
+                fontSize: '14px',
+                fontWeight: 400,
+                color: 'var(--color-text-secondary)',
+                marginBottom: '8px',
+              }}
+            >
+              Overall comment
+            </label>
+            <textarea
+              id="overall-comment"
+              value={overallComment}
+              onChange={(e) => setOverallComment(e.target.value)}
+              placeholder="Add an overall note for Claude..."
+              rows={2}
+              style={{
+                display: 'block',
+                width: '100%',
+                background: 'var(--color-bg)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '4px',
+                color: 'var(--color-text-primary)',
+                padding: '8px',
+                fontSize: '16px',
+                fontFamily: 'inherit',
+                resize: 'vertical',
+                boxSizing: 'border-box',
+                outline: 'none',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.outline = '2px solid var(--color-focus)'
+                e.currentTarget.style.outlineOffset = '2px'
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.outline = 'none'
+              }}
+            />
+          </div>
+
           {/* Approve + Deny buttons row */}
           <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
             {/* Approve button */}

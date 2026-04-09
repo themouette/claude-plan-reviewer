@@ -1,60 +1,6 @@
 import React from 'react'
 import type { Annotation, AnnotationType, Tab } from '../types'
 
-// --- Sub-component: OverallCommentField ---
-
-interface OverallCommentFieldProps {
-  value: string
-  onChange: (value: string) => void
-}
-
-function OverallCommentField({ value, onChange }: OverallCommentFieldProps) {
-  return (
-    <div>
-      <label
-        htmlFor="overall-comment"
-        style={{
-          display: 'block',
-          fontSize: '14px',
-          fontWeight: 400,
-          color: 'var(--color-text-secondary)',
-          marginBottom: '8px',
-        }}
-      >
-        Overall Comment
-      </label>
-      <textarea
-        id="overall-comment"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Add an overall note for Claude..."
-        style={{
-          display: 'block',
-          width: '100%',
-          minHeight: '80px',
-          background: 'var(--color-bg)',
-          border: '1px solid var(--color-border)',
-          borderRadius: '4px',
-          color: 'var(--color-text-primary)',
-          padding: '8px',
-          fontSize: '16px',
-          fontFamily: 'inherit',
-          resize: 'vertical',
-          boxSizing: 'border-box',
-          outline: 'none',
-        }}
-        onFocus={(e) => {
-          e.currentTarget.style.outline = '2px solid var(--color-focus)'
-          e.currentTarget.style.outlineOffset = '2px'
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.outline = 'none'
-        }}
-      />
-    </div>
-  )
-}
-
 // --- Sub-component: AnnotationCard ---
 
 interface AnnotationCardProps {
@@ -63,6 +9,7 @@ interface AnnotationCardProps {
   onUpdate: (id: string, field: 'comment' | 'replacement', value: string) => void
   onMouseEnter?: () => void
   onMouseLeave?: () => void
+  isHovered?: boolean
 }
 
 function getTypeColor(type: AnnotationType): string {
@@ -98,7 +45,7 @@ function getBadgeLabel(type: AnnotationType): string {
   }
 }
 
-function AnnotationCard({ annotation, onRemove, onUpdate, onMouseEnter, onMouseLeave }: AnnotationCardProps) {
+function AnnotationCard({ annotation, onRemove, onUpdate, onMouseEnter, onMouseLeave, isHovered }: AnnotationCardProps) {
   const typeColor = getTypeColor(annotation.type)
   const badgeBg = getTypeBadgeBackground(annotation.type)
   const badgeLabel = getBadgeLabel(annotation.type)
@@ -108,12 +55,13 @@ function AnnotationCard({ annotation, onRemove, onUpdate, onMouseEnter, onMouseL
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={{
-        background: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
+        background: isHovered ? badgeBg : 'var(--color-surface)',
+        border: `1px solid ${isHovered ? typeColor : 'var(--color-border)'}`,
         borderRadius: '6px',
         borderLeft: `3px solid ${typeColor}`,
         padding: '8px',
         position: 'relative',
+        transition: 'background 0.15s ease, border-color 0.15s ease',
       }}
     >
       {/* Header row */}
@@ -354,28 +302,26 @@ function AddAnnotationAffordance({ selectedText, onAddAnnotation }: AddAnnotatio
 
 interface AnnotationSidebarProps {
   annotations: Annotation[]
-  overallComment: string
-  onOverallCommentChange: (value: string) => void
   onAddAnnotation: (type: AnnotationType, anchorText: string) => void
   onRemoveAnnotation: (id: string) => void
   onUpdateAnnotation: (id: string, field: 'comment' | 'replacement', value: string) => void
   selectedText: string
   activeTab: Tab
   sidebarRef: React.RefObject<HTMLDivElement | null>
+  hoveredAnnotationId?: string | null
   onAnnotationHover?: (anchorText: string) => void
   onAnnotationLeave?: () => void
 }
 
 export function AnnotationSidebar({
   annotations,
-  overallComment,
-  onOverallCommentChange,
   onAddAnnotation,
   onRemoveAnnotation,
   onUpdateAnnotation,
   selectedText,
   activeTab,
   sidebarRef,
+  hoveredAnnotationId,
   onAnnotationHover,
   onAnnotationLeave,
 }: AnnotationSidebarProps) {
@@ -385,60 +331,64 @@ export function AnnotationSidebar({
       style={{
         width: '320px',
         flexShrink: 0,
-        overflowY: 'auto',
+        overflow: 'hidden',
         background: 'var(--color-surface)',
         borderLeft: '1px solid var(--color-border)',
-        padding: '16px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '0',
       }}
     >
-      <OverallCommentField value={overallComment} onChange={onOverallCommentChange} />
+      {/* Fixed top section: affordance */}
+      {activeTab === 'plan' && selectedText && (
+        <div style={{ flexShrink: 0, padding: '16px', paddingBottom: 0 }}>
+          <AddAnnotationAffordance selectedText={selectedText} onAddAnnotation={onAddAnnotation} />
+        </div>
+      )}
 
-      <div style={{ height: '1px', background: 'var(--color-border)', margin: '16px 0' }} />
-
+      {/* Cards scroll area — overflow hidden, scrollTop synced to plan by App.tsx */}
       {activeTab === 'plan' && (
-        <>
-          {/* Add annotation affordance — shown when text is selected */}
-          {selectedText && (
-            <AddAnnotationAffordance
-              selectedText={selectedText}
-              onAddAnnotation={onAddAnnotation}
-            />
-          )}
-
-          {/* Annotation list */}
-          {annotations.length > 0 ? (
-            <div
-              role="list"
-              style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
-            >
-              {annotations.map((a) => (
-                <div role="listitem" key={a.id}>
-                  <AnnotationCard
-                    annotation={a}
-                    onRemove={onRemoveAnnotation}
-                    onUpdate={onUpdateAnnotation}
-                    onMouseEnter={() => onAnnotationHover?.(a.anchorText)}
-                    onMouseLeave={() => onAnnotationLeave?.()}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p
-              style={{
-                fontSize: '14px',
-                color: 'var(--color-text-secondary)',
-                textAlign: 'center',
-                padding: '16px 0',
-              }}
-            >
-              Select text in the plan to add an annotation.
-            </p>
-          )}
-        </>
+        <div
+          data-cards-scroll
+          style={{ flex: 1, overflow: 'hidden', position: 'relative' }}
+        >
+          <div
+            data-cards-inner
+            style={{ position: 'relative', width: '100%' }}
+          >
+            {annotations.length === 0 && (
+              <p
+                style={{
+                  position: 'absolute',
+                  top: '16px',
+                  left: '16px',
+                  right: '16px',
+                  fontSize: '14px',
+                  color: 'var(--color-text-secondary)',
+                  textAlign: 'center',
+                  margin: 0,
+                }}
+              >
+                Select text in the plan to add an annotation.
+              </p>
+            )}
+            {annotations.map((a) => (
+              <div
+                key={a.id}
+                data-annotation-id={a.id}
+                style={{ position: 'absolute', top: 0, left: '16px', right: '16px' }}
+              >
+                <AnnotationCard
+                  annotation={a}
+                  onRemove={onRemoveAnnotation}
+                  onUpdate={onUpdateAnnotation}
+                  onMouseEnter={() => onAnnotationHover?.(a.anchorText)}
+                  onMouseLeave={() => onAnnotationLeave?.()}
+                  isHovered={hoveredAnnotationId === a.id}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )

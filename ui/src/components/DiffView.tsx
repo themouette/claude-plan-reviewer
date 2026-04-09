@@ -1,4 +1,5 @@
-import { PatchDiff } from '@pierre/diffs/react'
+import { FileDiff } from '@pierre/diffs/react'
+import { parsePatchFiles } from '@pierre/diffs'
 
 interface DiffViewProps {
   diff: string
@@ -41,6 +42,13 @@ export function DiffView({ diff }: DiffViewProps) {
     )
   }
 
+  const patches = parsePatchFiles(diff)
+  const files = patches.flatMap((p) => p.files)
+
+  if (files.length === 0) {
+    return null
+  }
+
   return (
     <div
       aria-label="Code diff view"
@@ -52,11 +60,14 @@ export function DiffView({ diff }: DiffViewProps) {
         padding: 0,
       }}
     >
-      <PatchDiff
-        patch={diff}
-        disableWorkerPool={true}
-        options={{ theme: 'pierre-dark' }}
-      />
+      {files.map((file, i) => (
+        <FileDiff
+          key={file.name ?? i}
+          fileDiff={file}
+          disableWorkerPool={true}
+          options={{ theme: 'pierre-dark' }}
+        />
+      ))}
     </div>
   )
 }

@@ -94,11 +94,16 @@ fn extract_diff(cwd: &str) -> String {
         Err(_) => return String::new(),
     };
 
+    // Force standard a/b prefixes regardless of diff.mnemonicPrefix git config,
+    // because @pierre/diffs regex only matches `a/` and `b/` prefixes.
+    let mut opts = git2::DiffOptions::new();
+    opts.old_prefix("a/").new_prefix("b/");
+
     // Prefer full working-tree diff vs HEAD (staged + unstaged)
     let diff = if let Ok(head) = repo.head() {
         if let Ok(commit) = head.peel_to_commit() {
             if let Ok(tree) = commit.tree() {
-                repo.diff_tree_to_workdir_with_index(Some(&tree), None).ok()
+                repo.diff_tree_to_workdir_with_index(Some(&tree), Some(&mut opts)).ok()
             } else {
                 None
             }
@@ -110,7 +115,7 @@ fn extract_diff(cwd: &str) -> String {
     };
 
     // Fallback: unstaged changes only (works on empty repos with no HEAD)
-    let diff = diff.or_else(|| repo.diff_index_to_workdir(None, None).ok());
+    let diff = diff.or_else(|| repo.diff_index_to_workdir(None, Some(&mut opts)).ok());
 
     let diff = match diff {
         Some(d) => d,
