@@ -5,7 +5,7 @@ milestone_name: milestone
 status: verifying
 stopped_at: Completed 01-hook-review-ui-04-PLAN.md — Phase 1 fully complete and human-verified
 last_updated: "2026-04-09T12:08:59.870Z"
-last_activity: 2026-04-09
+last_activity: 2026-04-09 - Completed quick task 260409-kev: Add ammonia crate to sanitize javascript URIs in render.rs closing T-01-04 and T-03-01
 progress:
   total_phases: 3
   completed_phases: 1
@@ -91,6 +91,12 @@ None yet.
 
 - Open question: Does `tool_input.plan` contain full plan markdown? Must verify by inspecting hook stdin JSON in Phase 1.
 - Open question: Is `transcript_path` in hook stdin useful for diff extraction?
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260409-kev | Add ammonia crate to sanitize javascript URIs in render.rs closing T-01-04 and T-03-01 | 2026-04-09 | c1e1032 | [260409-kev-add-ammonia-crate-to-sanitize-javascript](.planning/quick/260409-kev-add-ammonia-crate-to-sanitize-javascript/) |
 
 ## Session Continuity
 
