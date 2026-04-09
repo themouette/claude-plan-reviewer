@@ -47,7 +47,14 @@ Plans:
   2. User can add a global comment not anchored to any specific plan text
   3. On deny, all annotations are serialized as readable structured markdown in the `message` field Claude receives
   4. The working-tree git diff is displayed alongside the plan with unified-format syntax highlighting
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Rust backend: git2 diff extraction, AppState.diff_content, GET /api/diff route
+- [ ] 02-02-PLAN.md — Frontend types, utilities, hooks, and components (TabBar, DiffView, AnnotationSidebar)
+- [ ] 02-03-PLAN.md — App.tsx integration: two-column layout, tabs, annotations, updated deny flow
+- [ ] 02-04-PLAN.md — End-to-end human verification of all Phase 2 functionality
+
 **UI hint**: yes
 
 ### Phase 3: Distribution
@@ -69,5 +76,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Hook & Review UI | 4/4 | Complete   | 2026-04-09 |
-| 2. Annotations & Diff | 0/TBD | Not started | - |
+| 2. Annotations & Diff | 0/4 | Planning complete | - |
 | 3. Distribution | 0/TBD | Not started | - |
