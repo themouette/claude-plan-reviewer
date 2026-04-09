@@ -12,7 +12,7 @@ Three phases deliver the tool end-to-end. Phase 1 wires the complete approve/den
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Hook & Review UI** - Core approve/deny loop wired end-to-end via ExitPlanMode hook
+- [x] **Phase 1: Hook & Review UI** - Core approve/deny loop wired end-to-end via ExitPlanMode hook (completed 2026-04-09)
 - [ ] **Phase 2: Annotations & Diff** - Structured feedback surface with text annotations and code diff view
 - [ ] **Phase 3: Distribution** - Cross-platform binary release with curl | sh installer
 
@@ -28,7 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Submitting a deny message in the browser writes a valid `behavior: deny` JSON with the message to stdout, then the process exits cleanly
   4. All diagnostic output (server URL, errors) goes to stderr — stdout contains only the final JSON object
   5. If the browser fails to open, the review URL is printed to stderr and the `--no-browser` flag skips auto-open entirely
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 01-01-PLAN.md — Rust project scaffold with protocol types, CLI, stdin/stdout round-trip, comrak rendering
@@ -68,6 +68,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Hook & Review UI | 3/4 | In Progress|  |
+| 1. Hook & Review UI | 4/4 | Complete   | 2026-04-09 |
 | 2. Annotations & Diff | 0/TBD | Not started | - |
 | 3. Distribution | 0/TBD | Not started | - |

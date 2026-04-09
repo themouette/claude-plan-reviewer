@@ -52,10 +52,10 @@ completed: 2026-04-09
 
 ## Performance
 
-- **Duration:** ~3 min
+- **Duration:** ~15 min (including human end-to-end verification)
 - **Started:** 2026-04-09T11:54:44Z
-- **Completed:** 2026-04-09T11:57:04Z
-- **Tasks:** 1 of 2 completed (Task 2 is checkpoint:human-verify)
+- **Completed:** 2026-04-09T12:07:06Z
+- **Tasks:** 2 of 2 completed
 - **Files modified:** 2
 
 ## Accomplishments
@@ -64,13 +64,14 @@ completed: 2026-04-09
 - Added `#[derive(RustEmbed, Clone)] #[folder = "ui/dist/"] pub struct Assets` to server.rs
 - Added `#[cfg(debug_assertions)]` block in main.rs: if `server::Assets::get("index.html").is_none()` exits with an actionable error message pointing the developer to `npm run build`
 - Verified end-to-end: `cargo build` succeeds, GET / returns HTTP 200 (React index.html), GET /api/plan returns JSON with comrak-rendered HTML, POST /api/decide triggers allow JSON on stdout and process exit
+- Human verified all 5 end-to-end tests: approve flow (Enter key), deny flow (required message validation), stderr discipline (URL + diagnostics only), `--no-browser` flag, double-submit guard (409 on second POST to /api/decide)
 
 ## Task Commits
 
 Each task was committed atomically:
 
 1. **Task 1: Integrate rust-embed + axum-embed SPA serving, remove placeholder HTML** - `16ad359` (feat)
-2. **Task 2: Human verification checkpoint** - pending
+2. **Task 2: Human verification — complete end-to-end Phase 1 flow in browser** - Human-approved (no code commit)
 
 ## Files Created/Modified
 
@@ -121,9 +122,16 @@ Replace `/path/to/claude-plan-reviewer` with the actual binary path (e.g. `targe
 
 ## Next Phase Readiness
 
-- Phase 1 binary is feature-complete pending human end-to-end verification (Task 2 checkpoint)
-- After human verification passes, Phase 1 is fully complete
-- Phase 2 can add git diff review alongside the plan review
+Phase 1 is fully complete and human-verified. The binary handles the complete approve/deny loop:
+- Reads ExitPlanMode JSON from stdin
+- Renders plan markdown to HTML via comrak
+- Starts axum server on a random port
+- Opens browser (or prints URL with `--no-browser`)
+- Serves the React review UI from embedded assets
+- Receives approve/deny decision via POST /api/decide
+- Writes JSON response to stdout and exits cleanly
+
+Phase 2 (Annotations & Diff) can begin. The `/api/plan` response shape may need to be extended to include structured annotation data, and the React UI will need annotation selection and serialization components. No blockers from Phase 1.
 
 ## Self-Check: PASSED
 
