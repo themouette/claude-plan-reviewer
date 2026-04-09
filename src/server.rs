@@ -30,7 +30,7 @@ pub struct Decision {
 // --- AppState ---
 
 pub struct AppState {
-    pub plan_html: String,
+    pub plan_md: String,
     pub diff_content: String,
     pub decision_tx: Mutex<Option<oneshot::Sender<Decision>>>,
 }
@@ -38,7 +38,7 @@ pub struct AppState {
 // --- Route handlers ---
 
 async fn get_plan(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    Json(serde_json::json!({ "plan_html": state.plan_html }))
+    Json(serde_json::json!({ "plan_md": state.plan_md }))
 }
 
 async fn get_diff(State(state): State<Arc<AppState>>) -> impl IntoResponse {
@@ -65,7 +65,7 @@ async fn post_decide(
 /// and return (port, decision_rx) so the caller can open a browser and await
 /// the decision.
 pub async fn start_server(
-    plan_html: String,
+    plan_md: String,
     diff_content: String,
 ) -> Result<(u16, oneshot::Receiver<Decision>), Box<dyn std::error::Error + Send + Sync>> {
     // 1. Create decision channel
@@ -77,7 +77,7 @@ pub async fn start_server(
 
     // 3. Build AppState
     let state = Arc::new(AppState {
-        plan_html,
+        plan_md,
         diff_content,
         decision_tx: Mutex::new(Some(decision_tx)),
     });

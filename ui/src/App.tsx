@@ -1,10 +1,25 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { Annotation, AnnotationType, Tab } from './types'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { Annotation, AnnotationType, OutlineItem, Tab, ViewMode } from './types'
 import { serializeAnnotations } from './utils/serializeAnnotations'
 import { useTextSelection, rangeFromOffsets } from './hooks/useTextSelection'
 import { TabBar } from './components/TabBar'
 import { DiffView } from './components/DiffView'
 import { AnnotationSidebar } from './components/AnnotationSidebar'
+import { PlanOutline } from './components/PlanOutline'
+import { marked } from 'marked'
+import { markedHighlight } from 'marked-highlight'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/github-dark.css'
+
+// Configure marked with GFM and syntax highlighting (module-level, runs once)
+marked.use(markedHighlight({
+  langPrefix: 'hljs language-',
+  highlight(code, lang) {
+    const language = hljs.getLanguage(lang) ? lang : 'plaintext'
+    return hljs.highlight(code, { language }).value
+  },
+}))
+marked.use({ gfm: true })
 
 // --- Types ---
 
@@ -297,11 +312,68 @@ function ConfirmationView({ decision }: { decision: Decision }) {
   )
 }
 
+// --- PlanViewToggle ---
+
+function PlanViewToggle({ viewMode, onViewModeChange }: { viewMode: ViewMode; onViewModeChange: (m: ViewMode) => void }) {
+  const options: { id: ViewMode; label: string }[] = [
+    { id: 'preview', label: 'Preview' },
+    { id: 'markdown', label: 'Markdown' },
+  ]
+  return (
+    <div
+      role="group"
+      aria-label="Plan view mode"
+      style={{
+        display: 'inline-flex',
+        gap: '2px',
+        background: 'var(--color-bg)',
+        border: '1px solid var(--color-border)',
+        borderRadius: '6px',
+        padding: '2px',
+        marginBottom: '24px',
+      }}
+    >
+      {options.map(({ id, label }) => {
+        const isActive = viewMode === id
+        return (
+          <button
+            key={id}
+            onClick={() => onViewModeChange(id)}
+            aria-pressed={isActive}
+            style={{
+              height: '28px',
+              padding: '0 12px',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: isActive ? 600 : 400,
+              background: isActive ? 'var(--color-surface)' : 'transparent',
+              color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+              outline: 'none',
+              transition: 'background 0.1s ease, color 0.1s ease',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.outline = '2px solid var(--color-focus)'
+              e.currentTarget.style.outlineOffset = '2px'
+            }}
+            onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
+          >
+            {label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // --- Main App ---
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>('loading')
+  const [planMd, setPlanMd] = useState<string>('')
   const [planHtml, setPlanHtml] = useState<string>('')
+  const [viewMode, setViewMode] = useState<ViewMode>('preview')
   const [decision, setDecision] = useState<Decision | null>(null)
   const [denyOpen, setDenyOpen] = useState(false)
   const [denyMessage, setDenyMessage] = useState('')
@@ -325,21 +397,73 @@ export default function App() {
   const annotationsRef = useRef(annotations)
   useEffect(() => { annotationsRef.current = annotations }, [annotations])
 
-  // Fetch plan HTML on mount
+  // Outline state
+  const [outlineItems, setOutlineItems] = useState<OutlineItem[]>([])
+  const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
+  const headingElementsRef = useRef<Map<string, HTMLHeadingElement>>(new Map())
+  const headingCharOffsetsRef = useRef<Map<string, number>>(new Map())
+  const outlineItemsRef = useRef<OutlineItem[]>([])
+  useEffect(() => { outlineItemsRef.current = outlineItems }, [outlineItems])
+
+  // Fetch plan markdown on mount, render to HTML client-side
   useEffect(() => {
     fetch('/api/plan')
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         return res.json()
       })
-      .then((data: { plan_html: string }) => {
-        setPlanHtml(data.plan_html)
+      .then((data: { plan_md: string }) => {
+        setPlanMd(data.plan_md)
+        setPlanHtml(marked.parse(data.plan_md) as string)
         setAppState('reviewing')
       })
       .catch(() => {
         setAppState('error')
       })
   }, [])
+
+  // Extract headings from rendered plan HTML, inject id attributes, build outline.
+  useLayoutEffect(() => {
+    if (!planRef.current) return
+    const container = planRef.current
+    const headings = Array.from(container.querySelectorAll<HTMLHeadingElement>('h1, h2, h3'))
+    const slugCounts = new Map<string, number>()
+    const elementsMap = new Map<string, HTMLHeadingElement>()
+    const charOffsetsMap = new Map<string, number>()
+    const items: OutlineItem[] = []
+
+    // Helper: character offset of an element's start within planRef text content.
+    function getCharOffset(target: HTMLElement): number {
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
+      let count = 0
+      let node: Node | null
+      while ((node = walker.nextNode())) {
+        if (target.contains(node)) return count
+        count += (node.textContent ?? '').length
+      }
+      return count
+    }
+
+    headings.forEach((el, index) => {
+      const text = el.textContent?.trim() || ''
+      const base = text
+        ? text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/[\s_]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+        : `heading-${index}`
+      const count = slugCounts.get(base) ?? 0
+      const id = count === 0 ? base : `${base}-${count + 1}`
+      slugCounts.set(base, count + 1)
+      el.id = id
+      elementsMap.set(id, el)
+      charOffsetsMap.set(id, getCharOffset(el))
+      items.push({ id, level: parseInt(el.tagName[1]) as 1 | 2 | 3, text: text || `Heading ${index + 1}` })
+    })
+
+    headingElementsRef.current = elementsMap
+    headingCharOffsetsRef.current = charOffsetsMap
+    setOutlineItems(items)
+    // Set initial active heading: default to first, then find the deepest one scrolled past.
+    if (items.length > 0) setActiveHeadingId(items[0].id)
+  }, [planHtml])
 
   // Fetch diff on mount
   useEffect(() => {
@@ -518,6 +642,45 @@ export default function App() {
 
   // --- Aligned card layout ---
 
+  function updateActiveHeading() {
+    const container = planTabRef.current
+    const items = outlineItemsRef.current
+    if (!container || items.length === 0) return
+    // Default to first heading so something is always active at the top of the page.
+    let active = items[0].id
+    const scrollTop = container.scrollTop
+    for (const item of items) {
+      const el = headingElementsRef.current.get(item.id)
+      if (el && el.offsetTop <= scrollTop + 1) active = item.id
+      else break
+    }
+    setActiveHeadingId((prev) => (prev === active ? prev : active))
+  }
+
+  // Count annotations per outline section using character offsets.
+  const annotationCountsBySection = useMemo(() => {
+    const counts = new Map<string, number>()
+    if (outlineItems.length === 0) return counts
+    for (const ann of annotations) {
+      const annStart = annotationOffsetsRef.current.get(ann.id)?.start
+      if (annStart === undefined) continue
+      let sectionId: string | null = null
+      for (const item of outlineItems) {
+        if ((headingCharOffsetsRef.current.get(item.id) ?? 0) <= annStart) sectionId = item.id
+        else break
+      }
+      if (sectionId !== null) counts.set(sectionId, (counts.get(sectionId) ?? 0) + 1)
+    }
+    return counts
+  }, [annotations, outlineItems])
+
+  function handleOutlineClick(id: string) {
+    const container = planTabRef.current
+    const el = headingElementsRef.current.get(id)
+    if (!container || !el) return
+    container.scrollTop = el.offsetTop - 32
+  }
+
   function computeAndApplyLayout() {
     const planTab = planTabRef.current
     const sidebar = sidebarRef.current
@@ -566,8 +729,9 @@ export default function App() {
   useEffect(() => {
     const planTab = planTabRef.current
     if (!planTab) return
-    planTab.addEventListener('scroll', computeAndApplyLayout)
-    return () => planTab.removeEventListener('scroll', computeAndApplyLayout)
+    const onScroll = () => { computeAndApplyLayout(); updateActiveHeading() }
+    planTab.addEventListener('scroll', onScroll)
+    return () => planTab.removeEventListener('scroll', onScroll)
   }, [appState])
 
   // Recompute on window resize.
@@ -718,6 +882,16 @@ export default function App() {
             overflow: 'hidden',
           }}
         >
+          {/* Outline panel — only on plan tab in preview mode when headings exist */}
+          {activeTab === 'plan' && viewMode === 'preview' && outlineItems.length > 0 && (
+            <PlanOutline
+              items={outlineItems}
+              activeId={activeHeadingId}
+              onItemClick={handleOutlineClick}
+              annotationCounts={annotationCountsBySection}
+            />
+          )}
+
           {/* Left column: plan tab panel */}
           <div
             ref={planTabRef}
@@ -732,14 +906,41 @@ export default function App() {
               position: 'relative',
             }}
           >
-            <div ref={planRef} className="plan-prose" dangerouslySetInnerHTML={{ __html: planHtml }} />
-            {selectionPosition && selectedText && (
-              <FloatingAnnotationAffordance
-                top={selectionPosition.top}
-                left={selectionPosition.left}
-                selectedText={selectedText}
-                onAddAnnotation={handleAddAnnotation}
-              />
+            <PlanViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+
+            {viewMode === 'preview' && (
+              <>
+                <div ref={planRef} className="plan-prose" dangerouslySetInnerHTML={{ __html: planHtml }} />
+                {selectionPosition && selectedText && (
+                  <FloatingAnnotationAffordance
+                    top={selectionPosition.top}
+                    left={selectionPosition.left}
+                    selectedText={selectedText}
+                    onAddAnnotation={handleAddAnnotation}
+                  />
+                )}
+              </>
+            )}
+
+            {viewMode === 'markdown' && (
+              <pre
+                style={{
+                  fontFamily: 'ui-monospace, "Cascadia Code", "Fira Code", monospace',
+                  fontSize: '14px',
+                  lineHeight: 1.6,
+                  color: 'var(--color-text-primary)',
+                  background: 'var(--color-code-bg)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '8px',
+                  padding: '24px',
+                  overflowX: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  margin: 0,
+                }}
+              >
+                {planMd}
+              </pre>
             )}
           </div>
 

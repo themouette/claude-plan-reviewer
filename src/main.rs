@@ -1,5 +1,4 @@
 mod hook;
-mod render;
 mod server;
 
 #[cfg(test)]
@@ -173,10 +172,9 @@ fn main() {
         }
     }
 
-    // 5. Render plan markdown to HTML
+    // 5. Get plan markdown
     let plan_md = hook_input.tool_input.plan.unwrap_or_default();
-    let plan_html = render::render_plan_html(&plan_md);
-    eprintln!("Plan rendered ({} bytes HTML)", plan_html.len());
+    eprintln!("Plan received ({} bytes)", plan_md.len());
 
     // 5b. Extract git diff from the hook's cwd
     let diff_content = extract_diff(&hook_input.cwd);
@@ -188,15 +186,15 @@ fn main() {
         .build()
         .unwrap();
 
-    let output = rt.block_on(async_main(args, plan_html, diff_content));
+    let output = rt.block_on(async_main(args, plan_md, diff_content));
 
     // 7. Write decision to stdout — THE ONLY stdout write
     serde_json::to_writer(std::io::stdout(), &output).expect("failed to write hook output");
 }
 
-async fn async_main(args: Args, plan_html: String, diff_content: String) -> HookOutput {
+async fn async_main(args: Args, plan_md: String, diff_content: String) -> HookOutput {
     // Start server
-    let (port, decision_rx) = match server::start_server(plan_html, diff_content).await {
+    let (port, decision_rx) = match server::start_server(plan_md, diff_content).await {
         Ok(v) => v,
         Err(e) => {
             eprintln!("Failed to start server: {}", e);

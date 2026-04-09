@@ -184,3 +184,9 @@ body {
 ::highlight(annotation-hover) {
   background-color: rgba(255, 255, 255, 0.14);
 }
+
+/* Prevent hljs theme background from overriding design-system pre background */
+.plan-prose pre code.hljs {
+  background: none;
+  padding: 0;
+}
