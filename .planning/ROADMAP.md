@@ -34,7 +34,7 @@ Plans:
 - [x] 01-01-PLAN.md — Rust project scaffold with protocol types, CLI, stdin/stdout round-trip, comrak rendering
 - [x] 01-02-PLAN.md — axum HTTP server with decision pipeline, browser launch, timeout, clean exit
 - [x] 01-03-PLAN.md — React+TS+Vite frontend with Tailwind, full plan review UI, build.rs integration
-- [ ] 01-04-PLAN.md — Wire embedded SPA into binary, end-to-end integration, human verification
+- [x] 01-04-PLAN.md — Wire embedded SPA into binary, end-to-end integration, human verification
 
 **UI hint**: yes
 

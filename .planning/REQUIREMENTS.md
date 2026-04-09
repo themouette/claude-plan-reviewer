@@ -45,7 +45,7 @@
 
 ### Configuration
 
-- [ ] **CONF-01**: Hook is configured via a minimal `~/.claude/settings.json` snippet with `"matcher": "ExitPlanMode"`
+- [x] **CONF-01**: Hook is configured via a minimal `~/.claude/settings.json` snippet with `"matcher": "ExitPlanMode"`
 - [x] **CONF-02**: Binary accepts a `--no-browser` flag to skip browser open and print URL only
 
 ## v2 Requirements
@@ -98,7 +98,7 @@
 | UI-04 | Phase 1 | Complete |
 | UI-05 | Phase 1 | Complete |
 | UI-06 | Phase 1 | Complete |
-| CONF-01 | Phase 1 | Pending |
+| CONF-01 | Phase 1 | Complete |
 | CONF-02 | Phase 1 | Complete |
 | ANN-01 | Phase 2 | Pending |
 | ANN-02 | Phase 2 | Pending |
