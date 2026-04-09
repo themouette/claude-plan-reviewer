@@ -12,7 +12,7 @@
 | HTTP server | axum | 0.8.x | First-class rust-embed integration; Tokio team ships both |
 | Async runtime | tokio (current_thread) | 1.x | Single-user tool; avoids Send+Sync complexity |
 | Asset embedding | rust-embed | 8.x | Debug reads from disk, release embeds — best of both |
-| Frontend | Svelte 5 + Vite | 5.x / 6.x | Compiles to pure static assets; no JS runtime in binary |
+| Frontend | React + TypeScript + Vite | 19.x / 5.x / 6.x | Familiar ecosystem, strong typing, Vite compiles to static assets embedded in binary |
 | Markdown render | comrak | 0.31+ | Full GFM (tables, task lists); used by crates.io/docs.rs |
 | Git diff | git2 (vendored) | 0.20.x | No subprocess; static libgit2 for distributable binary |
 | CLI | clap | 4.x | Industry standard; derive API |

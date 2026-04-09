@@ -35,19 +35,20 @@
 
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| Svelte 5 | 5.x | UI components | Compiles to small, self-contained static assets; no runtime bundle needed; Vite is the official build tool; output is plain HTML + JS + CSS embeddable with rust-embed |
-| Vite | 6.x | Frontend build | Official Svelte build tool; `--base ./` flag produces relative URLs compatible with rust-embed serving; outputs a `dist/` directory that rust-embed embeds directly |
+| React | 19.x | UI components | User preference; large ecosystem; strong TypeScript support; Vite produces static assets embeddable via rust-embed |
+| TypeScript | 5.x | Type safety | Strong typing for hook protocol structs and annotation model; catches protocol mismatches at compile time |
+| Vite | 6.x | Frontend build | First-class React + TS support; `--base ./` flag produces relative URLs compatible with rust-embed serving; outputs a `dist/` directory rust-embed embeds directly |
 
-**Use Svelte + Vite.** The build pipeline is: `vite build --base ./` produces `dist/`, rust-embed embeds `dist/` at compile time. No SSR, no SvelteKit routing — a plain Svelte SPA is all that is needed.
+**Use React + TypeScript + Vite.** The build pipeline is: `vite build --base ./` produces `dist/`, rust-embed embeds `dist/` at compile time. Use `create-vite` with the `react-ts` template. No React Router or SSR needed — a single-page app with local state is sufficient.
 
 **Do NOT use:**
-- Vanilla JS — Acceptable but results in hand-written DOM manipulation for the diff viewer and annotation UI; Svelte's reactivity is worth the build step
-- React / Vue — Larger bundle size than Svelte; React in particular pulls in a runtime; not worth it for a tool with no external users
-- SvelteKit with adapter-static — Adds complexity (routing, server-side rendering primitives) that is not needed; use vanilla Svelte with Vite directly
-- Leptos / Yew (Rust WASM) — Interesting but adds WASM compile target to the build matrix, significantly increases build complexity and binary size for no UX gain
+- Svelte — Smaller bundle but less familiar; React chosen explicitly for ecosystem familiarity
+- SvelteKit / Next.js / Remix — SSR frameworks add complexity that is not needed for a local single-page tool
+- Leptos / Yew (Rust WASM) — WASM compile target adds build complexity and binary size for no UX gain
 - Tauri — This project deliberately avoids a native window manager. The goal is a browser tab, not a native app.
+- Vanilla JS — Manageable but annotation state management (accumulating multiple annotations, syncing with forms) gets fiddly without React's reactivity
 
-**Build integration note:** Add a `build.rs` that runs `npm run build` in the `frontend/` directory before cargo compiles the Rust code so that `rust-embed` always picks up a fresh build. Gate the build.rs invocation on `CARGO_CFG_DEBUG_ASSERTIONS` or a `SKIP_FRONTEND_BUILD` env var for faster iteration.
+**Build integration note:** Add a `build.rs` that runs `npm run build` in the `frontend/` directory before cargo compiles the Rust code so that `rust-embed` always picks up a fresh build. Gate the build.rs invocation behind a `SKIP_FRONTEND_BUILD` env var for faster iteration and CI cross-compilation.
 
 ### Markdown Rendering
 
@@ -134,8 +135,9 @@ The binary has minimal CLI surface: it reads JSON from stdin and writes JSON to 
 | HTTP server | axum 0.8 | warp | Last published release August 2019; filter composition is complex with no benefit here |
 | HTTP server | axum 0.8 | tiny_http | Synchronous; no middleware; self-recommends using a framework instead |
 | Asset embedding | rust-embed 8 | include_dir | No debug/release duality; no axum integration; no compression |
-| Frontend | Svelte + Vite | Vanilla JS | Manageable but diff viewer + annotation state makes reactive framework worth the build step |
-| Frontend | Svelte + Vite | Leptos/Yew | WASM compile target adds build complexity; no UX benefit |
+| Frontend | React + TS + Vite | Svelte + Vite | Smaller bundle but less familiar; React chosen for ecosystem preference |
+| Frontend | React + TS + Vite | Leptos/Yew | WASM compile target adds build complexity; no UX benefit |
+| Frontend | React + TS + Vite | Vanilla JS | Annotation state management gets fiddly without a reactive framework |
 | Markdown | comrak | pulldown-cmark | Lags GFM spec; no full task list / table guarantee |
 | Markdown | comrak | Client-side JS | Unnecessary JS bundle weight when server can render |
 | Git diff | git2 --vendored | Shell out to git | Fragile; unstructured output; PATH dependency |

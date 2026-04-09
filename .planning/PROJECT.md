@@ -52,6 +52,7 @@ One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no work
 | ExitPlanMode hook only | Same trigger as plannotator, well-understood protocol | — Pending |
 | curl \| sh distribution | Same approach as plannotator, works for non-Rust users | — Pending |
 | Local-only v1 | Sharing deferred — validate core loop first | — Pending |
+| React + TypeScript over Svelte | User preference; familiar ecosystem, strong typing | — Pending |
 
 ## Evolution
 
