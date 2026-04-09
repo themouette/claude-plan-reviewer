@@ -50,15 +50,15 @@ Exceptions: Approve button minimum touch target 44px height (keyboard accessibil
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 16px | 400 (regular) | 1.6 |
-| Label | 14px | 500 (medium) | 1.4 |
+| Label | 14px | 400 (regular) | 1.4 |
 | Heading | 20px | 600 (semibold) | 1.3 |
-| Display | 28px | 700 (bold) | 1.2 |
+| Display | 28px | 600 (semibold) | 1.2 |
 
 **Notes:**
 - Body (16px/400/1.6) is used for rendered plan prose — the comrak HTML output. The higher line height (1.6 vs standard 1.5) aids readability of dense plan text.
-- Label (14px/500/1.4) is used for button text, textarea label, status messages, and confirmation page copy.
+- Label (14px/400/1.4) is used for button text, textarea label, status messages, and confirmation page copy.
 - Heading (20px/600/1.3) is used for plan section headings (h2 level in comrak output) and the page-level "Plan Review" title.
-- Display (28px/700/1.2) is used only for the confirmation page decision state ("Plan approved" / "Plan denied").
+- Display (28px/600/1.2) is used only for the confirmation page decision state ("Plan approved" / "Plan denied").
 - Plan code blocks rendered by comrak use the monospace font stack at 14px/400/1.5 with a distinct background.
 
 ---
@@ -144,8 +144,8 @@ Never use accent colors for decorative purposes, plan content styling, or hover 
 
 ### Confirmation Page State (UI-05)
 
-- **After approve:** Page transitions to confirmation state. Shows "Plan approved" in accent-approve color (28px/700). Below: "You can close this tab." in text-secondary (14px/400).
-- **After deny:** Page transitions to confirmation state. Shows "Plan denied" in accent-deny color (28px/700). Below: "Your feedback has been sent. You can close this tab." in text-secondary (14px/400).
+- **After approve:** Page transitions to confirmation state. Shows "Plan approved" in accent-approve color (28px/600). Below: "You can close this tab." in text-secondary (14px/400).
+- **After deny:** Page transitions to confirmation state. Shows "Plan denied" in accent-deny color (28px/600). Below: "Your feedback has been sent. You can close this tab." in text-secondary (14px/400).
 - **Auto-close attempt:** After 500ms delay, call `window.close()`. This will be blocked by the browser (tab was not opened via `window.open()`). This is expected per RESEARCH.md Pitfall 4. Do not show an error if it fails.
 - **No meta-refresh redirect.** The "You can close this tab" message is sufficient. Keep the page stable so the user can read the confirmation.
 
@@ -183,7 +183,7 @@ The `PlanContent` component renders comrak's HTML output. Apply a custom CSS cla
 
 | Element | Style |
 |---------|-------|
-| `h1` | 28px, weight 700, color text-primary, margin-bottom 16px, margin-top 32px |
+| `h1` | 28px, weight 600, color text-primary, margin-bottom 16px, margin-top 32px |
 | `h2` | 20px, weight 600, color text-primary, margin-bottom 12px, margin-top 24px |
 | `h3` | 16px, weight 600, color text-primary, margin-bottom 8px, margin-top 16px |
 | `p` | 16px, weight 400, color text-primary, margin-bottom 12px, line-height 1.6 |
@@ -209,7 +209,7 @@ The `PlanContent` component renders comrak's HTML output. Apply a custom CSS cla
 | Page title (browser tab) | `Plan Review — claude-plan-reviewer` |
 | Page header | `Plan Review` |
 | Approve button | `Approve` |
-| Approve keyboard hint | `↵ Enter` (shown as secondary label inside the button, text-secondary 12px) |
+| Approve keyboard hint | `↵ Enter` (shown as secondary label inside the button, text-secondary 14px) |
 | Deny toggle button | `Deny` |
 | Deny textarea label | `What needs to change?` |
 | Deny textarea placeholder | `Describe what Claude should revise before proceeding...` |
