@@ -31,6 +31,7 @@ pub struct Decision {
 
 pub struct AppState {
     pub plan_html: String,
+    pub diff_content: String,
     pub decision_tx: Mutex<Option<oneshot::Sender<Decision>>>,
 }
 
@@ -61,6 +62,7 @@ async fn post_decide(
 /// the decision.
 pub async fn start_server(
     plan_html: String,
+    diff_content: String,
 ) -> Result<(u16, oneshot::Receiver<Decision>), Box<dyn std::error::Error + Send + Sync>> {
     // 1. Create decision channel
     let (decision_tx, decision_rx) = oneshot::channel::<Decision>();
@@ -72,6 +74,7 @@ pub async fn start_server(
     // 3. Build AppState
     let state = Arc::new(AppState {
         plan_html,
+        diff_content,
         decision_tx: Mutex::new(Some(decision_tx)),
     });
 

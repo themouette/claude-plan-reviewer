@@ -2,6 +2,77 @@ mod hook;
 mod render;
 mod server;
 
+#[cfg(test)]
+mod tests {
+    use super::extract_diff;
+
+    #[test]
+    fn test_extract_diff_nonexistent_path() {
+        let result = extract_diff("/nonexistent/path/xyz");
+        assert_eq!(result, "", "Non-existent path should return empty string");
+    }
+
+    #[test]
+    fn test_extract_diff_non_git_dir() {
+        let result = extract_diff(std::env::temp_dir().to_str().unwrap());
+        assert_eq!(result, "", "Non-git directory should return empty string");
+    }
+
+    #[test]
+    fn test_extract_diff_dirty_repo() {
+        use std::fs;
+        // Create a temp dir with a git repo that has uncommitted changes
+        let tmp = tempfile::tempdir().expect("failed to create temp dir");
+        let repo = git2::Repository::init(tmp.path()).expect("failed to init repo");
+
+        // Create initial commit so HEAD exists
+        {
+            let sig = git2::Signature::now("test", "test@test.com").unwrap();
+            let tree_id = repo.index().unwrap().write_tree().unwrap();
+            let tree = repo.find_tree(tree_id).unwrap();
+            repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[]).unwrap();
+        }
+
+        // Write a new (untracked/modified) file
+        let file_path = tmp.path().join("hello.txt");
+        fs::write(&file_path, "hello world\n").expect("failed to write file");
+
+        // Stage the file so it shows in diff_tree_to_workdir_with_index
+        let mut index = repo.index().unwrap();
+        index.add_path(std::path::Path::new("hello.txt")).unwrap();
+        index.write().unwrap();
+
+        let result = extract_diff(tmp.path().to_str().unwrap());
+        assert!(
+            !result.is_empty(),
+            "Dirty repo should return non-empty diff string"
+        );
+        // Should contain diff markers
+        let has_diff_marker = result.contains("diff --git")
+            || result.contains("@@")
+            || result.contains('+');
+        assert!(has_diff_marker, "Diff output should contain diff markers, got: {}", result);
+    }
+
+    #[test]
+    fn test_extract_diff_clean_repo() {
+        // Create a temp dir with a clean git repo (no uncommitted changes)
+        let tmp = tempfile::tempdir().expect("failed to create temp dir");
+        let repo = git2::Repository::init(tmp.path()).expect("failed to init repo");
+
+        // Create initial commit
+        {
+            let sig = git2::Signature::now("test", "test@test.com").unwrap();
+            let tree_id = repo.index().unwrap().write_tree().unwrap();
+            let tree = repo.find_tree(tree_id).unwrap();
+            repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[]).unwrap();
+        }
+
+        let result = extract_diff(tmp.path().to_str().unwrap());
+        assert_eq!(result, "", "Clean repo should return empty diff string");
+    }
+}
+
 use clap::Parser;
 use hook::{HookInput, HookOutput};
 use server::Decision;
@@ -12,6 +83,58 @@ struct Args {
     /// Skip opening the browser and print the review URL to stderr only
     #[arg(long, default_value_t = false)]
     no_browser: bool,
+}
+
+/// Extract the unified diff of the working tree against HEAD from the given
+/// directory.  Returns an empty string if `cwd` is not a git repository,
+/// does not exist, or has no uncommitted changes.
+fn extract_diff(cwd: &str) -> String {
+    let repo = match git2::Repository::open(cwd) {
+        Ok(r) => r,
+        Err(_) => return String::new(),
+    };
+
+    // Prefer full working-tree diff vs HEAD (staged + unstaged)
+    let diff = if let Ok(head) = repo.head() {
+        if let Ok(commit) = head.peel_to_commit() {
+            if let Ok(tree) = commit.tree() {
+                repo.diff_tree_to_workdir_with_index(Some(&tree), None).ok()
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // Fallback: unstaged changes only (works on empty repos with no HEAD)
+    let diff = diff.or_else(|| repo.diff_index_to_workdir(None, None).ok());
+
+    let diff = match diff {
+        Some(d) => d,
+        None => return String::new(),
+    };
+
+    let mut output = String::new();
+    let _ = diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
+        if let Ok(s) = std::str::from_utf8(line.content()) {
+            match line.origin() {
+                '+' | '-' | ' ' => {
+                    output.push(line.origin());
+                    output.push_str(s);
+                }
+                _ => {
+                    // File headers, hunk headers, binary markers — already formatted by git2
+                    output.push_str(s);
+                }
+            }
+        }
+        true
+    });
+
+    output
 }
 
 fn main() {
@@ -50,21 +173,25 @@ fn main() {
     let plan_html = render::render_plan_html(&plan_md);
     eprintln!("Plan rendered ({} bytes HTML)", plan_html.len());
 
+    // 5b. Extract git diff from the hook's cwd
+    let diff_content = extract_diff(&hook_input.cwd);
+    eprintln!("Diff extracted ({} bytes)", diff_content.len());
+
     // 6. Start tokio runtime (current_thread for single-user tool)
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .unwrap();
 
-    let output = rt.block_on(async_main(args, plan_html));
+    let output = rt.block_on(async_main(args, plan_html, diff_content));
 
     // 7. Write decision to stdout — THE ONLY stdout write
     serde_json::to_writer(std::io::stdout(), &output).expect("failed to write hook output");
 }
 
-async fn async_main(args: Args, plan_html: String) -> HookOutput {
+async fn async_main(args: Args, plan_html: String, diff_content: String) -> HookOutput {
     // Start server
-    let (port, decision_rx) = match server::start_server(plan_html).await {
+    let (port, decision_rx) = match server::start_server(plan_html, diff_content).await {
         Ok(v) => v,
         Err(e) => {
             eprintln!("Failed to start server: {}", e);
