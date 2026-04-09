@@ -1,6 +1,6 @@
 export type AnnotationType = 'comment' | 'delete' | 'replace'
 
-export type Tab = 'plan' | 'diff'
+export type Tab = 'plan' | 'diff' | 'help'
 
 export interface Annotation {
   id: string

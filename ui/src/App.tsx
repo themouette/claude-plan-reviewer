@@ -102,6 +102,90 @@ function ErrorView() {
   )
 }
 
+function HelpView() {
+  const codeStyle: React.CSSProperties = {
+    fontFamily: 'ui-monospace, "Cascadia Code", "Fira Code", monospace',
+    fontSize: '13px',
+    background: 'var(--color-bg)',
+    border: '1px solid var(--color-border)',
+    borderRadius: '4px',
+    padding: '12px 16px',
+    display: 'block',
+    overflowX: 'auto',
+    whiteSpace: 'pre',
+    color: 'var(--color-text-primary)',
+    margin: '8px 0',
+  }
+  const inlineCode: React.CSSProperties = {
+    fontFamily: 'ui-monospace, "Cascadia Code", "Fira Code", monospace',
+    fontSize: '13px',
+    background: 'var(--color-bg)',
+    border: '1px solid var(--color-border)',
+    borderRadius: '3px',
+    padding: '1px 5px',
+    color: 'var(--color-text-primary)',
+  }
+  const h2Style: React.CSSProperties = {
+    fontSize: '18px',
+    fontWeight: 600,
+    color: 'var(--color-text-primary)',
+    marginTop: '32px',
+    marginBottom: '8px',
+  }
+  const pStyle: React.CSSProperties = {
+    fontSize: '15px',
+    color: 'var(--color-text-secondary)',
+    lineHeight: 1.6,
+    margin: '8px 0',
+  }
+
+  return (
+    <div style={{ maxWidth: '640px' }}>
+      <h1 style={{ fontSize: '22px', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
+        claude-plan-reviewer
+      </h1>
+      <p style={{ ...pStyle, marginTop: 0 }}>
+        Intercepts Claude Code's <code style={inlineCode}>ExitPlanMode</code> hook, opens a local
+        browser tab to review the plan, and returns approve/deny + annotations as JSON on stdout.
+      </p>
+
+      <h2 style={h2Style}>Disabling the hook</h2>
+      <p style={pStyle}>
+        The hook can be configured in two places. Check both and remove the{' '}
+        <code style={inlineCode}>PermissionRequest</code> block wherever it appears:
+      </p>
+      <p style={pStyle}>
+        <strong>Global</strong> (all projects):{' '}
+        <code style={inlineCode}>~/.claude/settings.json</code>
+      </p>
+      <p style={pStyle}>
+        <strong>Project-local</strong> (one project):{' '}
+        <code style={inlineCode}>.claude/settings.json</code> in the project root
+      </p>
+      <code style={codeStyle}>{`"hooks": {
+  "PermissionRequest": [
+    {
+      "matcher": "ExitPlanMode",
+      "hooks": [{ "type": "command", "command": "claude-plan-reviewer" }]
+    }
+  ]
+}`}</code>
+      <p style={pStyle}>Remove that block (and the <code style={inlineCode}>"hooks"</code> key if it becomes empty) to disable the reviewer.</p>
+
+      <h2 style={h2Style}>Skipping the browser</h2>
+      <p style={pStyle}>
+        Run with <code style={inlineCode}>--no-browser</code> to start the server and print the
+        review URL to stderr without auto-opening a tab:
+      </p>
+      <code style={codeStyle}>claude-plan-reviewer --no-browser</code>
+
+      <h2 style={h2Style}>Uninstalling</h2>
+      <code style={codeStyle}>rm $(which claude-plan-reviewer)</code>
+      <p style={pStyle}>Then remove the hook from whichever settings file it was added to.</p>
+    </div>
+  )
+}
+
 function ConfirmationView({ decision }: { decision: Decision }) {
   const approved = decision === 'allow'
 
@@ -587,8 +671,23 @@ export default function App() {
             <DiffView diff={diff} />
           </div>
 
-          {/* Right column: annotation sidebar */}
-          <AnnotationSidebar
+          {/* Left column: help tab panel */}
+          <div
+            id="tabpanel-help"
+            role="tabpanel"
+            aria-labelledby="tab-help"
+            style={{
+              flexGrow: 1,
+              overflowY: 'auto',
+              padding: '32px',
+              display: activeTab === 'help' ? 'block' : 'none',
+            }}
+          >
+            <HelpView />
+          </div>
+
+          {/* Right column: annotation sidebar — hidden on help tab */}
+          {activeTab !== 'help' && <AnnotationSidebar
             annotations={annotations}
             onAddAnnotation={handleAddAnnotation}
             onRemoveAnnotation={handleRemoveAnnotation}
@@ -599,7 +698,7 @@ export default function App() {
             hoveredAnnotationId={hoveredAnnotationId}
             onAnnotationHover={(anchorText) => { clearHighlights(); highlightAnchor(anchorText); }}
             onAnnotationLeave={() => clearHighlights()}
-          />
+          />}
         </div>
       )}
 
