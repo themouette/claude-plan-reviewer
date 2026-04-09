@@ -98,6 +98,8 @@
 | UI-04 | Phase 1 | Pending |
 | UI-05 | Phase 1 | Pending |
 | UI-06 | Phase 1 | Pending |
+| CONF-01 | Phase 1 | Pending |
+| CONF-02 | Phase 1 | Pending |
 | ANN-01 | Phase 2 | Pending |
 | ANN-02 | Phase 2 | Pending |
 | ANN-03 | Phase 2 | Pending |
@@ -110,8 +112,6 @@
 | DIST-02 | Phase 3 | Pending |
 | DIST-03 | Phase 3 | Pending |
 | DIST-04 | Phase 3 | Pending |
-| CONF-01 | Phase 1 | Pending |
-| CONF-02 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 25 total
@@ -120,4 +120,4 @@
 
 ---
 *Requirements defined: 2026-04-09*
-*Last updated: 2026-04-09 after initial definition*
+*Last updated: 2026-04-09 after roadmap creation*
