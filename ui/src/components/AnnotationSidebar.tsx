@@ -228,84 +228,12 @@ function AnnotationCard({ annotation, onRemove, onUpdate, onMouseEnter, onMouseL
   )
 }
 
-// --- Sub-component: AddAnnotationAffordance ---
-
-interface AddAnnotationAffordanceProps {
-  selectedText: string
-  onAddAnnotation: (type: AnnotationType, anchorText: string) => void
-}
-
-function AddAnnotationAffordance({ selectedText, onAddAnnotation }: AddAnnotationAffordanceProps) {
-  const pills: { type: AnnotationType; label: string; bg: string; color: string; ariaLabel: string }[] = [
-    {
-      type: 'comment',
-      label: 'Comment',
-      bg: 'rgba(59, 130, 246, 0.2)',
-      color: '#3b82f6',
-      ariaLabel: 'Add Comment annotation',
-    },
-    {
-      type: 'delete',
-      label: 'Delete',
-      bg: 'rgba(239, 68, 68, 0.2)',
-      color: '#ef4444',
-      ariaLabel: 'Add Delete annotation',
-    },
-    {
-      type: 'replace',
-      label: 'Replace',
-      bg: 'rgba(245, 158, 11, 0.2)',
-      color: '#f59e0b',
-      ariaLabel: 'Add Replace annotation',
-    },
-  ]
-
-  return (
-    <div style={{ marginBottom: '16px' }}>
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        {pills.map((pill) => (
-          <button
-            key={pill.type}
-            aria-label={pill.ariaLabel}
-            // CRITICAL (Pitfall 1): prevent mousedown from clearing selection before click fires
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => onAddAnnotation(pill.type, selectedText)}
-            style={{
-              fontSize: '14px',
-              fontWeight: 600,
-              height: '32px',
-              padding: '0 12px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              border: 'none',
-              background: pill.bg,
-              color: pill.color,
-              outline: 'none',
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.outline = '2px solid var(--color-focus)'
-              e.currentTarget.style.outlineOffset = '2px'
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.outline = 'none'
-            }}
-          >
-            {pill.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // --- Main component: AnnotationSidebar ---
 
 interface AnnotationSidebarProps {
   annotations: Annotation[]
-  onAddAnnotation: (type: AnnotationType, anchorText: string) => void
   onRemoveAnnotation: (id: string) => void
   onUpdateAnnotation: (id: string, field: 'comment' | 'replacement', value: string) => void
-  selectedText: string
   activeTab: Tab
   sidebarRef: React.RefObject<HTMLDivElement | null>
   hoveredAnnotationId?: string | null
@@ -315,10 +243,8 @@ interface AnnotationSidebarProps {
 
 export function AnnotationSidebar({
   annotations,
-  onAddAnnotation,
   onRemoveAnnotation,
   onUpdateAnnotation,
-  selectedText,
   activeTab,
   sidebarRef,
   hoveredAnnotationId,
@@ -338,12 +264,6 @@ export function AnnotationSidebar({
         flexDirection: 'column',
       }}
     >
-      {/* Fixed top section: affordance */}
-      {activeTab === 'plan' && selectedText && (
-        <div style={{ flexShrink: 0, padding: '16px', paddingBottom: 0 }}>
-          <AddAnnotationAffordance selectedText={selectedText} onAddAnnotation={onAddAnnotation} />
-        </div>
-      )}
 
       {/* Cards scroll area — overflow hidden, scrollTop synced to plan by App.tsx */}
       {activeTab === 'plan' && (

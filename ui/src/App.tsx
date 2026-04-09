@@ -102,6 +102,66 @@ function ErrorView() {
   )
 }
 
+interface FloatingAnnotationAffordanceProps {
+  top: number
+  left: number
+  selectedText: string
+  onAddAnnotation: (type: AnnotationType, anchorText: string) => void
+}
+
+function FloatingAnnotationAffordance({ top, left, selectedText, onAddAnnotation }: FloatingAnnotationAffordanceProps) {
+  const pills: { type: AnnotationType; label: string; bg: string; color: string }[] = [
+    { type: 'comment', label: 'Comment', bg: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6' },
+    { type: 'delete',  label: 'Delete',  bg: 'rgba(239, 68, 68, 0.2)',  color: '#ef4444' },
+    { type: 'replace', label: 'Replace', bg: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b' },
+  ]
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top,
+        left,
+        zIndex: 20,
+        display: 'flex',
+        gap: '6px',
+        background: 'var(--color-surface)',
+        borderRadius: '6px',
+        padding: '4px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+      }}
+    >
+      {pills.map((pill) => (
+        <button
+          key={pill.type}
+          aria-label={`Add ${pill.label} annotation`}
+          // CRITICAL (Pitfall 1): prevent mousedown from clearing selection before click fires
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onAddAnnotation(pill.type, selectedText)}
+          style={{
+            fontSize: '13px',
+            fontWeight: 600,
+            height: '28px',
+            padding: '0 10px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            border: 'none',
+            background: pill.bg,
+            color: pill.color,
+            outline: 'none',
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.outline = '2px solid var(--color-focus)'
+            e.currentTarget.style.outlineOffset = '2px'
+          }}
+          onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
+        >
+          {pill.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function HelpView() {
   const codeStyle: React.CSSProperties = {
     fontFamily: 'ui-monospace, "Cascadia Code", "Fira Code", monospace',
@@ -259,6 +319,7 @@ export default function App() {
   const planTabRef = useRef<HTMLDivElement>(null)
   const sidebarRef = useRef<HTMLDivElement>(null)
   const [selectedText, resetTextSelection, getSelectionOffsets] = useTextSelection(planRef)
+  const [selectionPosition, setSelectionPosition] = useState<{ top: number; left: number } | null>(null)
   const annotationOffsetsRef = useRef<Map<string, { start: number; end: number }>>(new Map())
   // Ref copy of annotations so scroll handlers see fresh data without stale closure.
   const annotationsRef = useRef(annotations)
@@ -339,6 +400,24 @@ export default function App() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [denyOpen, selectedText, resetTextSelection])
+
+  // Compute floating affordance position when selection changes.
+  useLayoutEffect(() => {
+    if (!selectedText || !planRef.current || !planTabRef.current) {
+      setSelectionPosition(null)
+      return
+    }
+    const offsets = getSelectionOffsets()
+    if (!offsets) { setSelectionPosition(null); return }
+    const range = rangeFromOffsets(planRef.current, offsets.start, offsets.end)
+    if (!range) { setSelectionPosition(null); return }
+    const rangeRect = range.getBoundingClientRect()
+    const containerRect = planTabRef.current.getBoundingClientRect()
+    setSelectionPosition({
+      top: rangeRect.bottom - containerRect.top + planTabRef.current.scrollTop + 6,
+      left: Math.max(0, rangeRect.left - containerRect.left),
+    })
+  }, [selectedText])
 
   // Hover over annotated text → highlight matching sidebar card.
   // Attached to document (not planRef) so it works regardless of when the plan
@@ -650,9 +729,18 @@ export default function App() {
               overflowY: 'auto',
               padding: '32px',
               display: activeTab === 'plan' ? 'block' : 'none',
+              position: 'relative',
             }}
           >
             <div ref={planRef} className="plan-prose" dangerouslySetInnerHTML={{ __html: planHtml }} />
+            {selectionPosition && selectedText && (
+              <FloatingAnnotationAffordance
+                top={selectionPosition.top}
+                left={selectionPosition.left}
+                selectedText={selectedText}
+                onAddAnnotation={handleAddAnnotation}
+              />
+            )}
           </div>
 
           {/* Left column: diff tab panel */}
@@ -689,10 +777,8 @@ export default function App() {
           {/* Right column: annotation sidebar — hidden on help tab */}
           {activeTab !== 'help' && <AnnotationSidebar
             annotations={annotations}
-            onAddAnnotation={handleAddAnnotation}
             onRemoveAnnotation={handleRemoveAnnotation}
             onUpdateAnnotation={handleUpdateAnnotation}
-            selectedText={selectedText}
             activeTab={activeTab}
             sidebarRef={sidebarRef}
             hoveredAnnotationId={hoveredAnnotationId}
