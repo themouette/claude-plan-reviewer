@@ -1,0 +1,16 @@
+[package]
+name = "claude-plan-reviewer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = { version = "0.8", features = ["macros"] }
+tokio = { version = "1", features = ["rt", "macros", "net", "time", "sync", "signal"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+rust-embed = { version = "8", features = ["axum"] }
+axum-embed = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+comrak = { version = "0.52", default-features = false }
+clap = { version = "4", features = ["derive"] }
+webbrowser = "1"
