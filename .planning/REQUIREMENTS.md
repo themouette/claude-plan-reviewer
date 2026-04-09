@@ -32,7 +32,7 @@
 
 ### Code Diff View
 
-- [ ] **DIFF-01**: Binary reads the git diff of the working tree from the `cwd` field in hook stdin
+- [x] **DIFF-01**: Binary reads the git diff of the working tree from the `cwd` field in hook stdin
 - [ ] **DIFF-02**: Diff is displayed alongside the plan in the review UI
 - [ ] **DIFF-03**: Diff view supports unified format with syntax highlighting
 
@@ -105,7 +105,7 @@
 | ANN-03 | Phase 2 | Pending |
 | ANN-04 | Phase 2 | Pending |
 | ANN-05 | Phase 2 | Pending |
-| DIFF-01 | Phase 2 | Pending |
+| DIFF-01 | Phase 2 | Complete |
 | DIFF-02 | Phase 2 | Pending |
 | DIFF-03 | Phase 2 | Pending |
 | DIST-01 | Phase 3 | Pending |

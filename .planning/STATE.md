@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 2 context gathered
-last_updated: "2026-04-09T13:20:37.618Z"
+status: executing
+stopped_at: Completed 02-annotations-diff 02-01-PLAN.md
+last_updated: "2026-04-09T14:29:33.898Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_plans: 8
+  completed_plans: 5
+  percent: 63
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-09)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 01 — hook-review-ui
+**Current focus:** Phase 02 — annotations-diff
 
 ## Current Position
 
-Phase: 01 (hook-review-ui) — EXECUTING
-Plan: 4 of 4
-Status: Phase complete — ready for verification
+Phase: 02 (annotations-diff) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-04-09
 
 Progress: [░░░░░░░░░░] 0%
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-hook-review-ui P03 | 4min | 2 tasks | 12 files |
 | Phase 01-hook-review-ui P04 | 3min | 1 tasks | 2 files |
 | Phase 01-hook-review-ui P04 | 15min | 2 tasks | 2 files |
+| Phase 02-annotations-diff P01 | 4min 26s | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,8 @@ Recent decisions affecting current work:
 - [Phase 01-hook-review-ui]: pub struct Assets: exposes RustEmbed struct to main.rs for debug-mode asset check without coupling logic to server module
 - [Phase 01-hook-review-ui]: FallbackBehavior::Ok for SPA routing: unknown paths return index.html with HTTP 200 — correct for client-side routed React app
 - [Phase 01-hook-review-ui]: pub struct Assets: exposes RustEmbed struct to main.rs for debug-mode asset check without coupling logic to server module
+- [Phase 02-annotations-diff]: git2 feature is vendored-libgit2 not vendored in 0.20.x
+- [Phase 02-annotations-diff]: diff_content flows from extract_diff in main() through async_main parameter to start_server; no global state
 
 ### Pending Todos
 
@@ -100,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T13:20:37.614Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-annotations-diff/02-CONTEXT.md
+Last session: 2026-04-09T14:29:33.894Z
+Stopped at: Completed 02-annotations-diff 02-01-PLAN.md
+Resume file: None

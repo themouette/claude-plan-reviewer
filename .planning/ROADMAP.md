@@ -50,7 +50,7 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Rust backend: git2 diff extraction, AppState.diff_content, GET /api/diff route
+- [x] 02-01-PLAN.md — Rust backend: git2 diff extraction, AppState.diff_content, GET /api/diff route
 - [ ] 02-02-PLAN.md — Frontend types, utilities, hooks, and components (TabBar, DiffView, AnnotationSidebar)
 - [ ] 02-03-PLAN.md — App.tsx integration: two-column layout, tabs, annotations, updated deny flow
 - [ ] 02-04-PLAN.md — End-to-end human verification of all Phase 2 functionality
