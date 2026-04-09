@@ -4,13 +4,9 @@ Intercepts Claude Code's plan approval flow and renders the plan in a local brow
 
 ## Build
 
-Prerequisites: Rust toolchain (`rustup`), Node.js (for the UI build).
+Prerequisites: Rust toolchain (`rustup`), Node.js (the UI is built automatically by `build.rs`).
 
 ```sh
-# Build the UI first (output is embedded into the binary)
-cd ui && npm install && npm run build && cd ..
-
-# Build the binary
 cargo build --release
 ```
 
