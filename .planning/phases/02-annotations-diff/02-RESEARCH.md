@@ -598,22 +598,25 @@ import { PatchDiff } from '@pierre/diffs/react'
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **git2 `DiffLineType` exact variant names**
+1. **git2 `DiffLineType` exact variant names** — RESOLVED: deferred to executor verification
    - What we know: The enum exists and provides per-line metadata
    - What's unclear: Whether variant names are `FileHeader`/`HunkHeader` or something else (e.g., `Header`/`Context`)
    - Recommendation: `cargo doc --open` on git2 0.20.4 before implementing the diff extraction function; alternatively inspect `git2::DiffLineType` with `grep -r DiffLineType ~/.cargo/registry/src/`
+   - Resolution: Plan 02-01 Task 1 instructs the executor to verify via `cargo doc -p git2 --no-deps --open` and provides two alternative implementations to handle either variant naming convention.
 
-2. **`@pierre/diffs` empty patch behavior**
+2. **`@pierre/diffs` empty patch behavior** — RESOLVED: guarded in DiffView component
    - What we know: `PatchDiff` accepts `patch: string`
    - What's unclear: What happens when `patch` is `""` — does it render an empty state, throw, or render blank?
    - Recommendation: In the `DiffView` component, guard with `if (!diff) return <DiffEmptyState />` before rendering `PatchDiff`. Do not pass empty string to the component.
+   - Resolution: Plan 02-02 Task 2 implements `DiffView` with an explicit empty-diff guard before rendering `PatchDiff`.
 
-3. **`@pierre/diffs` + Vite tree-shaking of language grammars**
+3. **`@pierre/diffs` + Vite tree-shaking of language grammars** — RESOLVED: accepted
    - What we know: The package is 6.3 MB unzipped
    - What's unclear: Whether Vite can tree-shake the language grammar JSON files
    - Recommendation: Accept the bundle size; the tool is local-only and binary-distributed — users download once.
+   - Resolution: Bundle size accepted. No action needed.
 
 ---
 
