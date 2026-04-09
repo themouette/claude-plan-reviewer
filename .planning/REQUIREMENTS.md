@@ -16,10 +16,10 @@
 ### Plan Review UI
 
 - [x] **UI-01**: Binary spawns a local HTTP server on an OS-assigned port (port 0) and opens the system browser
-- [ ] **UI-02**: Plan markdown is rendered as formatted HTML in the browser (headings, lists, code blocks, tables)
-- [ ] **UI-03**: User can approve the plan with a single action (keyboard: Enter)
-- [ ] **UI-04**: User can deny the plan with a message
-- [ ] **UI-05**: Browser tab shows a confirmation page and self-closes after decision is submitted
+- [x] **UI-02**: Plan markdown is rendered as formatted HTML in the browser (headings, lists, code blocks, tables)
+- [x] **UI-03**: User can approve the plan with a single action (keyboard: Enter)
+- [x] **UI-04**: User can deny the plan with a message
+- [x] **UI-05**: Browser tab shows a confirmation page and self-closes after decision is submitted
 - [x] **UI-06**: Binary prints the review URL to stderr in case the browser fails to open
 
 ### Annotations
@@ -93,10 +93,10 @@
 | HOOK-04 | Phase 1 | Complete |
 | HOOK-05 | Phase 1 | Complete |
 | UI-01 | Phase 1 | Complete |
-| UI-02 | Phase 1 | Pending |
-| UI-03 | Phase 1 | Pending |
-| UI-04 | Phase 1 | Pending |
-| UI-05 | Phase 1 | Pending |
+| UI-02 | Phase 1 | Complete |
+| UI-03 | Phase 1 | Complete |
+| UI-04 | Phase 1 | Complete |
+| UI-05 | Phase 1 | Complete |
 | UI-06 | Phase 1 | Complete |
 | CONF-01 | Phase 1 | Pending |
 | CONF-02 | Phase 1 | Complete |
