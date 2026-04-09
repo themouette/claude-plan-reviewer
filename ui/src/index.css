@@ -11,6 +11,12 @@
   --color-accent-approve-hover: #16a34a;
   --color-accent-deny: #ef4444;
   --color-focus: #3b82f6;
+  --color-annotation-highlight: rgba(59, 130, 246, 0.18);
+  --color-annotation-comment: #3b82f6;
+  --color-annotation-delete: #ef4444;
+  --color-annotation-replace: #f59e0b;
+  --color-tab-active: #f1f5f9;
+  --color-tab-inactive: #94a3b8;
 }
 
 body {
@@ -147,4 +153,10 @@ body {
 
 .plan-prose a:hover {
   text-decoration: underline;
+}
+
+/* Annotation anchor highlight -- applied dynamically via JS */
+.annotation-highlighted {
+  background: var(--color-annotation-highlight);
+  border-radius: 3px;
 }
