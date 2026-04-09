@@ -1,4 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import type { Annotation, AnnotationType, Tab } from './types'
+import { serializeAnnotations } from './utils/serializeAnnotations'
+import { useTextSelection } from './hooks/useTextSelection'
+import { TabBar } from './components/TabBar'
+import { DiffView } from './components/DiffView'
+import { AnnotationSidebar } from './components/AnnotationSidebar'
 
 // --- Types ---
 
@@ -8,7 +14,7 @@ type Decision = 'allow' | 'deny'
 
 // --- Sub-components ---
 
-function PageHeader() {
+function PageHeader({ activeTab, onTabChange }: { activeTab: Tab; onTabChange: (tab: Tab) => void }) {
   return (
     <header
       style={{
@@ -17,6 +23,7 @@ function PageHeader() {
         borderBottom: '1px solid var(--color-border)',
         display: 'flex',
         alignItems: 'center',
+        justifyContent: 'space-between',
         padding: '0 32px',
         position: 'sticky',
         top: 0,
@@ -27,6 +34,7 @@ function PageHeader() {
       <span style={{ fontSize: '20px', fontWeight: 600, color: 'var(--color-text-primary)' }}>
         Plan Review
       </span>
+      <TabBar activeTab={activeTab} onTabChange={onTabChange} />
     </header>
   )
 }
@@ -156,6 +164,15 @@ export default function App() {
   const denyTextareaRef = useRef<HTMLTextAreaElement>(null)
   const denyButtonRef = useRef<HTMLButtonElement>(null)
 
+  // Phase 2 state
+  const [activeTab, setActiveTab] = useState<Tab>('plan')
+  const [diff, setDiff] = useState<string>('')
+  const [annotations, setAnnotations] = useState<Annotation[]>([])
+  const [overallComment, setOverallComment] = useState<string>('')
+  const planRef = useRef<HTMLDivElement>(null)
+  const sidebarRef = useRef<HTMLDivElement>(null)
+  const selectedText = useTextSelection(planRef)
+
   // Fetch plan HTML on mount
   useEffect(() => {
     fetch('/api/plan')
@@ -172,6 +189,17 @@ export default function App() {
       })
   }, [])
 
+  // Fetch diff on mount
+  useEffect(() => {
+    fetch('/api/diff')
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .then((data: { diff: string }) => setDiff(data.diff))
+      .catch(() => setDiff(''))
+  }, [])
+
   // Global Enter key handler for approve shortcut
   useEffect(() => {
     if (appState !== 'reviewing') return
@@ -180,6 +208,8 @@ export default function App() {
       if (e.key !== 'Enter') return
       if ((document.activeElement as HTMLElement)?.tagName === 'TEXTAREA') return
       if (denyOpen) return
+      // Suppress Enter when focus is inside the annotation sidebar
+      if (sidebarRef.current?.contains(document.activeElement)) return
       approve()
     }
 
@@ -209,6 +239,110 @@ export default function App() {
     }
   }, [denyOpen])
 
+  // --- Anchor highlight helpers (D-03) ---
+
+  /**
+   * Walk all text nodes under planRef.current and return the character offset
+   * where `anchorText` first appears in the concatenated text content.
+   * Returns Infinity if not found (appends to end).
+   */
+  function getAnchorOffset(anchorText: string): number {
+    if (!planRef.current) return Infinity
+    const walker = document.createTreeWalker(planRef.current, NodeFilter.SHOW_TEXT)
+    let charOffset = 0
+    let node: Text | null
+    while ((node = walker.nextNode() as Text | null)) {
+      const text = node.textContent ?? ''
+      const idx = text.indexOf(anchorText)
+      if (idx >= 0) {
+        return charOffset + idx
+      }
+      charOffset += text.length
+    }
+    return Infinity
+  }
+
+  function highlightAnchor(anchorText: string) {
+    if (!planRef.current) return
+    const walker = document.createTreeWalker(planRef.current, NodeFilter.SHOW_TEXT)
+    let node: Text | null
+    while ((node = walker.nextNode() as Text | null)) {
+      const idx = node.textContent?.indexOf(anchorText) ?? -1
+      if (idx >= 0) {
+        try {
+          const range = document.createRange()
+          range.setStart(node, idx)
+          range.setEnd(node, idx + anchorText.length)
+          const mark = document.createElement('mark')
+          mark.className = 'annotation-highlighted'
+          mark.setAttribute('aria-label', 'Annotated text')
+          range.surroundContents(mark)
+        } catch {
+          // surroundContents throws if range crosses element boundaries -- skip highlight
+        }
+        break
+      }
+    }
+  }
+
+  function clearHighlights() {
+    if (!planRef.current) return
+    const marks = planRef.current.querySelectorAll('mark.annotation-highlighted')
+    marks.forEach((mark) => {
+      const parent = mark.parentNode
+      if (parent) {
+        while (mark.firstChild) {
+          parent.insertBefore(mark.firstChild, mark)
+        }
+        parent.removeChild(mark)
+      }
+    })
+  }
+
+  // --- Annotation handlers ---
+
+  function handleAddAnnotation(type: AnnotationType, anchorText: string) {
+    const newAnnotation: Annotation = {
+      id: crypto.randomUUID(),
+      type,
+      anchorText,
+      comment: '',
+      replacement: '',
+    }
+    // D-03: Insert in positional order (top-to-bottom as anchor text appears in the plan).
+    // Compute the character offset of the new annotation's anchorText in the plan DOM,
+    // then find the correct insertion index in the sorted annotations array.
+    const newOffset = getAnchorOffset(anchorText)
+    setAnnotations((prev) => {
+      // Find insertion index: first annotation whose offset is greater than newOffset
+      const offsets = prev.map((a) => getAnchorOffset(a.anchorText))
+      let insertIdx = prev.length
+      for (let i = 0; i < offsets.length; i++) {
+        if (offsets[i] > newOffset) {
+          insertIdx = i
+          break
+        }
+      }
+      const next = [...prev]
+      next.splice(insertIdx, 0, newAnnotation)
+      return next
+    })
+    // Clear browser selection after adding annotation
+    document.getSelection()?.removeAllRanges()
+  }
+
+  function handleRemoveAnnotation(id: string) {
+    setAnnotations((prev) => prev.filter((a) => a.id !== id))
+  }
+
+  function handleUpdateAnnotation(id: string, field: 'comment' | 'replacement', value: string) {
+    setAnnotations((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, [field]: value } : a))
+    )
+  }
+
+  // --- Decision handlers ---
+
   async function approve() {
     if (appState !== 'reviewing') return
     try {
@@ -228,8 +362,10 @@ export default function App() {
     }
   }
 
-  async function deny(message: string) {
+  async function deny() {
     if (appState !== 'reviewing') return
+    const message = serializeAnnotations(denyMessage, overallComment, annotations)
+    if (!message.trim()) return
     try {
       const res = await fetch('/api/decide', {
         method: 'POST',
@@ -247,7 +383,8 @@ export default function App() {
     }
   }
 
-  const denyMessageValid = denyMessage.trim().length > 0
+  const hasAnnotations = annotations.length > 0 || overallComment.trim().length > 0
+  const denyMessageValid = denyMessage.trim().length > 0 || hasAnnotations
 
   return (
     <div
@@ -255,34 +392,74 @@ export default function App() {
         display: 'flex',
         flexDirection: 'column',
         minHeight: '100vh',
-        maxWidth: '900px',
-        margin: '0 auto',
       }}
     >
-      <PageHeader />
+      <PageHeader activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* Main content area */}
+      {/* Non-reviewing states: loading, error, confirmed */}
       <div style={{ flexGrow: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {appState === 'loading' && <LoadingSpinner />}
         {appState === 'error' && <ErrorView />}
         {appState === 'confirmed' && decision && <ConfirmationView decision={decision} />}
-        {appState === 'reviewing' && (
+      </div>
+
+      {/* Two-column layout — only shown during review */}
+      {appState === 'reviewing' && (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'row',
+            flexGrow: 1,
+            overflow: 'hidden',
+          }}
+        >
+          {/* Left column: plan tab panel */}
           <div
+            id="tabpanel-plan"
+            role="tabpanel"
+            aria-labelledby="tab-plan"
             style={{
-              maxWidth: '800px',
-              margin: '0 auto',
+              flexGrow: 1,
+              overflowY: 'auto',
               padding: '32px',
-              width: '100%',
-              boxSizing: 'border-box',
+              display: activeTab === 'plan' ? 'block' : 'none',
             }}
           >
-            <div
-              className="plan-prose"
-              dangerouslySetInnerHTML={{ __html: planHtml }}
-            />
+            <div ref={planRef} className="plan-prose" dangerouslySetInnerHTML={{ __html: planHtml }} />
           </div>
-        )}
-      </div>
+
+          {/* Left column: diff tab panel */}
+          <div
+            id="tabpanel-diff"
+            role="tabpanel"
+            aria-labelledby="tab-diff"
+            style={{
+              flexGrow: 1,
+              overflowY: 'auto',
+              padding: '32px',
+              display: activeTab === 'diff' ? 'flex' : 'none',
+              alignItems: 'flex-start',
+            }}
+          >
+            <DiffView diff={diff} />
+          </div>
+
+          {/* Right column: annotation sidebar */}
+          <AnnotationSidebar
+            annotations={annotations}
+            overallComment={overallComment}
+            onOverallCommentChange={setOverallComment}
+            onAddAnnotation={handleAddAnnotation}
+            onRemoveAnnotation={handleRemoveAnnotation}
+            onUpdateAnnotation={handleUpdateAnnotation}
+            selectedText={selectedText}
+            activeTab={activeTab}
+            sidebarRef={sidebarRef}
+            onAnnotationHover={(anchorText) => { clearHighlights(); highlightAnchor(anchorText); }}
+            onAnnotationLeave={() => clearHighlights()}
+          />
+        </div>
+      )}
 
       {/* Action bar — only shown during review */}
       {appState === 'reviewing' && (
@@ -398,7 +575,7 @@ export default function App() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey && denyMessageValid) {
                     e.preventDefault()
-                    deny(denyMessage)
+                    deny()
                   }
                 }}
                 style={{
@@ -426,7 +603,7 @@ export default function App() {
               />
               <button
                 onClick={() => {
-                  if (denyMessageValid) deny(denyMessage)
+                  if (denyMessageValid) deny()
                 }}
                 style={{
                   marginTop: '8px',

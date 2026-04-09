@@ -362,6 +362,8 @@ interface AnnotationSidebarProps {
   selectedText: string
   activeTab: Tab
   sidebarRef: React.RefObject<HTMLDivElement | null>
+  onAnnotationHover?: (anchorText: string) => void
+  onAnnotationLeave?: () => void
 }
 
 export function AnnotationSidebar({
@@ -374,6 +376,8 @@ export function AnnotationSidebar({
   selectedText,
   activeTab,
   sidebarRef,
+  onAnnotationHover,
+  onAnnotationLeave,
 }: AnnotationSidebarProps) {
   return (
     <div
@@ -416,6 +420,8 @@ export function AnnotationSidebar({
                     annotation={a}
                     onRemove={onRemoveAnnotation}
                     onUpdate={onUpdateAnnotation}
+                    onMouseEnter={() => onAnnotationHover?.(a.anchorText)}
+                    onMouseLeave={() => onAnnotationLeave?.()}
                   />
                 </div>
               ))}
