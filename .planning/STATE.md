@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-annotations-diff 02-01-PLAN.md
-last_updated: "2026-04-09T14:29:33.898Z"
+stopped_at: Completed 02-annotations-diff 02-02-PLAN.md
+last_updated: "2026-04-09T14:35:10.402Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 8
-  completed_plans: 5
-  percent: 63
+  completed_plans: 6
+  percent: 75
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-09)
 ## Current Position
 
 Phase: 02 (annotations-diff) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-04-09
 
@@ -58,6 +58,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-hook-review-ui P04 | 3min | 1 tasks | 2 files |
 | Phase 01-hook-review-ui P04 | 15min | 2 tasks | 2 files |
 | Phase 02-annotations-diff P01 | 4min 26s | 2 tasks | 3 files |
+| Phase 02-annotations-diff P02 | 4min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,10 @@ Recent decisions affecting current work:
 - [Phase 01-hook-review-ui]: pub struct Assets: exposes RustEmbed struct to main.rs for debug-mode asset check without coupling logic to server module
 - [Phase 02-annotations-diff]: git2 feature is vendored-libgit2 not vendored in 0.20.x
 - [Phase 02-annotations-diff]: diff_content flows from extract_diff in main() through async_main parameter to start_server; no global state
+- [Phase 02-annotations-diff]: vitest added as devDependency with test script for serializeAnnotations unit tests
+- [Phase 02-annotations-diff]: Sub-components (OverallCommentField, AnnotationCard, AddAnnotationAffordance) defined in AnnotationSidebar.tsx but not exported
+- [Phase 02-annotations-diff]: CSS variable fallback pattern: var(--color-tab-active, #f1f5f9) so components work before Plan 03 adds tokens to index.css
+- [Phase 02-annotations-diff]: onMouseDown e.preventDefault() on annotation pills: critical Pitfall 1 guard preventing selection clearing before click fires
 
 ### Pending Todos
 
@@ -103,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T14:29:33.894Z
-Stopped at: Completed 02-annotations-diff 02-01-PLAN.md
+Last session: 2026-04-09T14:35:10.399Z
+Stopped at: Completed 02-annotations-diff 02-02-PLAN.md
 Resume file: None

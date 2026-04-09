@@ -24,17 +24,17 @@
 
 ### Annotations
 
-- [ ] **ANN-01**: User can add a comment annotation (select text → attach note)
-- [ ] **ANN-02**: User can add a delete annotation (mark plan text for removal)
-- [ ] **ANN-03**: User can add a replace annotation (select text → provide replacement)
-- [ ] **ANN-04**: User can add a global comment (overall note not anchored to specific text)
-- [ ] **ANN-05**: Annotations are serialized as structured markdown in the deny `message` field
+- [x] **ANN-01**: User can add a comment annotation (select text → attach note)
+- [x] **ANN-02**: User can add a delete annotation (mark plan text for removal)
+- [x] **ANN-03**: User can add a replace annotation (select text → provide replacement)
+- [x] **ANN-04**: User can add a global comment (overall note not anchored to specific text)
+- [x] **ANN-05**: Annotations are serialized as structured markdown in the deny `message` field
 
 ### Code Diff View
 
 - [x] **DIFF-01**: Binary reads the git diff of the working tree from the `cwd` field in hook stdin
-- [ ] **DIFF-02**: Diff is displayed alongside the plan in the review UI
-- [ ] **DIFF-03**: Diff view supports unified format with syntax highlighting
+- [x] **DIFF-02**: Diff is displayed alongside the plan in the review UI
+- [x] **DIFF-03**: Diff view supports unified format with syntax highlighting
 
 ### Distribution
 
@@ -100,14 +100,14 @@
 | UI-06 | Phase 1 | Complete |
 | CONF-01 | Phase 1 | Complete |
 | CONF-02 | Phase 1 | Complete |
-| ANN-01 | Phase 2 | Pending |
-| ANN-02 | Phase 2 | Pending |
-| ANN-03 | Phase 2 | Pending |
-| ANN-04 | Phase 2 | Pending |
-| ANN-05 | Phase 2 | Pending |
+| ANN-01 | Phase 2 | Complete |
+| ANN-02 | Phase 2 | Complete |
+| ANN-03 | Phase 2 | Complete |
+| ANN-04 | Phase 2 | Complete |
+| ANN-05 | Phase 2 | Complete |
 | DIFF-01 | Phase 2 | Complete |
-| DIFF-02 | Phase 2 | Pending |
-| DIFF-03 | Phase 2 | Pending |
+| DIFF-02 | Phase 2 | Complete |
+| DIFF-03 | Phase 2 | Complete |
 | DIST-01 | Phase 3 | Pending |
 | DIST-02 | Phase 3 | Pending |
 | DIST-03 | Phase 3 | Pending |
