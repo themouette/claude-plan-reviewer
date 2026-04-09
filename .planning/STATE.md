@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 1 UI-SPEC approved
-last_updated: "2026-04-09T10:24:04.392Z"
-last_activity: 2026-04-09 -- Phase 1 planning complete
+stopped_at: Completed 01-hook-review-ui 01-01-PLAN.md
+last_updated: "2026-04-09T11:39:54.835Z"
+last_activity: 2026-04-09
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 4
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 25
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-09)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 1 — Hook & Review UI
+**Current focus:** Phase 01 — hook-review-ui
 
 ## Current Position
 
-Phase: 1 of 3 (Hook & Review UI)
-Plan: 0 of TBD in current phase
+Phase: 01 (hook-review-ui) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-04-09 -- Phase 1 planning complete
+Last activity: 2026-04-09
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01-hook-review-ui P01 | 4min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,9 @@ Recent decisions affecting current work:
 - Browser UI over TUI: richer markdown/diff rendering
 - ExitPlanMode hook only: same trigger as plannotator, well-understood protocol
 - curl | sh distribution: no runtime requirement for end users
+- [Phase 01-hook-review-ui]: comrak 0.52 with default-features=false: excludes syntect binary bloat
+- [Phase 01-hook-review-ui]: tokio feature subset (rt/macros/net/time/sync/signal) instead of 'full' to reduce binary size
+- [Phase 01-hook-review-ui]: All Cargo.toml deps declared upfront: Plans 02/03 (parallel Wave 2) need no Cargo.toml edits
 
 ### Pending Todos
 
@@ -76,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T09:43:39.423Z
-Stopped at: Phase 1 UI-SPEC approved
-Resume file: .planning/phases/01-hook-review-ui/01-UI-SPEC.md
+Last session: 2026-04-09T11:39:54.832Z
+Stopped at: Completed 01-hook-review-ui 01-01-PLAN.md
+Resume file: None

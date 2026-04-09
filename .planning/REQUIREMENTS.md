@@ -7,9 +7,9 @@
 
 ### Hook Integration
 
-- [ ] **HOOK-01**: Binary reads Claude Code ExitPlanMode PermissionRequest JSON from stdin on invocation
-- [ ] **HOOK-02**: Binary writes valid PermissionRequest decision JSON exclusively to stdout on exit
-- [ ] **HOOK-03**: All diagnostic output goes to stderr only — stdout contains only the final JSON response
+- [x] **HOOK-01**: Binary reads Claude Code ExitPlanMode PermissionRequest JSON from stdin on invocation
+- [x] **HOOK-02**: Binary writes valid PermissionRequest decision JSON exclusively to stdout on exit
+- [x] **HOOK-03**: All diagnostic output goes to stderr only — stdout contains only the final JSON response
 - [ ] **HOOK-04**: Binary exits cleanly within 3 seconds of decision submission
 - [ ] **HOOK-05**: Binary self-terminates with a deny response before the Claude Code hook timeout (default 10 min) is reached
 
@@ -46,7 +46,7 @@
 ### Configuration
 
 - [ ] **CONF-01**: Hook is configured via a minimal `~/.claude/settings.json` snippet with `"matcher": "ExitPlanMode"`
-- [ ] **CONF-02**: Binary accepts a `--no-browser` flag to skip browser open and print URL only
+- [x] **CONF-02**: Binary accepts a `--no-browser` flag to skip browser open and print URL only
 
 ## v2 Requirements
 
@@ -87,9 +87,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HOOK-01 | Phase 1 | Pending |
-| HOOK-02 | Phase 1 | Pending |
-| HOOK-03 | Phase 1 | Pending |
+| HOOK-01 | Phase 1 | Complete |
+| HOOK-02 | Phase 1 | Complete |
+| HOOK-03 | Phase 1 | Complete |
 | HOOK-04 | Phase 1 | Pending |
 | HOOK-05 | Phase 1 | Pending |
 | UI-01 | Phase 1 | Pending |
@@ -99,7 +99,7 @@
 | UI-05 | Phase 1 | Pending |
 | UI-06 | Phase 1 | Pending |
 | CONF-01 | Phase 1 | Pending |
-| CONF-02 | Phase 1 | Pending |
+| CONF-02 | Phase 1 | Complete |
 | ANN-01 | Phase 2 | Pending |
 | ANN-02 | Phase 2 | Pending |
 | ANN-03 | Phase 2 | Pending |

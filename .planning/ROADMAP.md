@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 4 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Rust project scaffold with protocol types, CLI, stdin/stdout round-trip, comrak rendering
+- [x] 01-01-PLAN.md — Rust project scaffold with protocol types, CLI, stdin/stdout round-trip, comrak rendering
 - [ ] 01-02-PLAN.md — axum HTTP server with decision pipeline, browser launch, timeout, clean exit
 - [ ] 01-03-PLAN.md — React+TS+Vite frontend with Tailwind, full plan review UI, build.rs integration
 - [ ] 01-04-PLAN.md — Wire embedded SPA into binary, end-to-end integration, human verification
