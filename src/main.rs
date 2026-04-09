@@ -33,12 +33,24 @@ fn main() {
         std::process::exit(1);
     });
 
-    // 4. Render plan markdown to HTML
+    // 4. In debug mode, verify frontend assets exist before starting the server.
+    //    rust-embed reads from the filesystem in debug builds, so if ui/dist/ is
+    //    missing the server would start but serve nothing.  Catch it early.
+    #[cfg(debug_assertions)]
+    {
+        if server::Assets::get("index.html").is_none() {
+            eprintln!("ERROR: Frontend assets not found at ui/dist/index.html");
+            eprintln!("Run 'cd ui && npm run build' first, or run 'cargo run' from the project root.");
+            std::process::exit(1);
+        }
+    }
+
+    // 5. Render plan markdown to HTML
     let plan_md = hook_input.tool_input.plan.unwrap_or_default();
     let plan_html = render::render_plan_html(&plan_md);
     eprintln!("Plan rendered ({} bytes HTML)", plan_html.len());
 
-    // 5. Start tokio runtime (current_thread for single-user tool)
+    // 6. Start tokio runtime (current_thread for single-user tool)
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -46,7 +58,7 @@ fn main() {
 
     let output = rt.block_on(async_main(args, plan_html));
 
-    // 6. Write decision to stdout — THE ONLY stdout write
+    // 7. Write decision to stdout — THE ONLY stdout write
     serde_json::to_writer(std::io::stdout(), &output).expect("failed to write hook output");
 }
 

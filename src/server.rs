@@ -7,9 +7,17 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use axum_embed::{FallbackBehavior, ServeEmbed};
+use rust_embed::RustEmbed;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
+
+// --- Embedded assets ---
+
+#[derive(RustEmbed, Clone)]
+#[folder = "ui/dist/"]
+pub struct Assets;
 
 // --- Decision type ---
 
@@ -46,66 +54,6 @@ async fn post_decide(
     }
 }
 
-async fn get_index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let plan_html = &state.plan_html;
-    let html = format!(
-        r#"<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Plan Review</title>
-  <style>
-    body {{ font-family: system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 2rem; }}
-    h1 {{ font-size: 1.5rem; margin-bottom: 1rem; }}
-    #plan {{ border: 1px solid #ccc; border-radius: 4px; padding: 1rem; margin-bottom: 1.5rem; }}
-    .buttons {{ display: flex; gap: 1rem; }}
-    button {{ padding: 0.5rem 1.5rem; font-size: 1rem; cursor: pointer; border-radius: 4px; border: none; }}
-    #approve-btn {{ background: #16a34a; color: white; }}
-    #deny-btn {{ background: #dc2626; color: white; }}
-    #status {{ margin-top: 1rem; font-weight: bold; }}
-  </style>
-</head>
-<body>
-  <h1>Plan Review</h1>
-  <div id="plan">{plan_html}</div>
-  <div class="buttons">
-    <button id="approve-btn" onclick="decide('allow')">Approve</button>
-    <button id="deny-btn" onclick="decide('deny')">Deny</button>
-  </div>
-  <div id="status"></div>
-  <script>
-    async function decide(behavior) {{
-      const body = behavior === 'allow'
-        ? {{ behavior: 'allow' }}
-        : {{ behavior: 'deny', message: 'denied via test page' }};
-      try {{
-        const resp = await fetch('/api/decide', {{
-          method: 'POST',
-          headers: {{ 'Content-Type': 'application/json' }},
-          body: JSON.stringify(body),
-        }});
-        if (resp.ok) {{
-          document.getElementById('status').textContent = 'Decision submitted';
-          document.getElementById('approve-btn').disabled = true;
-          document.getElementById('deny-btn').disabled = true;
-        }} else if (resp.status === 409) {{
-          document.getElementById('status').textContent = 'Decision already submitted';
-        }} else {{
-          document.getElementById('status').textContent = 'Error: ' + resp.status;
-        }}
-      }} catch (e) {{
-        document.getElementById('status').textContent = 'Error: ' + e.message;
-      }}
-    }}
-  </script>
-</body>
-</html>"#,
-        plan_html = plan_html,
-    );
-    axum::response::Html(html)
-}
-
 // --- Server entry point ---
 
 /// Bind to a random OS-assigned port on 127.0.0.1, spawn the axum server,
@@ -127,18 +75,26 @@ pub async fn start_server(
         decision_tx: Mutex::new(Some(decision_tx)),
     });
 
-    // 4. Build router
+    // 4. Build SPA fallback — serves embedded React assets; any unknown path
+    //    returns index.html (FallbackBehavior::Ok) to support client-side routing.
+    let spa = ServeEmbed::<Assets>::with_parameters(
+        Some("index.html".to_owned()),
+        FallbackBehavior::Ok,
+        None,
+    );
+
+    // 5. Build router — API routes take priority; everything else falls back to SPA
     let app = Router::new()
         .route("/api/plan", get(get_plan))
         .route("/api/decide", post(post_decide))
-        .route("/", get(get_index))
+        .fallback_service(spa)
         .with_state(state);
 
-    // 5. Bind to OS-assigned port
+    // 6. Bind to OS-assigned port
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let port = listener.local_addr()?.port();
 
-    // 6. Spawn axum server with graceful shutdown
+    // 7. Spawn axum server with graceful shutdown
     tokio::spawn(async move {
         axum::serve(listener, app)
             .with_graceful_shutdown(async move { token_clone.cancelled().await })
@@ -146,11 +102,9 @@ pub async fn start_server(
             .ok();
     });
 
-    // 7. Return port and decision receiver
+    // 8. Return port and decision receiver
     // The CancellationToken is not exposed — process::exit handles termination
     // after the decision is written to stdout.
-    // We cancel the token when the process exits; there is no memory leak
-    // because the process terminates within 3 seconds of receiving a decision.
     drop(token);
 
     Ok((port, decision_rx))
