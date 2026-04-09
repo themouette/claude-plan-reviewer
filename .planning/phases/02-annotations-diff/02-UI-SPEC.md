@@ -140,6 +140,7 @@ Never use accent color for: hover backgrounds, tab indicators (use text-primary)
 - Left column (plan/diff): `flex-grow: 1; overflow-y: auto`.
 - Right column (sidebar): `width: 320px; flex-shrink: 0; overflow-y: auto`.
 - Sidebar is always visible during the `reviewing` state, regardless of which tab is active. It collapses to zero width (or becomes an empty panel with the global comment field only) in the Diff tab.
+- Primary focal point: the plan content area (left column) — the action bar CTAs are the secondary focal point that draws the eye after reading.
 
 ### Tab bar
 
@@ -174,8 +175,8 @@ Sidebar sections (top to bottom):
 - Card border: `1px solid var(--color-border)`
 - Card border-radius: 6px
 - Card left border: 3px solid — color from annotation type (comment: blue, delete: red, replace: amber)
-- Card padding: 12px
-- Type badge: 12px, weight 600, uppercase, matching left-border color, background `rgba(color, 0.15)`, border-radius 4px, padding 2px 6px
+- Card padding: 8px
+- Type badge: 14px, weight 600, uppercase, matching left-border color, background `rgba(color, 0.15)`, border-radius 4px, padding 4px 8px
 - Quoted anchor: 14px, monospace, color text-secondary, truncated to 2 lines with `text-overflow: ellipsis`
 - Remove button: `×` symbol, 16px, text-secondary, top-right corner, no background, hover: text-primary
 
