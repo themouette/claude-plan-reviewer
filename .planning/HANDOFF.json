@@ -1,0 +1,51 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-04-09T19:18:07.100Z",
+  "phase": "02",
+  "phase_name": "annotations-diff",
+  "phase_dir": ".planning/phases/02-annotations-diff",
+  "plan": "04",
+  "task": 2,
+  "total_tasks": 2,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "Build binary and prepare test environment", "status": "done", "commit": "21a804e"},
+    {"id": 2, "name": "Human verification — multiple bug-fix rounds in progress", "status": "in_progress", "progress": "Seven bugs fixed across two sessions. Last fix (useLayoutEffect re-apply for CSS Custom Highlight) not yet confirmed by user."}
+  ],
+  "remaining_tasks": [
+    {"id": 2, "name": "User confirms all 8 test scenarios pass", "status": "in_progress"}
+  ],
+  "blockers": [],
+  "human_actions_pending": [
+    {
+      "action": "Run binary with test command and verify all 8 checkpoint scenarios pass, especially selection highlight visibility",
+      "context": "The last fix adds a useLayoutEffect (no deps) to re-apply the CSS Custom Highlight after every React render. This addresses the hypothesis that React DOM reconciliation was invalidating Range objects. User was about to test when they paused.",
+      "blocking": true
+    }
+  ],
+  "decisions": [
+    {"decision": "Force a/ b/ prefixes in git2 DiffOptions", "rationale": "User has diff.mnemonicPrefix=true globally; @pierre/diffs regex only matches a/ and b/ prefixes", "phase": "02"},
+    {"decision": "Switch from PatchDiff to FileDiff with parsePatchFiles", "rationale": "PatchDiff requires exactly 1 file; working tree had 3 changed files", "phase": "02"},
+    {"decision": "Wrap non-reviewing states div in appState !== reviewing condition", "rationale": "Empty flexGrow:1 div was competing with two-column layout, halving its height", "phase": "02"},
+    {"decision": "useTextSelection: mouseup-only (no selectionchange)", "rationale": "selectionchange fires constantly during drag causing React re-render pressure on selection anchor", "phase": "02"},
+    {"decision": "useTextSelection: only clear selectedText on mouseup within plan container", "rationale": "Clicks in sidebar must not dismiss annotation pills — only intentional clicks in plan area clear selection", "phase": "02"},
+    {"decision": "CSS Custom Highlight API (selection-lock) for focus-independent visual", "rationale": "Native browser selection goes inactive-gray or invisible when focus moves to sidebar; CSS highlights are focus-independent", "phase": "02"},
+    {"decision": "supportsHighlights guard + conditional removeAllRanges", "rationale": "If browser lacks CSS.highlights, keep native selection visible as fallback rather than clearing to nothing", "phase": "02"},
+    {"decision": "useLayoutEffect (no deps) re-applies highlight after every render", "rationale": "React DOM reconciliation may invalidate Range objects stored in Highlight; re-pinning before each paint keeps it visible", "phase": "02"},
+    {"decision": "Persistent per-type annotation CSS highlights (annotation-comment/delete/replace)", "rationale": "After adding annotation, text gets a colored background matching the type — no DOM mutation, no range invalidation", "phase": "02"},
+    {"decision": "Replace highlightAnchor DOM mutation with CSS.highlights hover", "rationale": "DOM mark-wrapping breaks cross-element selections and invalidates stored ranges; CSS highlights are non-destructive", "phase": "02"},
+    {"decision": "Escape key dismisses active text selection", "rationale": "Standard dismiss affordance; only fires when denyOpen is false", "phase": "02"},
+    {"decision": "annotationRangesRef (useRef<Map<string,Range>>) alongside annotation state", "rationale": "Range objects are DOM artifacts, not serializable; stored in ref by annotation ID to enable persistent CSS highlights and hover", "phase": "02"}
+  ],
+  "uncommitted_files": [
+    "src/main.rs",
+    "ui/package-lock.json",
+    "ui/src/App.tsx",
+    "ui/src/components/DiffView.tsx",
+    "ui/src/hooks/useTextSelection.ts",
+    "ui/src/index.css",
+    ".planning/config.json"
+  ],
+  "next_action": "Ask user if the useLayoutEffect fix resolved the selection highlight visibility. If yes: commit all changes, write 02-04-SUMMARY.md, update ROADMAP/STATE, run /gsd:code-review 2 and /gsd:verify-work. If no: add console.log inside applyHighlight to verify it is called post-render, and check if Range is valid (range.collapsed, range.startContainer.isConnected).",
+  "context_notes": "Phase 02 plan 02-04 human verification. Plans 01-03 committed. Plan 04 Task 1 done. Task 2 is an extended bug-fix session spanning two Claude sessions. Bugs fixed: (1) mnemonicPrefix diff format, (2) PatchDiff multi-file, (3) flexGrow layout, (4) selectionchange→mouseup, (5) focus-out clears selection→CSS Custom Highlight, (6) highlight not visible after render→useLayoutEffect re-apply. Also implemented full selection UX: persistent annotation type highlights, hover via CSS highlights, Escape dismiss, annotationRangesRef. Last fix not yet user-confirmed."
+}
