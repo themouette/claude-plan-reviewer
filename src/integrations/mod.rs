@@ -13,9 +13,13 @@ use std::io::IsTerminal;
 ///
 /// Carries the two pieces of information needed by most integrations. Additional
 /// fields can be added here in future phases without changing the trait signature.
+///
+/// `binary_path` is `Some` when installing (the path to write into settings) and
+/// `None` for check-only and uninstall contexts that do not need the binary path.
+/// Integrations' `install()` implementations must return `Err` if `binary_path` is `None`.
 pub struct InstallContext {
     pub home: String,
-    pub binary_path: String,
+    pub binary_path: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +171,7 @@ pub fn show_integration_picker(prompt: &str) -> Vec<IntegrationSlug> {
 
     let ctx = InstallContext {
         home,
-        binary_path: String::new(),
+        binary_path: None,
     };
 
     // Build display labels with installed/not-yet-implemented/available status
@@ -271,7 +275,7 @@ mod tests {
         let integration = gemini::GeminiIntegration;
         let ctx = InstallContext {
             home: "/tmp".to_string(),
-            binary_path: String::new(),
+            binary_path: None,
         };
         let result = integration.install(&ctx);
         assert!(result.is_err());
@@ -287,7 +291,7 @@ mod tests {
         let integration = opencode::OpenCodeIntegration;
         let ctx = InstallContext {
             home: "/tmp".to_string(),
-            binary_path: String::new(),
+            binary_path: None,
         };
         let result = integration.install(&ctx);
         assert!(result.is_err());

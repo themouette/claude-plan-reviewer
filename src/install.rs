@@ -29,7 +29,10 @@ pub fn run_install(integrations_arg: Vec<String>) {
         }
     };
 
-    let ctx = InstallContext { home, binary_path };
+    let ctx = InstallContext {
+        home,
+        binary_path: Some(binary_path),
+    };
 
     for slug in &slugs {
         let integration = integrations::get_integration(slug);

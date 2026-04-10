@@ -22,7 +22,7 @@ pub fn run_uninstall(integrations_arg: Vec<String>) {
 
     let ctx = InstallContext {
         home,
-        binary_path: String::new(),
+        binary_path: None,
     };
 
     for slug in &slugs {

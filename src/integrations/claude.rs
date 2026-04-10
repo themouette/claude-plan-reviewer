@@ -14,6 +14,9 @@ impl Integration for ClaudeIntegration {
     /// Idempotent: safe to run multiple times. If the hook is already present
     /// (any entry with matcher == "ExitPlanMode"), returns Ok(()) immediately.
     fn install(&self, ctx: &InstallContext) -> Result<(), String> {
+        let binary_path = ctx.binary_path.as_deref().ok_or_else(|| {
+            "install requires a binary_path — none was provided".to_string()
+        })?;
         let settings_path = claude_settings_path(&ctx.home);
 
         // Read existing settings or start with an empty object
@@ -99,7 +102,7 @@ impl Integration for ClaudeIntegration {
         root["hooks"]["PermissionRequest"]
             .as_array_mut()
             .expect("PermissionRequest was validated as array above")
-            .push(claude_hook_entry(&ctx.binary_path));
+            .push(claude_hook_entry(binary_path));
 
         // Write back with pretty-printing (2-space indent, standard serde_json format)
         let output = match serde_json::to_string_pretty(&root) {
@@ -124,7 +127,7 @@ impl Integration for ClaudeIntegration {
             "plan-reviewer: ExitPlanMode hook installed in {}",
             settings_path.display()
         );
-        println!("plan-reviewer: hook command set to: {}", ctx.binary_path);
+        println!("plan-reviewer: hook command set to: {}", binary_path);
         Ok(())
     }
 
