@@ -24,9 +24,9 @@
 
 ### Annotations
 
-- [x] **ANN-01**: User can add a comment annotation (select text → attach note)
+- [x] **ANN-01**: User can add a comment annotation (select text -> attach note)
 - [x] **ANN-02**: User can add a delete annotation (mark plan text for removal)
-- [x] **ANN-03**: User can add a replace annotation (select text → provide replacement)
+- [x] **ANN-03**: User can add a replace annotation (select text -> provide replacement)
 - [x] **ANN-04**: User can add a global comment (overall note not anchored to specific text)
 - [x] **ANN-05**: Annotations are serialized as structured markdown in the deny `message` field
 
@@ -47,6 +47,23 @@
 
 - [x] **CONF-01**: Hook is configured via a minimal `~/.claude/settings.json` snippet with `"matcher": "ExitPlanMode"`
 - [x] **CONF-02**: Binary accepts a `--no-browser` flag to skip browser open and print URL only
+
+### Subcommands (Phase 4)
+
+- [ ] **SUB-01**: self_update and dialoguer dependencies added to Cargo.toml with correct feature flags for musl cross-compilation
+- [ ] **SUB-02**: cargo-dist archive format changed from .tar.xz to .tar.gz for self_update compatibility
+- [ ] **SUB-03**: `install` subcommand accepts zero or more integration names as positional arguments
+- [ ] **SUB-04**: `uninstall` subcommand accepts zero or more integration names as positional arguments
+- [ ] **SUB-05**: `install` and `uninstall` are idempotent per integration (re-run is a no-op with status message)
+- [ ] **SUB-06**: Three integration slugs defined: claude (supported), opencode (stub), codestral (stub)
+- [ ] **SUB-07**: When no integration names given and stdin is a TTY, TUI multi-select picker is shown
+- [ ] **SUB-08**: When no integration names given and stdin is not a TTY, error with clear message and exit 1
+- [ ] **SUB-09**: `uninstall` removes hook entries by matcher key, not by binary path
+- [ ] **SUB-10**: `update` subcommand downloads and replaces the binary in-place from GitHub releases via self_update
+- [ ] **SUB-11**: `update --check` performs version-check-only (prints current, latest, changelog URL)
+- [ ] **SUB-12**: `update --version <tag>` pins to a specific release version
+- [ ] **SUB-13**: `update` shows confirmation prompt (skippable with --yes/-y) and progress bar during download
+- [ ] **SUB-14**: After successful update, version check cache is cleared
 
 ## v2 Requirements
 
@@ -112,12 +129,26 @@
 | DIST-02 | Phase 3 | Pending |
 | DIST-03 | Phase 3 | Pending |
 | DIST-04 | Phase 3 | Pending |
+| SUB-01 | Phase 4 | Pending |
+| SUB-02 | Phase 4 | Pending |
+| SUB-03 | Phase 4 | Pending |
+| SUB-04 | Phase 4 | Pending |
+| SUB-05 | Phase 4 | Pending |
+| SUB-06 | Phase 4 | Pending |
+| SUB-07 | Phase 4 | Pending |
+| SUB-08 | Phase 4 | Pending |
+| SUB-09 | Phase 4 | Pending |
+| SUB-10 | Phase 4 | Pending |
+| SUB-11 | Phase 4 | Pending |
+| SUB-12 | Phase 4 | Pending |
+| SUB-13 | Phase 4 | Pending |
+| SUB-14 | Phase 4 | Pending |
 
 **Coverage:**
-- v1 requirements: 25 total
-- Mapped to phases: 25
-- Unmapped: 0 ✓
+- v1 requirements: 39 total
+- Mapped to phases: 39
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-09*
-*Last updated: 2026-04-09 after roadmap creation*
+*Last updated: 2026-04-10 after Phase 4 planning*

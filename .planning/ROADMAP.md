@@ -74,24 +74,26 @@ Plans:
 - [x] 03-02-PLAN.md — clap subcommand refactor (src/main.rs) + plan-reviewer install subcommand (src/install.rs)
 - [ ] 03-03-PLAN.md — Gap closure: fix OWNER placeholder in install.sh, push v0.1.0 release tag
 
+### Phase 4: Subcommands (install, uninstall, update)
+
+**Goal:** Add `install`, `uninstall`, and `update` subcommands with multi-integration support. Default behavior (no subcommand) remains the hook review flow. `install`/`uninstall` accept integration names or show an interactive TUI picker. `update` self-updates the binary in-place from GitHub releases.
+**Requirements**: SUB-01, SUB-02, SUB-03, SUB-04, SUB-05, SUB-06, SUB-07, SUB-08, SUB-09, SUB-10, SUB-11, SUB-12, SUB-13, SUB-14
+**Depends on:** Phase 3
+**Plans:** 3 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Dependencies (self_update, dialoguer), archive format fix (.tar.gz), integration abstraction module
+- [ ] 04-02-PLAN.md — Install/uninstall refactor with integration abstraction, TUI picker, main.rs wiring
+- [ ] 04-03-PLAN.md — Update subcommand (self_update from GitHub releases), final main.rs wiring
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Hook & Review UI | 4/4 | Complete   | 2026-04-09 |
 | 2. Annotations & Diff | 4/4 | Complete | 2026-04-09 |
 | 3. Distribution | 2/3 | In progress | - |
-| 4. Subcommands | 0/TBD | Not started | - |
-
-### Phase 4: Subcommands (install, uninstall, update)
-
-**Goal:** Add `install`, `uninstall`, and `update` subcommands. Default behavior (no subcommand) remains the hook review flow. `install`/`uninstall` accept a list of integrations (claude, opencode, etc.) or offer an interactive selector — both are idempotent. `update` follows the pattern of ~/Projects/themouette/claude-vm update. Phase 3 ships the minimal `install` subcommand (Claude Code only); Phase 4 extends it to multi-integration.
-**Requirements**: TBD
-**Depends on:** Phase 3
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd-plan-phase 4 to break down)
+| 4. Subcommands | 0/3 | Not started | - |
