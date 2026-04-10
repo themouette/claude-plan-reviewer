@@ -1,0 +1,10 @@
+{
+  "session_id": "test-session-claude-001",
+  "transcript_path": null,
+  "cwd": "/tmp",
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "exit_plan_mode",
+  "tool_input": {
+    "plan": "# Test Plan\n\n1. First step\n2. Second step\n3. Done"
+  }
+}

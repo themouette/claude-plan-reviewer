@@ -1,0 +1,10 @@
+{
+  "session_id": "test-session-gemini-001",
+  "transcript_path": null,
+  "cwd": "/tmp",
+  "hook_event_name": "BeforeTool",
+  "tool_name": "exit_plan_mode",
+  "tool_input": {
+    "plan": "# Gemini Test Plan\n\n- Step A\n- Step B"
+  }
+}
