@@ -15,6 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Hook & Review UI** - Core approve/deny loop wired end-to-end via ExitPlanMode hook (completed 2026-04-09)
 - [x] **Phase 2: Annotations & Diff** - Structured feedback surface with text annotations and code diff view (completed 2026-04-09)
 - [ ] **Phase 3: Distribution** - Cross-platform binary release with curl | sh installer
+- [ ] **Phase 4: Subcommands** - install/uninstall/update subcommands with multi-integration support
 
 ## Phase Details
 
@@ -71,10 +72,21 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3
+Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Hook & Review UI | 4/4 | Complete   | 2026-04-09 |
 | 2. Annotations & Diff | 4/4 | Complete | 2026-04-09 |
 | 3. Distribution | 0/TBD | Not started | - |
+| 4. Subcommands | 0/TBD | Not started | - |
+
+### Phase 4: Subcommands (install, uninstall, update)
+
+**Goal:** Add `install`, `uninstall`, and `update` subcommands. Default behavior (no subcommand) remains the hook review flow. `install`/`uninstall` accept a list of integrations (claude, opencode, etc.) or offer an interactive selector — both are idempotent. `update` follows the pattern of ~/Projects/themouette/claude-vm update. Phase 3 ships the minimal `install` subcommand (Claude Code only); Phase 4 extends it to multi-integration.
+**Requirements**: TBD
+**Depends on:** Phase 3
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 4 to break down)
