@@ -62,7 +62,11 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
   2. Install/uninstall tests verify config file mutations in a tmpdir-isolated HOME
   3. Hook flow tests verify correct JSON stdout for both approve and deny decisions by POSTing to the local server
   4. `--no-browser` and `--port` flags are present in `plan-reviewer --help` output
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 06.1-01-PLAN.md — Add --port CLI flag and thread through to server bind
+- [ ] 06.1-02-PLAN.md — Test infrastructure: fixtures + install/uninstall integration tests
+- [ ] 06.1-03-PLAN.md — Full server approve/deny cycle integration tests
 
 ### Phase 7: opencode Integration
 **Goal**: Users can install and uninstall plan-reviewer as an opencode hook via `plan-reviewer install opencode` and `plan-reviewer uninstall opencode`; the binary bundles the required JS plugin, writes it to disk on install, and wires `opencode.json`
@@ -112,7 +116,7 @@ Plans:
 | 4. Subcommands | v0.1.0 | 3/3 | Complete | 2026-04-10 |
 | 5. Integration Architecture | v0.3.0 | 0/? | Not started | - |
 | 6. Gemini CLI Integration | v0.3.0 | 0/? | Not started | - |
-| 6.1. Integration Test Harness | v0.3.0 | 0/? | Not started | - |
+| 6.1. Integration Test Harness | v0.3.0 | 0/3 | Planned | - |
 | 7. opencode Integration | v0.3.0 | 0/2 | Planned | - |
 | 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/? | Not started | - |
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |
