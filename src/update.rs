@@ -271,7 +271,7 @@ fn write_claude_plugin_files(home: &str, current_version: &str) {
         "hooks": {
             "PermissionRequest": [{
                 "matcher": "ExitPlanMode",
-                "hooks": [{"type": "command", "command": "plan-reviewer"}]
+                "hooks": [{"type": "command", "command": "plan-reviewer review-hook"}]
             }]
         }
     });
@@ -314,7 +314,7 @@ fn write_gemini_extension_files(home: &str, current_version: &str) {
                 "hooks": [{
                     "name": "plan-reviewer",
                     "type": "command",
-                    "command": "plan-reviewer",
+                    "command": "plan-reviewer review-hook",
                     "timeout": 300000
                 }]
             }]
@@ -553,6 +553,36 @@ mod tests {
         assert_eq!(
             before_modified, after_modified,
             "mjs file should NOT be rewritten when version matches"
+        );
+    }
+
+    #[test]
+    fn test_write_claude_plugin_files_uses_hook_subcommand() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        write_claude_plugin_files(&home, "0.3.0");
+        let hooks_path =
+            crate::integrations::claude::claude_plugin_dir(&home).join("hooks/hooks.json");
+        let content = std::fs::read_to_string(&hooks_path).unwrap();
+        assert!(
+            content.contains("plan-reviewer review-hook"),
+            "hooks.json should contain 'plan-reviewer review-hook', got: {}",
+            content
+        );
+    }
+
+    #[test]
+    fn test_write_gemini_extension_files_uses_hook_subcommand() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        write_gemini_extension_files(&home, "0.3.0");
+        let hooks_path =
+            crate::integrations::gemini::gemini_extension_dir(&home).join("hooks/hooks.json");
+        let content = std::fs::read_to_string(&hooks_path).unwrap();
+        assert!(
+            content.contains("plan-reviewer review-hook"),
+            "hooks.json should contain 'plan-reviewer review-hook', got: {}",
+            content
         );
     }
 

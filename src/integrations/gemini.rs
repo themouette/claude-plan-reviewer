@@ -48,10 +48,10 @@ impl Integration for GeminiIntegration {
         }
 
         // Write hooks/hooks.json
-        // Uses bare "plan-reviewer" command (relies on PATH; Phase 07.3 changes to "plan-reviewer hook")
+        // Uses explicit "plan-reviewer review-hook" subcommand (relies on PATH).
         // timeout: 300000 (5 minutes) — mandatory per research (default 60s is too short for interactive review)
         let hooks_path = hooks_dir.join("hooks.json");
-        let hooks_json = r#"{"hooks":{"BeforeTool":[{"matcher":"exit_plan_mode","hooks":[{"name":"plan-reviewer","type":"command","command":"plan-reviewer","timeout":300000}]}]}}"#;
+        let hooks_json = r#"{"hooks":{"BeforeTool":[{"matcher":"exit_plan_mode","hooks":[{"name":"plan-reviewer","type":"command","command":"plan-reviewer review-hook","timeout":300000}]}]}}"#;
         if let Err(e) = std::fs::write(&hooks_path, hooks_json) {
             return Err(format!("cannot write {}: {}", hooks_path.display(), e));
         }
@@ -310,8 +310,29 @@ mod tests {
         assert_eq!(hooks.len(), 1);
         assert_eq!(hooks[0]["name"].as_str(), Some("plan-reviewer"));
         assert_eq!(hooks[0]["type"].as_str(), Some("command"));
-        assert_eq!(hooks[0]["command"].as_str(), Some("plan-reviewer"));
+        assert_eq!(hooks[0]["command"].as_str(), Some("plan-reviewer review-hook"));
         assert_eq!(hooks[0]["timeout"].as_i64(), Some(300000));
+    }
+
+    #[test]
+    fn install_writes_hook_command_with_hook_subcommand() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = GeminiIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let hooks_path = gemini_extension_dir(&home).join("hooks/hooks.json");
+        let content = std::fs::read_to_string(&hooks_path).unwrap();
+        assert!(
+            content.contains("plan-reviewer review-hook"),
+            "hooks.json command should be 'plan-reviewer review-hook', got: {}",
+            content
+        );
     }
 
     #[test]
