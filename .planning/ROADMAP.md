@@ -25,6 +25,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 
 - [ ] **Phase 5: Integration Architecture** - Refactor to `src/integrations/` with an `Integration` trait; establish idempotency contract all integrations must satisfy
 - [ ] **Phase 6: Gemini CLI Integration** - Wire Gemini CLI `BeforeTool exit_plan_mode` hook with install/uninstall subcommands
+- [ ] **Phase 6.1: Integration Test Harness** - Add `--no-browser`/`--port` flags and `assert_cmd`-based integration tests covering hook flow, install/uninstall, and server approve/deny cycle without touching real system config
 - [ ] **Phase 7: opencode Integration** - Wire opencode hook with bundled JS plugin install/uninstall
 - [ ] **Phase 8: Annotation Quick-Actions & Theme** - Add predefined annotation actions and persistent light/dark theme switcher
 - [ ] **Phase 9: Documentation** - Write README install/usage guide and per-integration wiring docs
@@ -52,6 +53,17 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
   4. `plan-reviewer uninstall gemini` removes the hook entry from `~/.gemini/settings.json` and leaves all other settings intact
 **Plans**: TBD
 
+### Phase 6.1: Integration Test Harness
+**Goal**: The binary exposes `--no-browser` and `--port` flags enabling fully automated integration tests; `assert_cmd`-based tests cover the hook stdin→stdout flow, install/uninstall with HOME isolation, and the full server approve/deny cycle — all running without touching real system configuration
+**Depends on**: Phase 6
+**Requirements**: TEST-01, TEST-02, TEST-03
+**Success Criteria** (what must be TRUE):
+  1. `cargo test --test integration` passes with 0 failures, touching no real system files (validated by running tests with a read-only real HOME)
+  2. Install/uninstall tests verify config file mutations in a tmpdir-isolated HOME
+  3. Hook flow tests verify correct JSON stdout for both approve and deny decisions by POSTing to the local server
+  4. `--no-browser` and `--port` flags are present in `plan-reviewer --help` output
+**Plans**: TBD
+
 ### Phase 7: opencode Integration
 **Goal**: Users can install and uninstall plan-reviewer as an opencode hook via `plan-reviewer install opencode` and `plan-reviewer uninstall opencode`; the binary bundles the required JS plugin, writes it to disk on install, and wires `opencode.json`
 **Depends on**: Phase 5
@@ -61,7 +73,10 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
   2. Triggering opencode plan review opens the plan-reviewer browser UI with plan content rendered
   3. Approving or denying in the browser returns the correct decision to opencode via HTTP handoff
   4. `plan-reviewer uninstall opencode` removes the plugin file and config entry, leaving `opencode.json` otherwise intact
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 07-01-PLAN.md — OpenCode JS plugin + install/uninstall Rust implementation
+- [ ] 07-02-PLAN.md — Hook flow extension for --plan-file opencode invocation
 **UI hint**: yes
 
 ### Phase 8: Annotation Quick-Actions & Theme
@@ -97,6 +112,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 | 4. Subcommands | v0.1.0 | 3/3 | Complete | 2026-04-10 |
 | 5. Integration Architecture | v0.3.0 | 0/? | Not started | - |
 | 6. Gemini CLI Integration | v0.3.0 | 0/? | Not started | - |
-| 7. opencode Integration | v0.3.0 | 0/? | Not started | - |
+| 6.1. Integration Test Harness | v0.3.0 | 0/? | Not started | - |
+| 7. opencode Integration | v0.3.0 | 0/2 | Planned | - |
 | 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/? | Not started | - |
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |
