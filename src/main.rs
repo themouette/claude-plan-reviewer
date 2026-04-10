@@ -1,13 +1,176 @@
 mod hook;
 mod install;
-mod integration;
+mod integrations;
 mod server;
 mod uninstall;
 mod update;
 
 #[cfg(test)]
 mod tests {
-    use super::extract_diff;
+    use super::{
+        Cli, build_gemini_output, build_opencode_output, extract_diff, extract_plan_content,
+    };
+    use crate::hook;
+    use crate::hook::HookOutput;
+    use crate::server;
+    use clap::Parser;
+
+    #[test]
+    fn test_cli_port_flag_default_zero() {
+        let cli = Cli::try_parse_from(["plan-reviewer"]).expect("parse failed");
+        assert_eq!(cli.port, 0, "--port default should be 0");
+    }
+
+    #[test]
+    fn test_cli_port_flag_accepts_value() {
+        let cli = Cli::try_parse_from(["plan-reviewer", "--port", "8080"]).expect("parse failed");
+        assert_eq!(cli.port, 8080, "--port should accept 8080");
+    }
+
+    #[test]
+    fn test_extract_plan_content_inline() {
+        let tool_input = hook::ToolInput {
+            plan: Some("# My Plan\nStep 1".to_string()),
+            plan_path: None,
+            extra: serde_json::Map::new(),
+        };
+        assert_eq!(extract_plan_content(&tool_input), "# My Plan\nStep 1");
+    }
+
+    #[test]
+    fn test_extract_plan_content_from_file() {
+        let tmp = tempfile::NamedTempFile::new().expect("create temp file");
+        std::fs::write(tmp.path(), "# File Plan\nDo things").expect("write");
+        let tool_input = hook::ToolInput {
+            plan: None,
+            plan_path: Some(tmp.path().to_str().unwrap().to_string()),
+            extra: serde_json::Map::new(),
+        };
+        assert_eq!(extract_plan_content(&tool_input), "# File Plan\nDo things");
+    }
+
+    #[test]
+    fn test_extract_plan_content_neither() {
+        let tool_input = hook::ToolInput {
+            plan: None,
+            plan_path: None,
+            extra: serde_json::Map::new(),
+        };
+        assert_eq!(extract_plan_content(&tool_input), "");
+    }
+
+    #[test]
+    fn test_extract_plan_content_inline_preferred_over_file() {
+        let tmp = tempfile::NamedTempFile::new().expect("create temp file");
+        std::fs::write(tmp.path(), "file content").expect("write");
+        let tool_input = hook::ToolInput {
+            plan: Some("inline content".to_string()),
+            plan_path: Some(tmp.path().to_str().unwrap().to_string()),
+            extra: serde_json::Map::new(),
+        };
+        assert_eq!(extract_plan_content(&tool_input), "inline content");
+    }
+
+    #[test]
+    fn test_gemini_allow_output_format() {
+        let decision = server::Decision {
+            behavior: "allow".to_string(),
+            message: None,
+        };
+        let output = build_gemini_output(&decision);
+        assert_eq!(output["decision"].as_str(), Some("allow"));
+        assert!(
+            output.get("hookSpecificOutput").is_none(),
+            "Gemini format must not have hookSpecificOutput"
+        );
+    }
+
+    #[test]
+    fn test_gemini_deny_output_format() {
+        let decision = server::Decision {
+            behavior: "deny".to_string(),
+            message: Some("Missing rollback".to_string()),
+        };
+        let output = build_gemini_output(&decision);
+        assert_eq!(output["decision"].as_str(), Some("deny"));
+        assert_eq!(output["reason"].as_str(), Some("Missing rollback"));
+        assert_eq!(
+            output["systemMessage"].as_str(),
+            Some("Plan denied by plan-reviewer. Please revise the plan.")
+        );
+    }
+
+    #[test]
+    fn test_claude_allow_output_format() {
+        let output = HookOutput::allow();
+        let json = serde_json::to_value(&output).unwrap();
+        assert!(json["hookSpecificOutput"]["decision"]["behavior"].as_str() == Some("allow"));
+    }
+
+    #[test]
+    fn test_claude_deny_output_format() {
+        let output = HookOutput::deny("bad plan".to_string());
+        let json = serde_json::to_value(&output).unwrap();
+        assert_eq!(
+            json["hookSpecificOutput"]["decision"]["behavior"].as_str(),
+            Some("deny")
+        );
+        assert_eq!(
+            json["hookSpecificOutput"]["decision"]["message"].as_str(),
+            Some("bad plan")
+        );
+    }
+
+    #[test]
+    fn test_opencode_allow_output_format() {
+        let decision = server::Decision {
+            behavior: "allow".to_string(),
+            message: None,
+        };
+        let output = build_opencode_output(&decision);
+        assert_eq!(output["behavior"].as_str(), Some("allow"));
+        assert!(
+            output.get("message").is_none(),
+            "allow should not have message field"
+        );
+        assert!(
+            output.get("hookSpecificOutput").is_none(),
+            "opencode format must not have hookSpecificOutput"
+        );
+        assert!(
+            output.get("decision").is_none(),
+            "opencode format uses behavior, not decision key"
+        );
+    }
+
+    #[test]
+    fn test_opencode_deny_output_format() {
+        let decision = server::Decision {
+            behavior: "deny".to_string(),
+            message: Some("Needs more tests".to_string()),
+        };
+        let output = build_opencode_output(&decision);
+        assert_eq!(output["behavior"].as_str(), Some("deny"));
+        assert_eq!(output["message"].as_str(), Some("Needs more tests"));
+        assert!(
+            output.get("hookSpecificOutput").is_none(),
+            "opencode format must not have hookSpecificOutput"
+        );
+    }
+
+    #[test]
+    fn test_opencode_deny_without_message() {
+        let decision = server::Decision {
+            behavior: "deny".to_string(),
+            message: None,
+        };
+        let output = build_opencode_output(&decision);
+        assert_eq!(output["behavior"].as_str(), Some("deny"));
+        assert!(
+            output.get("message").is_none(),
+            "deny without message should not have message field"
+        );
+    }
 
     #[test]
     fn test_extract_diff_nonexistent_path() {
@@ -86,11 +249,22 @@ use hook::{HookInput, HookOutput};
 use server::Decision;
 
 #[derive(Parser, Debug)]
-#[command(version, about = "Claude Code plan reviewer hook binary")]
+#[command(
+    version,
+    about = "Plan reviewer hook binary (supports: claude, gemini, opencode)"
+)]
 struct Cli {
     /// Skip opening the browser and print the review URL to stderr only
     #[arg(long, default_value_t = false)]
     no_browser: bool,
+
+    /// Bind the review server to this port (0 = OS-assigned, default)
+    #[arg(long, default_value_t = 0)]
+    port: u16,
+
+    /// Read plan content from a file instead of stdin (used by opencode plugin)
+    #[arg(long)]
+    plan_file: Option<String>,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -100,12 +274,12 @@ struct Cli {
 enum Commands {
     /// Wire the ExitPlanMode hook into one or more integrations (default: interactive picker)
     Install {
-        /// Integration names: claude, opencode, codestral (omit for interactive picker)
+        /// Integration names: claude, gemini, opencode (omit for interactive picker)
         integrations: Vec<String>,
     },
     /// Remove the ExitPlanMode hook from one or more integrations
     Uninstall {
-        /// Integration names: claude, opencode, codestral (omit for interactive picker)
+        /// Integration names: claude, gemini, opencode (omit for interactive picker)
         integrations: Vec<String>,
     },
     /// Update plan-reviewer to the latest version from GitHub releases
@@ -180,6 +354,94 @@ fn extract_diff(cwd: &str) -> String {
     output
 }
 
+/// Extract plan Markdown from hook input.
+///
+/// Claude Code sends the plan inline in `tool_input.plan`.
+/// Gemini CLI sends a filesystem path in `tool_input.plan_path`.
+/// If both are present, prefer the inline plan (Claude Code case).
+/// If neither is present, return an empty string.
+fn extract_plan_content(tool_input: &hook::ToolInput) -> String {
+    if let Some(ref plan) = tool_input.plan {
+        return plan.clone();
+    }
+    if let Some(ref plan_path) = tool_input.plan_path {
+        match std::fs::read_to_string(plan_path) {
+            Ok(content) => return content,
+            Err(e) => {
+                eprintln!("Failed to read plan file at {}: {}", plan_path, e);
+                std::process::exit(1);
+            }
+        }
+    }
+    String::new()
+}
+
+/// Build the Gemini CLI response JSON from a browser decision.
+fn build_gemini_output(decision: &Decision) -> serde_json::Value {
+    match decision.behavior.as_str() {
+        "allow" => serde_json::json!({ "decision": "allow" }),
+        _ => serde_json::json!({
+            "decision": "deny",
+            "reason": decision.message.as_deref().unwrap_or("Denied without message"),
+            "systemMessage": "Plan denied by plan-reviewer. Please revise the plan."
+        }),
+    }
+}
+
+/// Build the opencode response JSON from a browser decision.
+///
+/// Format: {"behavior":"allow"} or {"behavior":"deny","message":"..."}
+/// This is the format the JS plugin parses in opencode_plugin.mjs.
+fn build_opencode_output(decision: &Decision) -> serde_json::Value {
+    match decision.behavior.as_str() {
+        "allow" => serde_json::json!({ "behavior": "allow" }),
+        _ => {
+            let mut obj = serde_json::json!({
+                "behavior": "deny"
+            });
+            if let Some(ref msg) = decision.message {
+                obj["message"] = serde_json::Value::String(msg.clone());
+            }
+            obj
+        }
+    }
+}
+
+fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
+    // Read plan content from file — does NOT read stdin
+    let plan_md = match std::fs::read_to_string(plan_file) {
+        Ok(content) => content,
+        Err(e) => {
+            eprintln!("Failed to read plan file at {}: {}", plan_file, e);
+            std::process::exit(1);
+        }
+    };
+    eprintln!(
+        "Plan loaded from file ({} bytes): {}",
+        plan_md.len(),
+        plan_file
+    );
+
+    // Extract diff from current working directory (no HookInput cwd available)
+    let cwd = std::env::current_dir()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let diff_content = extract_diff(&cwd);
+    eprintln!("Diff extracted ({} bytes)", diff_content.len());
+
+    // Start tokio runtime and run the browser review flow
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    let decision = rt.block_on(async_main(no_browser, port, plan_md, diff_content));
+
+    // Build opencode output format and write to stdout — THE ONLY stdout write
+    let output = build_opencode_output(&decision);
+    serde_json::to_writer(std::io::stdout(), &output).expect("failed to write hook output");
+}
+
 fn main() {
     // 1. Parse CLI args FIRST — before stdin read (Pitfall 5: install must not hang on stdin)
     let cli = Cli::parse();
@@ -202,13 +464,17 @@ fn main() {
             update::run_update(*check, version.clone(), *yes);
         }
         None => {
-            // Default: hook review flow — reads stdin JSON
-            run_hook_flow(cli.no_browser);
+            if let Some(ref plan_file) = cli.plan_file {
+                run_opencode_flow(cli.no_browser, cli.port, plan_file);
+            } else {
+                // Default: hook review flow — reads stdin JSON
+                run_hook_flow(cli.no_browser, cli.port);
+            }
         }
     }
 }
 
-fn run_hook_flow(no_browser: bool) {
+fn run_hook_flow(no_browser: bool, port: u16) {
     // 2. Read all of stdin synchronously (before any async runtime)
     let input_json = match std::io::read_to_string(std::io::stdin()) {
         Ok(s) => s,
@@ -239,7 +505,7 @@ fn run_hook_flow(no_browser: bool) {
     }
 
     // 5. Get plan markdown
-    let plan_md = hook_input.tool_input.plan.unwrap_or_default();
+    let plan_md = extract_plan_content(&hook_input.tool_input);
     eprintln!("Plan received ({} bytes)", plan_md.len());
 
     // 5b. Extract git diff from the hook's cwd
@@ -252,20 +518,46 @@ fn run_hook_flow(no_browser: bool) {
         .build()
         .unwrap();
 
-    // Pass no_browser as a plain bool (not the old args struct)
-    let output = rt.block_on(async_main(no_browser, plan_md, diff_content));
+    let decision = rt.block_on(async_main(no_browser, port, plan_md, diff_content));
 
-    // 7. Write decision to stdout — THE ONLY stdout write
-    serde_json::to_writer(std::io::stdout(), &output).expect("failed to write hook output");
+    // 7. Build integration-specific output JSON and write to stdout — THE ONLY stdout write
+    let output_json: serde_json::Value = if hook_input.is_gemini() {
+        // Gemini CLI: flat {decision, reason, systemMessage} format
+        build_gemini_output(&decision)
+    } else {
+        // Claude Code: nested hookSpecificOutput format
+        let hook_output = match decision.behavior.as_str() {
+            "allow" => HookOutput::allow(),
+            "deny" => HookOutput::deny(
+                decision
+                    .message
+                    .unwrap_or_else(|| "Denied without message".to_string()),
+            ),
+            other => {
+                eprintln!("Unknown decision behavior: {}", other);
+                HookOutput::deny(format!("Unknown behavior: {}", other))
+            }
+        };
+        serde_json::to_value(hook_output).expect("HookOutput serialization cannot fail")
+    };
+    serde_json::to_writer(std::io::stdout(), &output_json).expect("failed to write hook output");
 }
 
-async fn async_main(no_browser: bool, plan_md: String, diff_content: String) -> HookOutput {
+async fn async_main(
+    no_browser: bool,
+    port: u16,
+    plan_md: String,
+    diff_content: String,
+) -> Decision {
     // Start server
-    let (port, decision_rx) = match server::start_server(plan_md, diff_content).await {
+    let (port, decision_rx) = match server::start_server(plan_md, diff_content, port).await {
         Ok(v) => v,
         Err(e) => {
             eprintln!("Failed to start server: {}", e);
-            return HookOutput::deny(format!("Internal error: {}", e));
+            return Decision {
+                behavior: "deny".to_string(),
+                message: Some(format!("Internal error: {}", e)),
+            };
         }
     };
 
@@ -305,23 +597,11 @@ async fn async_main(no_browser: bool, plan_md: String, diff_content: String) -> 
         }
     };
 
-    // Spawn 3-second watchdog for clean exit (HOOK-04)
+    // Spawn 3-second watchdog for clean exit (HOOK-04: after stdout write completes)
     tokio::spawn(async {
         tokio::time::sleep(std::time::Duration::from_secs(3)).await;
         std::process::exit(0);
     });
 
-    // Convert Decision to HookOutput
-    match decision.behavior.as_str() {
-        "allow" => HookOutput::allow(),
-        "deny" => HookOutput::deny(
-            decision
-                .message
-                .unwrap_or_else(|| "Denied without message".to_string()),
-        ),
-        other => {
-            eprintln!("Unknown decision behavior: {}", other);
-            HookOutput::deny(format!("Unknown behavior: {}", other))
-        }
-    }
+    decision
 }

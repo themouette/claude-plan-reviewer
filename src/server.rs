@@ -61,12 +61,13 @@ async fn post_decide(
 
 // --- Server entry point ---
 
-/// Bind to a random OS-assigned port on 127.0.0.1, spawn the axum server,
+/// Bind to the specified port on 127.0.0.1 (0 = OS-assigned), spawn the axum server,
 /// and return (port, decision_rx) so the caller can open a browser and await
 /// the decision.
 pub async fn start_server(
     plan_md: String,
     diff_content: String,
+    port: u16,
 ) -> Result<(u16, oneshot::Receiver<Decision>), Box<dyn std::error::Error + Send + Sync>> {
     // 1. Create decision channel
     let (decision_tx, decision_rx) = oneshot::channel::<Decision>();
@@ -98,8 +99,8 @@ pub async fn start_server(
         .fallback_service(spa)
         .with_state(state);
 
-    // 6. Bind to OS-assigned port
-    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    // 6. Bind to specified port (0 = OS-assigned)
+    let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).await?;
     let port = listener.local_addr()?.port();
 
     // 7. Spawn axum server with graceful shutdown

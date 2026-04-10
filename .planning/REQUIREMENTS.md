@@ -15,6 +15,18 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [ ] **INTEG-04**: User can run `plan-reviewer uninstall opencode` to remove opencode integration (removes plugin file and config entry)
 - [ ] **INTEG-05**: All install/uninstall commands are idempotent — safe to run multiple times without corrupting config
 
+### Review Subcommand
+
+- [ ] **REVIEW-01**: User can run `plan-reviewer review <file.md>` to open any markdown file in the browser review UI
+- [ ] **REVIEW-02**: Approving or denying in the browser outputs neutral `{"behavior":"allow"|"deny"}` JSON to stdout (no hook-specific wrapper)
+- [ ] **REVIEW-03**: Running `plan-reviewer review <nonexistent>` exits with code 1 and a descriptive error on stderr
+
+### Integration Tests
+
+- [ ] **TEST-01**: Integration tests for hook stdin→stdout flow run without opening a browser or touching real system config
+- [ ] **TEST-02**: Integration tests for install/uninstall commands run with HOME isolated to a tmpdir
+- [ ] **TEST-03**: Integration tests for the full server approve/deny cycle run by POSTing to a known local port
+
 ### Annotation Actions
 
 - [ ] **ANNOT-01**: User can apply a predefined quick-action (clarify this, needs test, give me an example, out of scope, search internet, search codebase) with one click
@@ -56,11 +68,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| TEST-01 | Phase 6.1 | Pending |
+| TEST-02 | Phase 6.1 | Pending |
+| TEST-03 | Phase 6.1 | Pending |
 | INTEG-01 | Phase 6 | Pending |
 | INTEG-02 | Phase 6 | Pending |
 | INTEG-03 | Phase 7 | Pending |
 | INTEG-04 | Phase 7 | Pending |
 | INTEG-05 | Phase 5 | Pending |
+| REVIEW-01 | Phase 7.1 | Pending |
+| REVIEW-02 | Phase 7.1 | Pending |
+| REVIEW-03 | Phase 7.1 | Pending |
 | ANNOT-01 | Phase 8 | Pending |
 | ANNOT-02 | Phase 8 | Pending |
 | ANNOT-03 | Phase 8 | Pending |
@@ -72,10 +90,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DOCS-03 | Phase 9 | Pending |
 
 **Coverage:**
-- v0.3.0 requirements: 14 total
-- Mapped to phases: 14
-- Unmapped: 0 ✓
+- v0.3.0 requirements: 20 total
+- Mapped to phases: 20
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-10*
-*Last updated: 2026-04-10 — traceability populated after roadmap creation*
+*Last updated: 2026-04-10 — REVIEW-01/02/03 added for Phase 07.1*

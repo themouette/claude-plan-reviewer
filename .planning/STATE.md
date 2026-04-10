@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: Integrations, Annotations & Polish
-status: ready_to_plan
-stopped_at: Roadmap created — Phase 5 ready to plan
-last_updated: "2026-04-10T00:00:00.000Z"
-last_activity: 2026-04-10
+status: executing
+stopped_at: Phase 6 complete — GeminiIntegration install/uninstall + hook flow routing implemented, 36 tests pass
+last_updated: "2026-04-10T23:05:36.644Z"
+last_activity: 2026-04-10 -- Phase 07.2 planning complete
 progress:
-  total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 9
+  completed_phases: 4
+  total_plans: 13
+  completed_plans: 9
+  percent: 69
 ---
 
 # Project State
@@ -21,20 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 5 — Integration Architecture
+**Current focus:** Phase 7 — OpenCode Integration
 
 ## Current Position
 
-Phase: 5 of 9 (Integration Architecture)
-Plan: — (not yet planned)
-Status: Ready to plan
-Last activity: 2026-04-10 — v0.3.0 roadmap created (Phases 5-9)
+Phase: 07.4 of 9 (add review file subcommand so any markdown file can be revie)
+Plan: Not started
+Status: Ready to execute
+Last activity: 2026-04-10 -- Phase 07.2 planning complete
 
-Progress: [░░░░░░░░░░] 0% (v0.3.0)
+Progress: [████░░░░░░] 40% (v0.3.0)
 
 ## Performance Metrics
 
 **Velocity (v0.1.0 reference):**
+
 - Total plans completed (v0.1.0): 14 across 4 phases
 
 **By Phase (v0.1.0):**
@@ -45,6 +46,7 @@ Progress: [░░░░░░░░░░] 0% (v0.3.0)
 | 02 annotations-diff | 4 | - | - |
 | 03 distribution | 3 | - | - |
 | 04 subcommands | 3 | - | - |
+| 7 | 2 | - | - |
 
 *v0.3.0 metrics will populate as plans complete*
 
@@ -63,6 +65,9 @@ Recent decisions affecting current work:
 ### Roadmap Evolution
 
 - Phase 4 added: add subcommands install uninstall update, install and uninstall can either accept a list of integration (claude, opencode...) or offer to chose integrations in an interactive UI. those should be idempotent. update should be modeled after ~/Projects/themouette/claude-vm update subcommand. the current behavior should be moved as a review subcommand that will be invoked if no subcommand is provided.
+- Phase 07.4 inserted after Phase 7: Add review <file> subcommand so any markdown file can be reviewed without constructing hook JSON — outputs neutral {behavior} decision for use in scripts and agent workflows (URGENT)
+- Phase 07.2 inserted after Phase 7: insert phase A from .planning/research/INTEGRATION-PLUGIN-REWORK.md (URGENT)
+- Phase 07.3 inserted after Phase 7: insert phase B from .planning/research/INTEGRATION-PLUGIN-REWORK.md (URGENT)
 
 ### Quick Tasks Completed
 
@@ -83,5 +88,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-10
-Stopped at: v0.3.0 roadmap created — Phases 5-9 defined, ready to plan Phase 5
+Stopped at: Phase 6 complete — GeminiIntegration install/uninstall + hook flow routing implemented, 36 tests pass
 Resume file: None

@@ -26,6 +26,9 @@ dialoguer = "0.12"
 
 [dev-dependencies]
 tempfile = "3"
+assert_cmd = "2"
+predicates = "3"
+ureq = { version = "3", features = ["json"] }
 
 # Config for 'dist'
 [workspace.metadata.dist]

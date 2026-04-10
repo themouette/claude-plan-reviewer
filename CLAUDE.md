@@ -132,6 +132,31 @@ git config core.hooksPath .githooks
 ```
 <!-- GSD:conventions-end -->
 
+## Test Coverage Requirements
+
+Every plan that creates or modifies a Rust module (`src/*.rs`) or TypeScript
+module (`ui/src/**/*.ts`, `ui/src/**/*.svelte`) containing business logic MUST
+include at least one of:
+
+- A `type: tdd` plan for that module
+- A task whose action references specific test files or runs `cargo test` /
+  `npm test` with assertions tied to the new behavior
+- A `<verify>cargo test</verify>` or `<verify>npm test</verify>` block that
+  would fail if the new logic were removed
+
+**Business logic** means: functions with non-trivial return values, data
+transformations, validation, JSON serialization/deserialization, route
+handlers, or install/uninstall filesystem operations.
+
+**Exclusions** (no test task required):
+- Pure UI layout and styling (`.svelte` files with no logic)
+- Configuration changes (`Cargo.toml`, `vite.config.ts`, etc.)
+- Glue code that only wires existing tested functions together
+
+**Plan-checker severity:**
+- BLOCKER — new module with business logic, no test task of any kind
+- WARNING — existing module modified with business logic changes, no test task
+
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->
 ## Architecture
 

@@ -9,16 +9,23 @@ pub struct HookInput {
     #[allow(dead_code)]
     pub transcript_path: Option<String>,
     pub cwd: String,
-    #[allow(dead_code)]
     pub hook_event_name: String,
     #[allow(dead_code)]
     pub tool_name: String,
     pub tool_input: ToolInput,
 }
 
+impl HookInput {
+    /// Returns true if this hook was invoked by Gemini CLI (BeforeTool event).
+    pub fn is_gemini(&self) -> bool {
+        self.hook_event_name == "BeforeTool"
+    }
+}
+
 #[derive(Deserialize, Debug)]
 pub struct ToolInput {
-    pub plan: Option<String>,
+    pub plan: Option<String>,      // Claude Code: inline plan text
+    pub plan_path: Option<String>, // Gemini CLI: path to plan .md file
     #[serde(flatten)]
     #[allow(dead_code)]
     pub extra: serde_json::Map<String, serde_json::Value>,
