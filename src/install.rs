@@ -105,21 +105,24 @@ pub fn run_install() {
     let output = match serde_json::to_string_pretty(&root) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("plan-reviewer install: cannot serialize settings.json: {}", e);
+            eprintln!(
+                "plan-reviewer install: cannot serialize settings.json: {}",
+                e
+            );
             std::process::exit(1);
         }
     };
 
     // Create ~/.claude/ if it doesn't exist
-    if let Some(parent) = settings_path.parent() {
-        if let Err(e) = std::fs::create_dir_all(parent) {
-            eprintln!(
-                "plan-reviewer install: cannot create {}: {}",
-                parent.display(),
-                e
-            );
-            std::process::exit(1);
-        }
+    if let Some(parent) = settings_path.parent()
+        && let Err(e) = std::fs::create_dir_all(parent)
+    {
+        eprintln!(
+            "plan-reviewer install: cannot create {}: {}",
+            parent.display(),
+            e
+        );
+        std::process::exit(1);
     }
 
     if let Err(e) = std::fs::write(&settings_path, output) {
@@ -135,8 +138,5 @@ pub fn run_install() {
         "plan-reviewer: ExitPlanMode hook installed in {}",
         settings_path.display()
     );
-    println!(
-        "plan-reviewer: hook command set to: {}",
-        binary_path
-    );
+    println!("plan-reviewer: hook command set to: {}", binary_path);
 }

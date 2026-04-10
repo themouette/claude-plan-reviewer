@@ -4,10 +4,14 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
 pub struct HookInput {
+    #[allow(dead_code)]
     pub session_id: String,
+    #[allow(dead_code)]
     pub transcript_path: Option<String>,
     pub cwd: String,
+    #[allow(dead_code)]
     pub hook_event_name: String,
+    #[allow(dead_code)]
     pub tool_name: String,
     pub tool_input: ToolInput,
 }
@@ -16,6 +20,7 @@ pub struct HookInput {
 pub struct ToolInput {
     pub plan: Option<String>,
     #[serde(flatten)]
+    #[allow(dead_code)]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 

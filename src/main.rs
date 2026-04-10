@@ -30,7 +30,8 @@ mod tests {
             let sig = git2::Signature::now("test", "test@test.com").unwrap();
             let tree_id = repo.index().unwrap().write_tree().unwrap();
             let tree = repo.find_tree(tree_id).unwrap();
-            repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[]).unwrap();
+            repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[])
+                .unwrap();
         }
 
         // Write a new (untracked/modified) file
@@ -48,10 +49,13 @@ mod tests {
             "Dirty repo should return non-empty diff string"
         );
         // Should contain diff markers
-        let has_diff_marker = result.contains("diff --git")
-            || result.contains("@@")
-            || result.contains('+');
-        assert!(has_diff_marker, "Diff output should contain diff markers, got: {}", result);
+        let has_diff_marker =
+            result.contains("diff --git") || result.contains("@@") || result.contains('+');
+        assert!(
+            has_diff_marker,
+            "Diff output should contain diff markers, got: {}",
+            result
+        );
     }
 
     #[test]
@@ -65,7 +69,8 @@ mod tests {
             let sig = git2::Signature::now("test", "test@test.com").unwrap();
             let tree_id = repo.index().unwrap().write_tree().unwrap();
             let tree = repo.find_tree(tree_id).unwrap();
-            repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[]).unwrap();
+            repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[])
+                .unwrap();
         }
 
         let result = extract_diff(tmp.path().to_str().unwrap());
@@ -112,7 +117,8 @@ fn extract_diff(cwd: &str) -> String {
     let diff = if let Ok(head) = repo.head() {
         if let Ok(commit) = head.peel_to_commit() {
             if let Ok(tree) = commit.tree() {
-                repo.diff_tree_to_workdir_with_index(Some(&tree), Some(&mut opts)).ok()
+                repo.diff_tree_to_workdir_with_index(Some(&tree), Some(&mut opts))
+                    .ok()
             } else {
                 None
             }
@@ -190,7 +196,9 @@ fn run_hook_flow(no_browser: bool) {
     {
         if server::Assets::get("index.html").is_none() {
             eprintln!("ERROR: Frontend assets not found at ui/dist/index.html");
-            eprintln!("Run 'cd ui && npm run build' first, or run 'cargo run' from the project root.");
+            eprintln!(
+                "Run 'cd ui && npm run build' first, or run 'cargo run' from the project root."
+            );
             std::process::exit(1);
         }
     }
@@ -232,11 +240,9 @@ async fn async_main(no_browser: bool, plan_md: String, diff_content: String) -> 
     eprintln!("Review UI: {}", url);
 
     // Open browser unless --no-browser (CONF-02)
-    if !no_browser {
-        if let Err(e) = webbrowser::open(&url) {
-            eprintln!("Failed to open browser: {}", e);
-            eprintln!("Open manually: {}", url);
-        }
+    if !no_browser && let Err(e) = webbrowser::open(&url) {
+        eprintln!("Failed to open browser: {}", e);
+        eprintln!("Open manually: {}", url);
     }
 
     // Race: user decision vs timeout (540 seconds, per D-07)
