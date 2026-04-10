@@ -95,6 +95,8 @@ fn perform_update(target_version: Option<String>, skip_confirm: bool) {
     match builder.build().and_then(|u| u.update()) {
         Ok(status) => {
             println!("\nSuccessfully updated to version {}", status.version());
+            // Refresh installed integration files to match new binary version
+            refresh_integrations();
             // Clear version check cache so next run gets a fresh check (D-12)
             clear_update_cache();
         }
@@ -161,4 +163,424 @@ fn sanitize_version(version: &str) -> String {
         .chars()
         .filter(|c| c.is_alphanumeric() || *c == '.' || *c == '-' || *c == '+')
         .collect()
+}
+
+// ---------------------------------------------------------------------------
+// Integration refresh after update
+// ---------------------------------------------------------------------------
+
+/// After binary replacement, detect installed integrations and rewrite stale files.
+///
+/// Detection is by manifest/file presence — if the integration was never installed,
+/// no manifest exists and we skip it. Version comparison is string equality (no semver).
+pub fn refresh_integrations() {
+    let home = match std::env::var("HOME") {
+        Ok(h) => h,
+        Err(_) => {
+            eprintln!("plan-reviewer: HOME not set, skipping integration refresh");
+            return;
+        }
+    };
+    let current_version = cargo_crate_version!();
+
+    refresh_integrations_with_home(&home, current_version);
+}
+
+/// Testable core of refresh_integrations: takes home dir and version as parameters.
+fn refresh_integrations_with_home(home: &str, current_version: &str) {
+    // Claude: check plugin.json
+    {
+        use crate::integrations::claude::claude_plugin_dir;
+        let manifest_path = claude_plugin_dir(home).join(".claude-plugin/plugin.json");
+        if manifest_path.exists() {
+            match read_manifest_version(&manifest_path) {
+                Some(ref v) if v == current_version => {
+                    println!(
+                        "plan-reviewer: Claude plugin already at v{}",
+                        current_version
+                    );
+                }
+                _ => {
+                    write_claude_plugin_files(home, current_version);
+                }
+            }
+        }
+    }
+
+    // Gemini: check gemini-extension.json
+    {
+        use crate::integrations::gemini::gemini_extension_dir;
+        let manifest_path = gemini_extension_dir(home).join("gemini-extension.json");
+        if manifest_path.exists() {
+            match read_manifest_version(&manifest_path) {
+                Some(ref v) if v == current_version => {
+                    println!(
+                        "plan-reviewer: Gemini extension already at v{}",
+                        current_version
+                    );
+                }
+                _ => {
+                    write_gemini_extension_files(home, current_version);
+                }
+            }
+        }
+    }
+
+    // OpenCode: check version comment in .mjs file
+    {
+        use crate::integrations::opencode::{opencode_plugin_path, read_mjs_version};
+        let plugin_path = opencode_plugin_path(home);
+        if plugin_path.exists() {
+            match read_mjs_version(&plugin_path) {
+                Some(ref v) if v == current_version => {
+                    println!(
+                        "plan-reviewer: OpenCode plugin already at v{}",
+                        current_version
+                    );
+                }
+                _ => {
+                    write_opencode_plugin_file(home, current_version);
+                }
+            }
+        }
+    }
+}
+
+/// Read the "version" field from a JSON manifest file (plugin.json or gemini-extension.json).
+/// Returns None if the file cannot be read, parsed, or lacks a "version" string field.
+fn read_manifest_version(manifest_path: &std::path::Path) -> Option<String> {
+    let content = std::fs::read_to_string(manifest_path).ok()?;
+    let json: serde_json::Value = serde_json::from_str(&content).ok()?;
+    json["version"].as_str().map(|s| s.to_string())
+}
+
+/// Write Claude plugin directory files with current version.
+///
+/// Writes .claude-plugin/plugin.json and hooks/hooks.json.
+/// Used during update to refresh stale plugin files without touching settings.json.
+fn write_claude_plugin_files(home: &str, current_version: &str) {
+    use crate::integrations::claude::claude_plugin_dir;
+    let plugin_dir = claude_plugin_dir(home);
+
+    let manifest = serde_json::json!({
+        "name": "plan-reviewer",
+        "version": current_version,
+        "description": "Plan review hook for Claude Code"
+    });
+    let hooks = serde_json::json!({
+        "hooks": {
+            "PermissionRequest": [{
+                "matcher": "ExitPlanMode",
+                "hooks": [{"type": "command", "command": "plan-reviewer"}]
+            }]
+        }
+    });
+
+    let manifest_dir = plugin_dir.join(".claude-plugin");
+    let hooks_dir = plugin_dir.join("hooks");
+    let _ = std::fs::create_dir_all(&manifest_dir);
+    let _ = std::fs::create_dir_all(&hooks_dir);
+    let _ = std::fs::write(
+        manifest_dir.join("plugin.json"),
+        serde_json::to_string_pretty(&manifest).unwrap(),
+    );
+    let _ = std::fs::write(
+        hooks_dir.join("hooks.json"),
+        serde_json::to_string_pretty(&hooks).unwrap(),
+    );
+    println!(
+        "plan-reviewer: Claude plugin files updated to v{}",
+        current_version
+    );
+}
+
+/// Write Gemini extension directory files with current version.
+///
+/// Writes gemini-extension.json and hooks/hooks.json.
+/// Used during update to refresh stale extension files.
+fn write_gemini_extension_files(home: &str, current_version: &str) {
+    use crate::integrations::gemini::gemini_extension_dir;
+    let ext_dir = gemini_extension_dir(home);
+
+    let manifest = serde_json::json!({
+        "name": "plan-reviewer",
+        "version": current_version,
+        "description": "Plan review hook for Gemini CLI"
+    });
+    let hooks = serde_json::json!({
+        "hooks": {
+            "BeforeTool": [{
+                "matcher": "exit_plan_mode",
+                "hooks": [{
+                    "name": "plan-reviewer",
+                    "type": "command",
+                    "command": "plan-reviewer",
+                    "timeout": 300000
+                }]
+            }]
+        }
+    });
+
+    let hooks_dir = ext_dir.join("hooks");
+    let _ = std::fs::create_dir_all(&ext_dir);
+    let _ = std::fs::create_dir_all(&hooks_dir);
+    let _ = std::fs::write(
+        ext_dir.join("gemini-extension.json"),
+        serde_json::to_string_pretty(&manifest).unwrap(),
+    );
+    let _ = std::fs::write(
+        hooks_dir.join("hooks.json"),
+        serde_json::to_string_pretty(&hooks).unwrap(),
+    );
+    println!(
+        "plan-reviewer: Gemini extension files updated to v{}",
+        current_version
+    );
+}
+
+/// Write OpenCode plugin file with current version.
+///
+/// Re-embeds the plugin source with both placeholders replaced.
+/// Uses "plan-reviewer" as binary name (it's in PATH after update).
+fn write_opencode_plugin_file(home: &str, current_version: &str) {
+    use crate::integrations::opencode::opencode_plugin_path;
+    let plugin_path = opencode_plugin_path(home);
+
+    let source = include_str!("integrations/opencode_plugin.mjs")
+        .replace("__PLAN_REVIEWER_BIN__", "plan-reviewer")
+        .replace("__PLAN_REVIEWER_VERSION__", current_version);
+
+    let _ = std::fs::write(&plugin_path, source);
+    println!(
+        "plan-reviewer: OpenCode plugin file updated to v{}",
+        current_version
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    // Helper: write a minimal plugin.json with a given version
+    fn write_plugin_json(path: &std::path::Path, version: &str) {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let json =
+            serde_json::json!({"name": "plan-reviewer", "version": version, "description": "test"});
+        std::fs::write(path, serde_json::to_string_pretty(&json).unwrap()).unwrap();
+    }
+
+    // Helper: write a minimal .mjs plugin file with a version comment
+    fn write_mjs_with_version(path: &std::path::Path, version: &str) {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let content = format!(
+            "// plan-reviewer-opencode.mjs\n// plan-reviewer-version: {}\n// rest of file\n",
+            version
+        );
+        std::fs::write(path, content).unwrap();
+    }
+
+    #[test]
+    fn test_read_manifest_version_valid() {
+        let dir = tempdir().unwrap();
+        let manifest = dir.path().join("plugin.json");
+        std::fs::write(&manifest, r#"{"version":"1.0.0","name":"test"}"#).unwrap();
+
+        assert_eq!(read_manifest_version(&manifest), Some("1.0.0".to_string()));
+    }
+
+    #[test]
+    fn test_read_manifest_version_missing_file() {
+        let dir = tempdir().unwrap();
+        let manifest = dir.path().join("nonexistent.json");
+
+        assert_eq!(read_manifest_version(&manifest), None);
+    }
+
+    #[test]
+    fn test_read_manifest_version_invalid_json() {
+        let dir = tempdir().unwrap();
+        let manifest = dir.path().join("bad.json");
+        std::fs::write(&manifest, "not json").unwrap();
+
+        assert_eq!(read_manifest_version(&manifest), None);
+    }
+
+    #[test]
+    fn test_refresh_rewrites_claude_when_stale() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap();
+
+        // Create plugin dir with stale version
+        let manifest_path = dir
+            .path()
+            .join(".local/share/plan-reviewer/claude-plugin/.claude-plugin/plugin.json");
+        write_plugin_json(&manifest_path, "0.0.1");
+
+        refresh_integrations_with_home(home, "9.9.9");
+
+        let content = std::fs::read_to_string(&manifest_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(
+            json["version"].as_str(),
+            Some("9.9.9"),
+            "plugin.json should be rewritten with new version"
+        );
+    }
+
+    #[test]
+    fn test_refresh_skips_claude_when_current() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap();
+
+        let manifest_path = dir
+            .path()
+            .join(".local/share/plan-reviewer/claude-plugin/.claude-plugin/plugin.json");
+        write_plugin_json(&manifest_path, "1.2.3");
+
+        // Record mtime before
+        let before_meta = std::fs::metadata(&manifest_path).unwrap();
+        let before_modified = before_meta.modified().unwrap();
+
+        // Small sleep to detect mtime change if any
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        refresh_integrations_with_home(home, "1.2.3");
+
+        let after_meta = std::fs::metadata(&manifest_path).unwrap();
+        let after_modified = after_meta.modified().unwrap();
+
+        assert_eq!(
+            before_modified, after_modified,
+            "plugin.json should NOT be rewritten when version matches"
+        );
+    }
+
+    #[test]
+    fn test_refresh_rewrites_gemini_when_stale() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap();
+
+        let manifest_path = dir
+            .path()
+            .join(".gemini/extensions/plan-reviewer/gemini-extension.json");
+        write_plugin_json(&manifest_path, "0.0.1");
+
+        refresh_integrations_with_home(home, "9.9.9");
+
+        let content = std::fs::read_to_string(&manifest_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(
+            json["version"].as_str(),
+            Some("9.9.9"),
+            "gemini-extension.json should be rewritten with new version"
+        );
+    }
+
+    #[test]
+    fn test_refresh_skips_gemini_when_current() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap();
+
+        let manifest_path = dir
+            .path()
+            .join(".gemini/extensions/plan-reviewer/gemini-extension.json");
+        write_plugin_json(&manifest_path, "1.2.3");
+
+        let before_meta = std::fs::metadata(&manifest_path).unwrap();
+        let before_modified = before_meta.modified().unwrap();
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        refresh_integrations_with_home(home, "1.2.3");
+
+        let after_meta = std::fs::metadata(&manifest_path).unwrap();
+        let after_modified = after_meta.modified().unwrap();
+
+        assert_eq!(
+            before_modified, after_modified,
+            "gemini-extension.json should NOT be rewritten when version matches"
+        );
+    }
+
+    #[test]
+    fn test_refresh_rewrites_opencode_when_stale() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap();
+
+        let plugin_path = dir
+            .path()
+            .join(".config/opencode/plugins/plan-reviewer-opencode.mjs");
+        write_mjs_with_version(&plugin_path, "0.0.1");
+
+        refresh_integrations_with_home(home, "9.9.9");
+
+        let content = std::fs::read_to_string(&plugin_path).unwrap();
+        assert!(
+            content.contains("// plan-reviewer-version: 9.9.9"),
+            "mjs file should be rewritten with new version comment"
+        );
+        assert!(
+            !content.contains("__PLAN_REVIEWER_VERSION__"),
+            "placeholder should be replaced"
+        );
+    }
+
+    #[test]
+    fn test_refresh_skips_opencode_when_current() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap();
+
+        let plugin_path = dir
+            .path()
+            .join(".config/opencode/plugins/plan-reviewer-opencode.mjs");
+        write_mjs_with_version(&plugin_path, "1.2.3");
+
+        let before_meta = std::fs::metadata(&plugin_path).unwrap();
+        let before_modified = before_meta.modified().unwrap();
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        refresh_integrations_with_home(home, "1.2.3");
+
+        let after_meta = std::fs::metadata(&plugin_path).unwrap();
+        let after_modified = after_meta.modified().unwrap();
+
+        assert_eq!(
+            before_modified, after_modified,
+            "mjs file should NOT be rewritten when version matches"
+        );
+    }
+
+    #[test]
+    fn test_refresh_skips_absent_integrations() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap();
+
+        // Empty home dir — no integrations installed
+        // Should complete without errors
+        refresh_integrations_with_home(home, "1.0.0");
+
+        // Verify no files were created
+        assert!(
+            !dir.path()
+                .join(".local/share/plan-reviewer/claude-plugin")
+                .exists(),
+            "Claude plugin dir should NOT be created when absent"
+        );
+        assert!(
+            !dir.path().join(".gemini/extensions/plan-reviewer").exists(),
+            "Gemini extension dir should NOT be created when absent"
+        );
+        assert!(
+            !dir.path()
+                .join(".config/opencode/plugins/plan-reviewer-opencode.mjs")
+                .exists(),
+            "OpenCode plugin should NOT be created when absent"
+        );
+    }
 }

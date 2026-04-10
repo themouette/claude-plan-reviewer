@@ -531,7 +531,11 @@ mod tests {
     fn read_mjs_version_extracts_version() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("test.mjs");
-        std::fs::write(&file_path, "// plan-reviewer-opencode.mjs\n// plan-reviewer-version: 1.2.3\n// other comment\n").unwrap();
+        std::fs::write(
+            &file_path,
+            "// plan-reviewer-opencode.mjs\n// plan-reviewer-version: 1.2.3\n// other comment\n",
+        )
+        .unwrap();
 
         let result = read_mjs_version(&file_path);
         assert_eq!(result, Some("1.2.3".to_string()));
