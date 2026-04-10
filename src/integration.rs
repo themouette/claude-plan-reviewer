@@ -1,4 +1,5 @@
 use std::fmt;
+use std::io::IsTerminal;
 use std::path::PathBuf;
 
 /// Slug identifying a supported (or planned) coding-agent integration.
@@ -136,6 +137,119 @@ pub fn claude_is_installed(settings: &serde_json::Value) -> bool {
                 .any(|entry| entry["matcher"].as_str() == Some("ExitPlanMode"))
         })
         .unwrap_or(false)
+}
+
+// ---------------------------------------------------------------------------
+// Interactive TUI picker and integration resolution
+// ---------------------------------------------------------------------------
+
+/// Resolve the list of integration slugs from CLI arguments.
+///
+/// - If `given` is non-empty: parse each string, exit(1) on unknown slug.
+/// - If `given` is empty and stdin is NOT a TTY: print D-08 error and exit(1).
+/// - If `given` is empty and stdin IS a TTY: launch interactive TUI picker.
+pub fn resolve_integrations(given: &[String], prompt: &str) -> Vec<IntegrationSlug> {
+    if !given.is_empty() {
+        let mut slugs = Vec::with_capacity(given.len());
+        for s in given {
+            match IntegrationSlug::from_str(s) {
+                Some(slug) => slugs.push(slug),
+                None => {
+                    eprintln!(
+                        "plan-reviewer: unknown integration '{}'. Valid: claude, opencode, codestral",
+                        s
+                    );
+                    std::process::exit(1);
+                }
+            }
+        }
+        return slugs;
+    }
+
+    // No integration names given — check TTY status (T-04-05 mitigation, D-08)
+    if !std::io::stdin().is_terminal() {
+        eprintln!(
+            "No integrations specified. Run interactively or pass integration names: \
+             plan-reviewer install claude opencode codestral"
+        );
+        std::process::exit(1);
+    }
+
+    show_integration_picker(prompt)
+}
+
+/// Show a TUI multi-select picker for integrations, rendered on stderr.
+///
+/// Pre-checks already-installed integrations so the user sees current state.
+/// Returns the user's selection or exits(0) if nothing is selected / cancelled.
+pub fn show_integration_picker(prompt: &str) -> Vec<IntegrationSlug> {
+    use dialoguer::{MultiSelect, theme::ColorfulTheme};
+    use dialoguer::console::Term;
+
+    let all = all_integrations();
+    let home = std::env::var("HOME").unwrap_or_default();
+
+    // Build display labels with installed/unsupported status
+    let items: Vec<String> = all
+        .iter()
+        .map(|i| {
+            if !i.supported {
+                return format!("{} (not yet supported)", i.display_name);
+            }
+            if i.slug == IntegrationSlug::Claude {
+                let settings = claude_settings_path(&home);
+                if settings.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&settings) {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                            if claude_is_installed(&json) {
+                                return format!("{} (installed)", i.display_name);
+                            }
+                        }
+                    }
+                }
+            }
+            i.display_name.to_string()
+        })
+        .collect();
+
+    // Pre-check already installed integrations
+    let defaults: Vec<bool> = all
+        .iter()
+        .map(|i| {
+            if i.slug == IntegrationSlug::Claude {
+                let settings = claude_settings_path(&home);
+                if settings.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&settings) {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                            return claude_is_installed(&json);
+                        }
+                    }
+                }
+            }
+            false
+        })
+        .collect();
+
+    let selections = MultiSelect::with_theme(&ColorfulTheme::default())
+        .with_prompt(prompt)
+        .items(&items)
+        .defaults(&defaults)
+        .interact_on_opt(&Term::stderr())
+        .unwrap_or_else(|e| {
+            eprintln!("plan-reviewer: picker error: {}", e);
+            std::process::exit(1);
+        });
+
+    match selections {
+        Some(idxs) if !idxs.is_empty() => idxs
+            .into_iter()
+            .map(|i| all[i].slug.clone())
+            .collect(),
+        _ => {
+            eprintln!("No integrations selected.");
+            std::process::exit(0);
+        }
+    }
 }
 
 #[cfg(test)]

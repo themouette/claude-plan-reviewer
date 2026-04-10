@@ -1,8 +1,16 @@
-/// Wire the ExitPlanMode hook into ~/.claude/settings.json.
+use crate::integration::{self, IntegrationSlug};
+
+/// Wire the ExitPlanMode hook into the selected integrations.
 ///
-/// Idempotent: safe to run multiple times. If the hook is already present
-/// (any entry with matcher == "ExitPlanMode"), this is a no-op.
-pub fn run_install() {
+/// `integrations` is a list of integration name strings from CLI args (may be empty).
+/// If empty and stdin is a TTY, an interactive picker is shown. If empty and non-TTY,
+/// exits with a D-08 error message.
+pub fn run_install(integrations: Vec<String>) {
+    let slugs = integration::resolve_integrations(
+        &integrations,
+        "Select integrations to install (Space to toggle, Enter to confirm)",
+    );
+
     // Resolve binary path (written into settings.json as the command)
     let binary_path = match std::env::current_exe() {
         Ok(p) => p.to_string_lossy().into_owned(),
@@ -21,7 +29,34 @@ pub fn run_install() {
         }
     };
 
-    let settings_path = std::path::PathBuf::from(&home).join(".claude/settings.json");
+    for slug in &slugs {
+        let defn = integration::get_integration(slug);
+        if !defn.supported {
+            eprintln!(
+                "plan-reviewer install: {} integration is not yet supported. {}",
+                defn.display_name,
+                defn.unsupported_reason.unwrap_or("")
+            );
+            continue;
+        }
+        match slug {
+            IntegrationSlug::Claude => install_claude(&home, &binary_path),
+            _ => {
+                eprintln!(
+                    "plan-reviewer install: {} integration is not yet supported.",
+                    defn.display_name
+                );
+            }
+        }
+    }
+}
+
+/// Install the ExitPlanMode hook into ~/.claude/settings.json.
+///
+/// Idempotent: safe to run multiple times. If the hook is already present
+/// (any entry with matcher == "ExitPlanMode"), this is a no-op.
+fn install_claude(home: &str, binary_path: &str) {
+    let settings_path = integration::claude_settings_path(home);
 
     // Read existing settings or start with an empty object
     let mut root: serde_json::Value = if settings_path.exists() {
@@ -70,16 +105,8 @@ pub fn run_install() {
         .entry("PermissionRequest")
         .or_insert_with(|| serde_json::json!([]));
 
-    // Idempotency check: scan for any existing ExitPlanMode matcher
-    let already_present = root["hooks"]["PermissionRequest"]
-        .as_array()
-        .map(|arr| {
-            arr.iter()
-                .any(|entry| entry["matcher"].as_str() == Some("ExitPlanMode"))
-        })
-        .unwrap_or(false);
-
-    if already_present {
+    // Idempotency check via integration helper
+    if integration::claude_is_installed(&root) {
         println!(
             "plan-reviewer: ExitPlanMode hook already configured in {} (no changes made)",
             settings_path.display()
@@ -91,15 +118,7 @@ pub fn run_install() {
     root["hooks"]["PermissionRequest"]
         .as_array_mut()
         .unwrap()
-        .push(serde_json::json!({
-            "matcher": "ExitPlanMode",
-            "hooks": [
-                {
-                    "type": "command",
-                    "command": binary_path
-                }
-            ]
-        }));
+        .push(integration::claude_hook_entry(binary_path));
 
     // Write back with pretty-printing (2-space indent, standard serde_json format)
     let output = match serde_json::to_string_pretty(&root) {
@@ -114,15 +133,15 @@ pub fn run_install() {
     };
 
     // Create ~/.claude/ if it doesn't exist
-    if let Some(parent) = settings_path.parent()
-        && let Err(e) = std::fs::create_dir_all(parent)
-    {
-        eprintln!(
-            "plan-reviewer install: cannot create {}: {}",
-            parent.display(),
-            e
-        );
-        std::process::exit(1);
+    if let Some(parent) = settings_path.parent() {
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            eprintln!(
+                "plan-reviewer install: cannot create {}: {}",
+                parent.display(),
+                e
+            );
+            std::process::exit(1);
+        }
     }
 
     if let Err(e) = std::fs::write(&settings_path, output) {
