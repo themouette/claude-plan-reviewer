@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 02-annotations-diff 02-04-PLAN.md — Phase 2 complete
-last_updated: "2026-04-09T20:30:00.000Z"
+status: planning
+stopped_at: Phase 3 context gathered
+last_updated: "2026-04-10T07:13:52.244Z"
 last_activity: 2026-04-09
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 2
   total_plans: 8
   completed_plans: 8
@@ -94,6 +94,10 @@ Recent decisions affecting current work:
 - [Phase 02-annotations-diff]: Tab panels use display:none/block toggle to preserve DOM state across tab switches
 - [Phase 02-annotations-diff]: deny() reads annotation/overallComment state directly via serializeAnnotations; no message parameter passed
 
+### Roadmap Evolution
+
+- Phase 4 added: add subcommands install uninstall update, install and uninstall can either accept a list of integration (claude, opencode...) or offer to chose integrations in an interactive UI. those should be idempotent. update should be modeled after ~/Projects/themouette/claude-vm update subcommand. the current behavior should be moved as a review subcommand that will be invoked if no subcommand is provided.
+
 ### Pending Todos
 
 None yet.
@@ -111,6 +115,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T20:30:00.000Z
-Stopped at: Phase 2 complete — ready to plan Phase 3 (Distribution)
-Resume file: None
+Last session: 2026-04-10T07:13:52.240Z
+Stopped at: Phase 3 context gathered
+Resume file: .planning/phases/03-distribution/03-CONTEXT.md
