@@ -1,6 +1,6 @@
 mod hook;
 mod install;
-mod integration;
+mod integrations;
 mod server;
 mod uninstall;
 mod update;
@@ -100,12 +100,12 @@ struct Cli {
 enum Commands {
     /// Wire the ExitPlanMode hook into one or more integrations (default: interactive picker)
     Install {
-        /// Integration names: claude, opencode, codestral (omit for interactive picker)
+        /// Integration names: claude, gemini, opencode (omit for interactive picker)
         integrations: Vec<String>,
     },
     /// Remove the ExitPlanMode hook from one or more integrations
     Uninstall {
-        /// Integration names: claude, opencode, codestral (omit for interactive picker)
+        /// Integration names: claude, gemini, opencode (omit for interactive picker)
         integrations: Vec<String>,
     },
     /// Update plan-reviewer to the latest version from GitHub releases
