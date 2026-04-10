@@ -1,6 +1,8 @@
 mod hook;
 mod install;
+mod integration;
 mod server;
+mod uninstall;
 
 #[cfg(test)]
 mod tests {
@@ -95,8 +97,16 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Wire the ExitPlanMode hook into ~/.claude/settings.json (Claude Code only)
-    Install,
+    /// Wire the ExitPlanMode hook into one or more integrations (default: interactive picker)
+    Install {
+        /// Integration names: claude, opencode, codestral (omit for interactive picker)
+        integrations: Vec<String>,
+    },
+    /// Remove the ExitPlanMode hook from one or more integrations
+    Uninstall {
+        /// Integration names: claude, opencode, codestral (omit for interactive picker)
+        integrations: Vec<String>,
+    },
 }
 
 /// Extract the unified diff of the working tree against HEAD from the given
@@ -162,9 +172,13 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Some(Commands::Install) => {
+        Some(Commands::Install { integrations }) => {
             // install subcommand: does NOT read stdin
-            install::run_install();
+            install::run_install(integrations.clone());
+        }
+        Some(Commands::Uninstall { integrations }) => {
+            // uninstall subcommand: does NOT read stdin
+            uninstall::run_uninstall(integrations.clone());
         }
         None => {
             // Default: hook review flow — reads stdin JSON
