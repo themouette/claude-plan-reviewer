@@ -3,6 +3,7 @@ mod install;
 mod integration;
 mod server;
 mod uninstall;
+mod update;
 
 #[cfg(test)]
 mod tests {
@@ -107,6 +108,18 @@ enum Commands {
         /// Integration names: claude, opencode, codestral (omit for interactive picker)
         integrations: Vec<String>,
     },
+    /// Update plan-reviewer to the latest version from GitHub releases
+    Update {
+        /// Only check for updates, don't download
+        #[arg(long)]
+        check: bool,
+        /// Pin to a specific version tag (e.g., v0.2.0)
+        #[arg(long)]
+        version: Option<String>,
+        /// Skip confirmation prompt
+        #[arg(short = 'y', long)]
+        yes: bool,
+    },
 }
 
 /// Extract the unified diff of the working tree against HEAD from the given
@@ -179,6 +192,10 @@ fn main() {
         Some(Commands::Uninstall { integrations }) => {
             // uninstall subcommand: does NOT read stdin
             uninstall::run_uninstall(integrations.clone());
+        }
+        Some(Commands::Update { check, version, yes }) => {
+            // update subcommand: does NOT read stdin
+            update::run_update(*check, version.clone(), *yes);
         }
         None => {
             // Default: hook review flow — reads stdin JSON
