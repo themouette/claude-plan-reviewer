@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: Integrations, Annotations & Polish
-status: defining_requirements
-stopped_at: Not started (defining requirements)
+status: ready_to_plan
+stopped_at: Roadmap created — Phase 5 ready to plan
 last_updated: "2026-04-10T00:00:00.000Z"
 last_activity: 2026-04-10
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,45 +21,32 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Milestone v0.3.0 — defining requirements
+**Current focus:** Phase 5 — Integration Architecture
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-04-10 — Milestone v0.3.0 started
+Phase: 5 of 9 (Integration Architecture)
+Plan: — (not yet planned)
+Status: Ready to plan
+Last activity: 2026-04-10 — v0.3.0 roadmap created (Phases 5-9)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [░░░░░░░░░░] 0% (v0.3.0)
 
 ## Performance Metrics
 
-**Velocity:**
+**Velocity (v0.1.0 reference):**
+- Total plans completed (v0.1.0): 14 across 4 phases
 
-- Total plans completed: 3
-- Average duration: —
-- Total execution time: —
-
-**By Phase:**
+**By Phase (v0.1.0):**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 04 | 3 | - | - |
+| 01 hook-review-ui | 4 | - | - |
+| 02 annotations-diff | 4 | - | - |
+| 03 distribution | 3 | - | - |
+| 04 subcommands | 3 | - | - |
 
-**Recent Trend:**
-
-- Last 5 plans: —
-- Trend: —
-
-*Updated after each plan completion*
-| Phase 01-hook-review-ui P01 | 4min | 2 tasks | 4 files |
-| Phase 01-hook-review-ui P02 | 5min | 2 tasks | 2 files |
-| Phase 01-hook-review-ui P03 | 4min | 2 tasks | 12 files |
-| Phase 01-hook-review-ui P04 | 3min | 1 tasks | 2 files |
-| Phase 01-hook-review-ui P04 | 15min | 2 tasks | 2 files |
-| Phase 02-annotations-diff P01 | 4min 26s | 2 tasks | 3 files |
-| Phase 02-annotations-diff P02 | 4min | 2 tasks | 8 files |
-| Phase 02-annotations-diff P03 | 2m 54s | 2 tasks | 3 files |
+*v0.3.0 metrics will populate as plans complete*
 
 ## Accumulated Context
 
@@ -68,43 +55,14 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- Rust over Go: smaller binaries, no runtime, user preference
-- Browser UI over TUI: richer markdown/diff rendering
-- ExitPlanMode hook only: same trigger as plannotator, well-understood protocol
-- curl | sh distribution: no runtime requirement for end users
-- [Phase 01-hook-review-ui]: comrak 0.52 with default-features=false: excludes syntect binary bloat
-- [Phase 01-hook-review-ui]: tokio feature subset (rt/macros/net/time/sync/signal) instead of 'full' to reduce binary size
-- [Phase 01-hook-review-ui]: All Cargo.toml deps declared upfront: Plans 02/03 (parallel Wave 2) need no Cargo.toml edits
-- [Phase 01-hook-review-ui]: CancellationToken dropped after spawn: server runs until process::exit(0); no graceful drain needed for single-user tool
-- [Phase 01-hook-review-ui]: new_current_thread() runtime: single-thread sufficient for local server, reduces overhead
-- [Phase 01-hook-review-ui]: Placeholder GET / handler inline in server.rs: Plan 03 React UI replaces it via rust-embed/axum-embed
-- [Phase 01-hook-review-ui]: React inline styles for design tokens: Tailwind palette lacks exact spec hex values; CSS custom properties via inline styles used
-- [Phase 01-hook-review-ui]: pointerEvents none + opacity 0.4 for disabled deny submit: avoids focus/keyboard issues from disabled HTML attribute
-- [Phase 01-hook-review-ui]: Enter in deny textarea submits denial (not approve): matches form UX when textarea is active; global handler excludes TEXTAREA via activeElement check
-- [Phase 01-hook-review-ui]: FallbackBehavior::Ok for SPA routing: unknown paths return index.html with HTTP 200 — correct for client-side routed React app
-- [Phase 01-hook-review-ui]: pub struct Assets: exposes RustEmbed struct to main.rs for debug-mode asset check without coupling logic to server module
-- [Phase 01-hook-review-ui]: FallbackBehavior::Ok for SPA routing: unknown paths return index.html with HTTP 200 — correct for client-side routed React app
-- [Phase 01-hook-review-ui]: pub struct Assets: exposes RustEmbed struct to main.rs for debug-mode asset check without coupling logic to server module
-- [Phase 02-annotations-diff]: git2 feature is vendored-libgit2 not vendored in 0.20.x
-- [Phase 02-annotations-diff]: diff_content flows from extract_diff in main() through async_main parameter to start_server; no global state
-- [Phase 02-annotations-diff]: vitest added as devDependency with test script for serializeAnnotations unit tests
-- [Phase 02-annotations-diff]: Sub-components (OverallCommentField, AnnotationCard, AddAnnotationAffordance) defined in AnnotationSidebar.tsx but not exported
-- [Phase 02-annotations-diff]: CSS variable fallback pattern: var(--color-tab-active, #f1f5f9) so components work before Plan 03 adds tokens to index.css
-- [Phase 02-annotations-diff]: onMouseDown e.preventDefault() on annotation pills: critical Pitfall 1 guard preventing selection clearing before click fires
-- [Phase 02-annotations-diff]: Tab panels use display:none/block toggle to preserve DOM state across tab switches
-- [Phase 02-annotations-diff]: deny() reads annotation/overallComment state directly via serializeAnnotations; no message parameter passed
+- Research: Codex CLI deferred — no ExitPlanMode equivalent; PreToolUse is per-command, not plan-level
+- Research: GitHub Copilot deferred — no plan-level hook; per-project config contradicts curl | sh UX
+- Research: Gemini CLI uses `plan_path` file read instead of inline plan JSON — adapter must read from disk
+- Architecture: Integration trait refactor (Phase 5) is prerequisite for Phases 6 and 7
 
 ### Roadmap Evolution
 
 - Phase 4 added: add subcommands install uninstall update, install and uninstall can either accept a list of integration (claude, opencode...) or offer to chose integrations in an interactive UI. those should be idempotent. update should be modeled after ~/Projects/themouette/claude-vm update subcommand. the current behavior should be moved as a review subcommand that will be invoked if no subcommand is provided.
-
-### Pending Todos
-
-None yet.
-
-### Blockers/Concerns
-
-None.
 
 ### Quick Tasks Completed
 
@@ -112,8 +70,18 @@ None.
 |---|-------------|------|--------|-----------|
 | 260409-kev | Add ammonia crate to sanitize javascript URIs in render.rs closing T-01-04 and T-03-01 | 2026-04-09 | c1e1032 | [260409-kev-add-ammonia-crate-to-sanitize-javascript](.planning/quick/260409-kev-add-ammonia-crate-to-sanitize-javascript/) |
 
+### Pending Todos
+
+None yet.
+
+### Blockers/Concerns
+
+- [Phase 6] Gemini CLI denial retry behavior unconfirmed — agent may loop on repeated `exit_plan_mode` denial; needs integration test
+- [Phase 6] Full `tool_input` schema for Gemini `exit_plan_mode` partially documented — `plan_path` confirmed, other fields unknown
+- [Phase 7] opencode JS plugin bundling strategy not yet designed — needs a plan
+
 ## Session Continuity
 
 Last session: 2026-04-10
-Stopped at: Milestone v0.3.0 started — defining requirements
-Resume file: —
+Stopped at: v0.3.0 roadmap created — Phases 5-9 defined, ready to plan Phase 5
+Resume file: None
