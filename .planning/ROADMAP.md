@@ -43,7 +43,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 
 Plans:
 - [x] 05-01-PLAN.md — Refactor integration.rs into integrations/ module tree with Integration trait, migrate Claude impl, add Gemini/Opencode stubs, simplify dispatch
-- [ ] 05-02-PLAN.md — Gap closure: update top-level CLI about text to list supported integrations
+- [x] 05-02-PLAN.md — Gap closure: update top-level CLI about text to list supported integrations
 
 ### Phase 6: Gemini CLI Integration
 **Goal**: Users can install and uninstall plan-reviewer as a Gemini CLI `BeforeTool exit_plan_mode` hook via `plan-reviewer install gemini` and `plan-reviewer uninstall gemini`; the hook reads the plan from `tool_input.plan_path` and runs the full browser review flow
