@@ -217,46 +217,50 @@ function HelpView() {
   return (
     <div style={{ maxWidth: '640px' }}>
       <h1 style={{ fontSize: '22px', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
-        claude-plan-reviewer
+        plan-reviewer
       </h1>
       <p style={{ ...pStyle, marginTop: 0 }}>
-        Intercepts Claude Code's <code style={inlineCode}>ExitPlanMode</code> hook, opens a local
-        browser tab to review the plan, and returns approve/deny + annotations as JSON on stdout.
+        Intercepts plan approval hooks for Claude Code, Gemini CLI, and OpenCode. Opens a local
+        browser tab to review the plan and returns approve/deny + annotations as JSON on stdout.
       </p>
 
-      <h2 style={h2Style}>Disabling the hook</h2>
+      <h2 style={h2Style}>Installing</h2>
       <p style={pStyle}>
-        The hook can be configured in two places. Check both and remove the{' '}
-        <code style={inlineCode}>PermissionRequest</code> block wherever it appears:
+        Use the <code style={inlineCode}>install</code> subcommand to wire <code style={inlineCode}>plan-reviewer</code> into your AI coding tool:
+      </p>
+      <code style={codeStyle}>{`plan-reviewer install claude
+plan-reviewer install gemini
+plan-reviewer install opencode`}</code>
+      <p style={pStyle}>What each integration installs:</p>
+      <p style={pStyle}>
+        <strong>claude</strong> — Creates a plugin directory at{' '}
+        <code style={inlineCode}>~/.local/share/plan-reviewer/claude-plugin/</code> and registers
+        it in <code style={inlineCode}>~/.claude/settings.json</code>.
       </p>
       <p style={pStyle}>
-        <strong>Global</strong> (all projects):{' '}
-        <code style={inlineCode}>~/.claude/settings.json</code>
+        <strong>gemini</strong> — Writes an extension directory at{' '}
+        <code style={inlineCode}>~/.gemini/extensions/plan-reviewer/</code>. Gemini CLI
+        auto-discovers extensions in this location — no settings file editing needed.
       </p>
       <p style={pStyle}>
-        <strong>Project-local</strong> (one project):{' '}
-        <code style={inlineCode}>.claude/settings.json</code> in the project root
+        <strong>opencode</strong> — Installs a plugin file at{' '}
+        <code style={inlineCode}>~/.config/opencode/plugins/plan-reviewer-opencode.mjs</code>.
       </p>
-      <code style={codeStyle}>{`"hooks": {
-  "PermissionRequest": [
-    {
-      "matcher": "ExitPlanMode",
-      "hooks": [{ "type": "command", "command": "claude-plan-reviewer" }]
-    }
-  ]
-}`}</code>
-      <p style={pStyle}>Remove that block (and the <code style={inlineCode}>"hooks"</code> key if it becomes empty) to disable the reviewer.</p>
+
+      <h2 style={h2Style}>Uninstalling</h2>
+      <p style={pStyle}>
+        Use the <code style={inlineCode}>uninstall</code> subcommand to remove the integration:
+      </p>
+      <code style={codeStyle}>{`plan-reviewer uninstall claude
+plan-reviewer uninstall gemini
+plan-reviewer uninstall opencode`}</code>
 
       <h2 style={h2Style}>Skipping the browser</h2>
       <p style={pStyle}>
         Run with <code style={inlineCode}>--no-browser</code> to start the server and print the
         review URL to stderr without auto-opening a tab:
       </p>
-      <code style={codeStyle}>claude-plan-reviewer --no-browser</code>
-
-      <h2 style={h2Style}>Uninstalling</h2>
-      <code style={codeStyle}>rm $(which claude-plan-reviewer)</code>
-      <p style={pStyle}>Then remove the hook from whichever settings file it was added to.</p>
+      <code style={codeStyle}>plan-reviewer --no-browser</code>
     </div>
   )
 }
