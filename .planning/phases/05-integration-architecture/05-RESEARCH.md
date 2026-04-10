@@ -359,7 +359,7 @@ Step 2.6: SKIPPED — this phase has no external dependencies. It is a pure Rust
 | A2 | `process::exit(1)` calls inside trait method bodies should become `Err(...)` returns, with exit handled by caller | Code Examples | Low — locked by D-04; if wrong, integration-specific exit calls would bypass the caller's error handling |
 | A3 | Passing empty string for `binary_path` in `show_integration_picker` is safe because `is_installed` for Claude ignores it | Pitfalls §Pitfall 1 | Low — confirmed by reading `claude_is_installed()` which checks only `settings.json` contents, never binary path |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `InstallContext.binary_path` be `Option<String>`?**
    - What we know: `is_installed()` does not use `binary_path`; `uninstall()` does not use it either; only `install()` uses it
