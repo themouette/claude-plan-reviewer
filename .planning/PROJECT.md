@@ -12,15 +12,17 @@ One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no work
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Single binary distribution: curl | sh installer downloads pre-built binary from GitHub releases (Validated in Phase 03)
+- [x] Claude Code hook integration: minimal settings.json config, compatible with ExitPlanMode PermissionRequest hook protocol (Validated in Phase 01)
+- [x] Plan review: binary intercepts ExitPlanMode hook, renders plan in browser, returns approve/deny + annotations via stdout JSON (Validated in Phase 01)
+- [x] Code diff review: visual diff display alongside plan review (Validated in Phase 02)
+- [x] Embedded browser UI: binary spawns local HTTP server and opens browser tab, all assets embedded in binary (Validated in Phase 02)
+- [x] install/uninstall subcommands: binary manages its own Claude Code hook wiring/unwiring (Validated in Phase 04)
+- [x] update subcommand: binary self-updates from GitHub releases (Validated in Phase 04)
 
 ### Active
 
-- [ ] Plan review: binary intercepts ExitPlanMode hook, renders plan in browser, returns approve/deny + annotations via stdout JSON
-- [ ] Code diff review: visual diff display alongside plan review
-- [ ] Embedded browser UI: binary spawns local HTTP server and opens browser tab, all assets embedded in binary
-- [ ] Single binary distribution: curl | sh installer downloads pre-built binary from GitHub releases
-- [ ] Claude Code hook integration: minimal settings.json config, compatible with ExitPlanMode PermissionRequest hook protocol
+(All v0.1.0 requirements validated — see Validated above)
 
 ### Out of Scope
 
@@ -72,4 +74,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-09 after initialization*
+*Last updated: 2026-04-10 after Phase 04 completion — all v0.1.0 requirements validated*
