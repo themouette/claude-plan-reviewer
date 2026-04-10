@@ -27,7 +27,9 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 - [ ] **Phase 6: Gemini CLI Integration** - Wire Gemini CLI `BeforeTool exit_plan_mode` hook with install/uninstall subcommands
 - [ ] **Phase 6.1: Integration Test Harness** - Add `--no-browser`/`--port` flags and `assert_cmd`-based integration tests covering hook flow, install/uninstall, and server approve/deny cycle without touching real system config
 - [x] **Phase 7: opencode Integration** - Wire opencode hook with bundled JS plugin install/uninstall (completed 2026-04-10)
-- [ ] **Phase 7.1: Review File Subcommand** - Add `review <file>` subcommand for standalone markdown review with neutral JSON output
+- [ ] **Phase 7.2: Integration Plugin/Extension Infrastructure** - Move Claude and Gemini integrations to plugin/extension model; add version-aware update refresh
+- [ ] **Phase 7.3: Hook Subcommand** - Add explicit `plan-reviewer hook` subcommand with backward-compat fallback
+- [ ] **Phase 7.4: Review File Subcommand** - Add `review <file>` subcommand for standalone markdown review with neutral JSON output
 - [ ] **Phase 8: Annotation Quick-Actions & Theme** - Add predefined annotation actions and persistent light/dark theme switcher
 - [ ] **Phase 9: Documentation** - Write README install/usage guide and per-integration wiring docs
 
@@ -84,9 +86,37 @@ Plans:
 - [x] 07-02-PLAN.md — Hook flow extension for --plan-file opencode invocation
 **UI hint**: yes
 
-### Phase 07.1: Add review <file> subcommand
-**Goal**: Users can run `plan-reviewer review <file.md>` to open any markdown file in the browser review UI and receive a neutral `{"behavior":"allow"|"deny"}` JSON decision on stdout — no hook JSON construction needed, enabling scripts and agent workflows to use plan-reviewer as a standalone review tool
+### Phase 07.2: Integration Plugin/Extension Infrastructure (INSERTED)
+
+**Goal:** Claude and Gemini integrations use the plugin/extension model. Hook config lives in files plan-reviewer owns. `update` can rewrite them without touching user settings.
+**Requirements**: INTEG-05
 **Depends on:** Phase 7
+**Success Criteria** (what must be TRUE):
+  1. `plan-reviewer install claude` writes a plugin directory at `~/.local/share/plan-reviewer/claude-plugin/` with manifest and hooks config, plus two registration entries in `~/.claude/settings.json`
+  2. `plan-reviewer install gemini` writes an extension directory at `~/.gemini/extensions/plan-reviewer/` with manifest and hooks config (no settings.json needed)
+  3. `plan-reviewer update` detects installed integrations via manifest presence and rewrites stale plugin/extension files
+  4. OpenCode plugin file includes a version comment enabling version-aware update
+  5. All install/uninstall operations are idempotent
+**Plans:** 3 plans
+
+Plans:
+- [ ] 07.2-01-PLAN.md — Claude Code plugin directory + settings.json registration
+- [ ] 07.2-02-PLAN.md — Gemini CLI extension directory with auto-discovery
+- [ ] 07.2-03-PLAN.md — OpenCode version comment + post-update integration refresh
+
+### Phase 07.3: Hook Subcommand (INSERTED)
+
+**Goal:** The nameless default behaviour (`plan-reviewer` reads stdin JSON) becomes an explicit `plan-reviewer hook` subcommand. Existing installs migrate automatically on next `update`.
+**Requirements**: TBD
+**Depends on:** Phase 07.2
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 07.3 to break down)
+
+### Phase 07.4: Add review <file> subcommand
+**Goal**: Users can run `plan-reviewer review <file.md>` to open any markdown file in the browser review UI and receive a neutral `{"behavior":"allow"|"deny"}` JSON decision on stdout — no hook JSON construction needed, enabling scripts and agent workflows to use plan-reviewer as a standalone review tool
+**Depends on:** Phase 07.3
 **Requirements**: REVIEW-01, REVIEW-02, REVIEW-03
 **Success Criteria** (what must be TRUE):
   1. `plan-reviewer review <file.md>` opens the browser UI with the file content rendered as HTML
@@ -95,7 +125,7 @@ Plans:
   4. The review subcommand never reads stdin — safe to invoke without piped input
 **Plans:** 1 plan
 Plans:
-- [ ] 07.1-01-PLAN.md — Add Review subcommand + integration tests
+- [ ] 07.4-01-PLAN.md — Add Review subcommand + integration tests
 
 ### Phase 8: Annotation Quick-Actions & Theme
 **Goal**: Users have six predefined annotation quick-actions that pre-fill the comment field with one click; the browser UI supports toggling between light and dark mode, the preference persists across sessions, and the UI defaults to OS preference on first load
@@ -132,6 +162,8 @@ Plans:
 | 6. Gemini CLI Integration | v0.3.0 | 0/? | Not started | - |
 | 6.1. Integration Test Harness | v0.3.0 | 0/3 | Planned | - |
 | 7. opencode Integration | v0.3.0 | 2/2 | Complete    | 2026-04-10 |
-| 7.1. Review File Subcommand | v0.3.0 | 0/1 | Planned | - |
+| 7.2. Integration Plugin Infrastructure | v0.3.0 | 0/3 | Planned | - |
+| 7.3. Hook Subcommand | v0.3.0 | 0/? | Not started | - |
+| 7.4. Review File Subcommand | v0.3.0 | 0/1 | Planned | - |
 | 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/? | Not started | - |
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |
