@@ -1,12 +1,12 @@
 #!/bin/sh
 # install.sh — plan-reviewer installer
 # Installs the plan-reviewer binary to ~/.local/bin and wires the Claude Code hook.
-# Usage: curl -fsSL https://raw.githubusercontent.com/OWNER/claude-plan-reviewer/main/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/themouette/claude-plan-reviewer/main/install.sh | sh
 #
-# NOTE: Replace OWNER with the actual GitHub username/org before publishing a release.
+# Repository: https://github.com/themouette/claude-plan-reviewer
 set -eu
 
-REPO="OWNER/claude-plan-reviewer"
+REPO="themouette/claude-plan-reviewer"
 INSTALL_DIR="${HOME}/.local/bin"
 BINARY="plan-reviewer"
 
