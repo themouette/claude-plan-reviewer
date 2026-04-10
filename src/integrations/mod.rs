@@ -75,7 +75,7 @@ impl IntegrationSlug {
     pub fn is_available(&self) -> bool {
         match self {
             Self::Claude => true,
-            Self::Gemini => false,
+            Self::Gemini => true,
             Self::Opencode => false,
         }
     }
@@ -271,19 +271,18 @@ mod tests {
     }
 
     #[test]
-    fn gemini_stub_returns_err() {
+    fn gemini_integration_requires_binary_path() {
         let integration = gemini::GeminiIntegration;
         let ctx = InstallContext {
-            home: "/tmp".to_string(),
+            home: "/tmp/nonexistent-gemini-test".to_string(),
             binary_path: None,
         };
         let result = integration.install(&ctx);
-        assert!(result.is_err());
+        assert!(result.is_err(), "install without binary_path should fail");
         assert!(
-            result.unwrap_err().contains("not yet implemented"),
-            "gemini install error should mention 'not yet implemented'"
+            !integration.is_installed(&ctx),
+            "is_installed should be false for missing dir"
         );
-        assert!(!integration.is_installed(&ctx));
     }
 
     #[test]
