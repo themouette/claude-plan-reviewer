@@ -76,7 +76,7 @@ impl IntegrationSlug {
         match self {
             Self::Claude => true,
             Self::Gemini => true,
-            Self::Opencode => false,
+            Self::Opencode => true,
         }
     }
 
@@ -286,18 +286,17 @@ mod tests {
     }
 
     #[test]
-    fn opencode_stub_returns_err() {
+    fn opencode_integration_requires_binary_path() {
         let integration = opencode::OpenCodeIntegration;
         let ctx = InstallContext {
-            home: "/tmp".to_string(),
+            home: "/tmp/nonexistent-opencode-test".to_string(),
             binary_path: None,
         };
         let result = integration.install(&ctx);
-        assert!(result.is_err());
+        assert!(result.is_err(), "install without binary_path should fail");
         assert!(
-            result.unwrap_err().contains("not yet implemented"),
-            "opencode install error should mention 'not yet implemented'"
+            !integration.is_installed(&ctx),
+            "is_installed should be false for missing dir"
         );
-        assert!(!integration.is_installed(&ctx));
     }
 }
