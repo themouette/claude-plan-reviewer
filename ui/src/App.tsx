@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Annotation, AnnotationType, OutlineItem, Tab, ViewMode } from './types'
 import { serializeAnnotations } from './utils/serializeAnnotations'
 import { useTextSelection, rangeFromOffsets } from './hooks/useTextSelection'
@@ -476,6 +476,27 @@ export default function App() {
       .catch(() => setDiff(''))
   }, [])
 
+  // --- Decision handlers ---
+
+  const approve = useCallback(async () => {
+    if (appState !== 'reviewing') return
+    try {
+      const res = await fetch('/api/decide', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ behavior: 'allow' }),
+      })
+      if (res.ok || res.status === 409) {
+        setDecision('allow')
+        setAppState('confirmed')
+      } else {
+        setAppState('error')
+      }
+    } catch {
+      setAppState('error')
+    }
+  }, [appState])
+
   // Global Enter key handler for approve shortcut
   useEffect(() => {
     if (appState !== 'reviewing') return
@@ -491,7 +512,7 @@ export default function App() {
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [appState, denyOpen])
+  }, [appState, denyOpen, approve])
 
   // Escape key handler to close deny form
   useEffect(() => {
@@ -541,7 +562,7 @@ export default function App() {
       top: rangeRect.bottom - containerRect.top + planTabRef.current.scrollTop + 6,
       left: Math.max(0, rangeRect.left - containerRect.left),
     })
-  }, [selectedText])
+  }, [selectedText, getSelectionOffsets])
 
   // Hover over annotated text → highlight matching sidebar card.
   // Attached to document (not planRef) so it works regardless of when the plan
@@ -629,15 +650,21 @@ export default function App() {
       else if (a.type === 'delete') del.push(range)
       else replace.push(range)
     }
-    comment.length > 0
-      ? CSS.highlights.set('annotation-comment', new Highlight(...comment))
-      : CSS.highlights.delete('annotation-comment')
-    del.length > 0
-      ? CSS.highlights.set('annotation-delete', new Highlight(...del))
-      : CSS.highlights.delete('annotation-delete')
-    replace.length > 0
-      ? CSS.highlights.set('annotation-replace', new Highlight(...replace))
-      : CSS.highlights.delete('annotation-replace')
+    if (comment.length > 0) {
+      CSS.highlights.set('annotation-comment', new Highlight(...comment))
+    } else {
+      CSS.highlights.delete('annotation-comment')
+    }
+    if (del.length > 0) {
+      CSS.highlights.set('annotation-delete', new Highlight(...del))
+    } else {
+      CSS.highlights.delete('annotation-delete')
+    }
+    if (replace.length > 0) {
+      CSS.highlights.set('annotation-replace', new Highlight(...replace))
+    } else {
+      CSS.highlights.delete('annotation-replace')
+    }
   })
 
   // --- Aligned card layout ---
@@ -658,21 +685,28 @@ export default function App() {
   }
 
   // Count annotations per outline section using character offsets.
+  // annotationOffsetsRef and headingCharOffsetsRef are always updated alongside
+  // their corresponding state deps (annotations, outlineItems), so reading them
+  // here is safe even though the refs themselves don't trigger re-computation.
+  /* eslint-disable react-hooks/refs */
   const annotationCountsBySection = useMemo(() => {
     const counts = new Map<string, number>()
     if (outlineItems.length === 0) return counts
+    const offsetsSnapshot = annotationOffsetsRef.current
+    const headingOffsets = headingCharOffsetsRef.current
     for (const ann of annotations) {
-      const annStart = annotationOffsetsRef.current.get(ann.id)?.start
+      const annStart = offsetsSnapshot.get(ann.id)?.start
       if (annStart === undefined) continue
       let sectionId: string | null = null
       for (const item of outlineItems) {
-        if ((headingCharOffsetsRef.current.get(item.id) ?? 0) <= annStart) sectionId = item.id
+        if ((headingOffsets.get(item.id) ?? 0) <= annStart) sectionId = item.id
         else break
       }
       if (sectionId !== null) counts.set(sectionId, (counts.get(sectionId) ?? 0) + 1)
     }
     return counts
   }, [annotations, outlineItems])
+  /* eslint-enable react-hooks/refs */
 
   function handleOutlineClick(id: string) {
     const container = planTabRef.current
@@ -806,27 +840,6 @@ export default function App() {
     setAnnotations((prev) =>
       prev.map((a) => (a.id === id ? { ...a, [field]: value } : a))
     )
-  }
-
-  // --- Decision handlers ---
-
-  async function approve() {
-    if (appState !== 'reviewing') return
-    try {
-      const res = await fetch('/api/decide', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ behavior: 'allow' }),
-      })
-      if (res.ok || res.status === 409) {
-        setDecision('allow')
-        setAppState('confirmed')
-      } else {
-        setAppState('error')
-      }
-    } catch {
-      setAppState('error')
-    }
   }
 
   async function deny() {
