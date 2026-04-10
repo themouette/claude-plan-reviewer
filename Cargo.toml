@@ -21,7 +21,7 @@ git2 = { version = "0.20", features = ["vendored-libgit2", "vendored-openssl"] }
 ammonia = "4"
 clap = { version = "4", features = ["derive"] }
 webbrowser = "1"
-self_update = { version = "0.44", default-features = false, features = ["archive-tar", "compression-flate2", "rustls"] }
+self_update = { version = "0.44", default-features = false, features = ["archive-tar", "compression-flate2", "reqwest", "rustls"] }
 dialoguer = "0.12"
 
 [dev-dependencies]
