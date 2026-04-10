@@ -27,6 +27,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 - [ ] **Phase 6: Gemini CLI Integration** - Wire Gemini CLI `BeforeTool exit_plan_mode` hook with install/uninstall subcommands
 - [ ] **Phase 6.1: Integration Test Harness** - Add `--no-browser`/`--port` flags and `assert_cmd`-based integration tests covering hook flow, install/uninstall, and server approve/deny cycle without touching real system config
 - [x] **Phase 7: opencode Integration** - Wire opencode hook with bundled JS plugin install/uninstall (completed 2026-04-10)
+- [ ] **Phase 7.1: Review File Subcommand** - Add `review <file>` subcommand for standalone markdown review with neutral JSON output
 - [ ] **Phase 8: Annotation Quick-Actions & Theme** - Add predefined annotation actions and persistent light/dark theme switcher
 - [ ] **Phase 9: Documentation** - Write README install/usage guide and per-integration wiring docs
 
@@ -83,15 +84,18 @@ Plans:
 - [x] 07-02-PLAN.md — Hook flow extension for --plan-file opencode invocation
 **UI hint**: yes
 
-### Phase 07.1: Add review <file> subcommand so any markdown file can be reviewed without constructing hook JSON — outputs neutral {behavior} decision for use in scripts and agent workflows (INSERTED)
-
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+### Phase 07.1: Add review <file> subcommand
+**Goal**: Users can run `plan-reviewer review <file.md>` to open any markdown file in the browser review UI and receive a neutral `{"behavior":"allow"|"deny"}` JSON decision on stdout — no hook JSON construction needed, enabling scripts and agent workflows to use plan-reviewer as a standalone review tool
 **Depends on:** Phase 7
-**Plans:** 0 plans
-
+**Requirements**: REVIEW-01, REVIEW-02, REVIEW-03
+**Success Criteria** (what must be TRUE):
+  1. `plan-reviewer review <file.md>` opens the browser UI with the file content rendered as HTML
+  2. Approving or denying in the browser outputs neutral `{"behavior":"allow"|"deny"}` JSON to stdout
+  3. Running `plan-reviewer review <nonexistent>` exits with code 1 and a descriptive error on stderr
+  4. The review subcommand never reads stdin — safe to invoke without piped input
+**Plans:** 1 plan
 Plans:
-- [ ] TBD (run /gsd-plan-phase 07.1 to break down)
+- [ ] 07.1-01-PLAN.md — Add Review subcommand + integration tests
 
 ### Phase 8: Annotation Quick-Actions & Theme
 **Goal**: Users have six predefined annotation quick-actions that pre-fill the comment field with one click; the browser UI supports toggling between light and dark mode, the preference persists across sessions, and the UI defaults to OS preference on first load
@@ -128,5 +132,6 @@ Plans:
 | 6. Gemini CLI Integration | v0.3.0 | 0/? | Not started | - |
 | 6.1. Integration Test Harness | v0.3.0 | 0/3 | Planned | - |
 | 7. opencode Integration | v0.3.0 | 2/2 | Complete    | 2026-04-10 |
+| 7.1. Review File Subcommand | v0.3.0 | 0/1 | Planned | - |
 | 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/? | Not started | - |
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |
