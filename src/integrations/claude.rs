@@ -83,7 +83,7 @@ impl Integration for ClaudeIntegration {
                 "PermissionRequest": [
                     {
                         "matcher": "ExitPlanMode",
-                        "hooks": [{"type": "command", "command": "plan-reviewer"}]
+                        "hooks": [{"type": "command", "command": "plan-reviewer review-hook"}]
                     }
                 ]
             }
@@ -554,9 +554,30 @@ mod tests {
         assert!(
             permission_requests.iter().any(|entry| {
                 entry["matcher"].as_str() == Some("ExitPlanMode")
-                    && entry["hooks"][0]["command"].as_str() == Some("plan-reviewer")
+                    && entry["hooks"][0]["command"].as_str() == Some("plan-reviewer review-hook")
             }),
-            "hooks.json must contain ExitPlanMode hook with 'plan-reviewer' command"
+            "hooks.json must contain ExitPlanMode hook with 'plan-reviewer review-hook' command"
+        );
+    }
+
+    #[test]
+    fn install_writes_hook_command_with_hook_subcommand() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let hooks_path = claude_plugin_dir(&home).join("hooks/hooks.json");
+        let content = std::fs::read_to_string(&hooks_path).unwrap();
+        assert!(
+            content.contains("plan-reviewer review-hook"),
+            "hooks.json command should be 'plan-reviewer review-hook', got: {}",
+            content
         );
     }
 
