@@ -15,6 +15,12 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [ ] **INTEG-04**: User can run `plan-reviewer uninstall opencode` to remove opencode integration (removes plugin file and config entry)
 - [ ] **INTEG-05**: All install/uninstall commands are idempotent — safe to run multiple times without corrupting config
 
+### Integration Tests
+
+- [ ] **TEST-01**: Integration tests for hook stdin→stdout flow run without opening a browser or touching real system config
+- [ ] **TEST-02**: Integration tests for install/uninstall commands run with HOME isolated to a tmpdir
+- [ ] **TEST-03**: Integration tests for the full server approve/deny cycle run by POSTing to a known local port
+
 ### Annotation Actions
 
 - [ ] **ANNOT-01**: User can apply a predefined quick-action (clarify this, needs test, give me an example, out of scope, search internet, search codebase) with one click
@@ -56,6 +62,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| TEST-01 | Phase 6.1 | Pending |
+| TEST-02 | Phase 6.1 | Pending |
+| TEST-03 | Phase 6.1 | Pending |
 | INTEG-01 | Phase 6 | Pending |
 | INTEG-02 | Phase 6 | Pending |
 | INTEG-03 | Phase 7 | Pending |
@@ -72,8 +81,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DOCS-03 | Phase 9 | Pending |
 
 **Coverage:**
-- v0.3.0 requirements: 14 total
-- Mapped to phases: 14
+- v0.3.0 requirements: 17 total
+- Mapped to phases: 17
 - Unmapped: 0 ✓
 
 ---
