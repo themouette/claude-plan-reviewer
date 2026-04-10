@@ -2,25 +2,109 @@ use super::{InstallContext, Integration};
 use std::path::PathBuf;
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const MARKETPLACE_NAME: &str = "plan-reviewer-local";
+const PLUGIN_KEY: &str = "plan-reviewer@plan-reviewer-local";
+
+// ---------------------------------------------------------------------------
 // ClaudeIntegration
 // ---------------------------------------------------------------------------
 
 /// Full install/uninstall implementation for Claude Code.
+///
+/// Uses the Claude Code plugin directory model. Hook config lives in files
+/// plan-reviewer owns (~/.local/share/plan-reviewer/claude-plugin/), enabling
+/// version-aware rewrites by `update`. The old bare PermissionRequest entry
+/// (if present from a previous install) is left in place for Phase 07.3 migration.
 pub struct ClaudeIntegration;
 
 impl Integration for ClaudeIntegration {
-    /// Wire the ExitPlanMode hook into ~/.claude/settings.json.
+    /// Install the Claude Code plugin directory and register it in settings.json.
     ///
-    /// Idempotent: safe to run multiple times. If the hook is already present
-    /// (any entry with matcher == "ExitPlanMode"), returns Ok(()) immediately.
+    /// Writes:
+    ///   {home}/.local/share/plan-reviewer/claude-plugin/.claude-plugin/plugin.json
+    ///   {home}/.local/share/plan-reviewer/claude-plugin/hooks/hooks.json
+    ///
+    /// Adds to ~/.claude/settings.json:
+    ///   extraKnownMarketplaces["plan-reviewer-local"] (directory source)
+    ///   enabledPlugins["plan-reviewer@plan-reviewer-local"] = true
+    ///
+    /// Idempotent: if enabledPlugins[PLUGIN_KEY] already exists, returns Ok(())
+    /// without duplicating entries.
     fn install(&self, ctx: &InstallContext) -> Result<(), String> {
-        let binary_path = ctx
+        let _binary_path = ctx
             .binary_path
             .as_deref()
             .ok_or_else(|| "install requires a binary_path — none was provided".to_string())?;
+
+        let plugin_dir = claude_plugin_dir(&ctx.home);
         let settings_path = claude_settings_path(&ctx.home);
 
-        // Read existing settings or start with an empty object
+        // ------------------------------------------------------------------
+        // Step 1: Write plugin directory files
+        // ------------------------------------------------------------------
+
+        // Write .claude-plugin/plugin.json
+        let manifest_dir = plugin_dir.join(".claude-plugin");
+        if let Err(e) = std::fs::create_dir_all(&manifest_dir) {
+            return Err(format!("cannot create {}: {}", manifest_dir.display(), e));
+        }
+        let plugin_json = serde_json::json!({
+            "name": "plan-reviewer",
+            "version": crate_version(),
+            "description": "Plan review hook for Claude Code"
+        });
+        let plugin_json_str = match serde_json::to_string_pretty(&plugin_json) {
+            Ok(s) => s,
+            Err(e) => return Err(format!("cannot serialize plugin.json: {}", e)),
+        };
+        let plugin_json_path = manifest_dir.join("plugin.json");
+        if let Err(e) = std::fs::write(&plugin_json_path, &plugin_json_str) {
+            return Err(format!(
+                "cannot write {}: {}",
+                plugin_json_path.display(),
+                e
+            ));
+        }
+        println!(
+            "plan-reviewer: plugin manifest written to {}",
+            plugin_json_path.display()
+        );
+
+        // Write hooks/hooks.json
+        let hooks_dir = plugin_dir.join("hooks");
+        if let Err(e) = std::fs::create_dir_all(&hooks_dir) {
+            return Err(format!("cannot create {}: {}", hooks_dir.display(), e));
+        }
+        let hooks_json = serde_json::json!({
+            "hooks": {
+                "PermissionRequest": [
+                    {
+                        "matcher": "ExitPlanMode",
+                        "hooks": [{"type": "command", "command": "plan-reviewer"}]
+                    }
+                ]
+            }
+        });
+        let hooks_json_str = match serde_json::to_string_pretty(&hooks_json) {
+            Ok(s) => s,
+            Err(e) => return Err(format!("cannot serialize hooks.json: {}", e)),
+        };
+        let hooks_json_path = hooks_dir.join("hooks.json");
+        if let Err(e) = std::fs::write(&hooks_json_path, &hooks_json_str) {
+            return Err(format!("cannot write {}: {}", hooks_json_path.display(), e));
+        }
+        println!(
+            "plan-reviewer: hooks file written to {}",
+            hooks_json_path.display()
+        );
+
+        // ------------------------------------------------------------------
+        // Step 2: Read or create ~/.claude/settings.json
+        // ------------------------------------------------------------------
+
         let mut root: serde_json::Value = if settings_path.exists() {
             match std::fs::read_to_string(&settings_path) {
                 Ok(content) => match serde_json::from_str(&content) {
@@ -52,58 +136,70 @@ impl Integration for ClaudeIntegration {
             root = serde_json::json!({});
         }
 
-        // Ensure root.hooks exists as an object (use entry() API — index operator does NOT create keys)
-        {
-            let root_obj = root
-                .as_object_mut()
-                .expect("root is always an object at this point");
-            root_obj
-                .entry("hooks")
-                .or_insert_with(|| serde_json::json!({}));
-        }
+        // ------------------------------------------------------------------
+        // Step 3: Idempotency check
+        // ------------------------------------------------------------------
 
-        // Ensure root["hooks"] is an object (entry() is a no-op when the key already exists
-        // with a non-object value, so we must validate explicitly), then ensure
-        // root["hooks"]["PermissionRequest"] exists as an array.
-        {
-            // Capture display string before taking a mutable borrow.
-            let hooks_display = root["hooks"].to_string();
-            let hooks_obj = root["hooks"].as_object_mut().ok_or_else(|| {
-                format!(
-                    "settings.json: expected 'hooks' to be an object, found: {}",
-                    hooks_display
-                )
-            })?;
-            hooks_obj
-                .entry("PermissionRequest")
-                .or_insert_with(|| serde_json::json!([]));
-        }
-
-        // Ensure root["hooks"]["PermissionRequest"] is an array
-        {
-            root["hooks"]["PermissionRequest"]
-                .as_array_mut()
-                .ok_or_else(|| {
-                    "settings.json: expected 'hooks.PermissionRequest' to be an array".to_string()
-                })?;
-        }
-
-        // Idempotency check
-        if claude_is_installed(&root) {
+        if plugin_is_registered(&root) {
             println!(
-                "plan-reviewer: ExitPlanMode hook already configured in {} (no changes made)",
+                "plan-reviewer: plugin already configured in {} (no changes made)",
                 settings_path.display()
             );
             return Ok(());
         }
 
-        // Push the new hook entry
-        root["hooks"]["PermissionRequest"]
-            .as_array_mut()
-            .expect("PermissionRequest was validated as array above")
-            .push(claude_hook_entry(binary_path));
+        // ------------------------------------------------------------------
+        // Step 4: Add extraKnownMarketplaces entry
+        // ------------------------------------------------------------------
 
-        // Write back with pretty-printing (2-space indent, standard serde_json format)
+        {
+            let root_obj = root
+                .as_object_mut()
+                .expect("root is always an object at this point");
+            root_obj
+                .entry("extraKnownMarketplaces")
+                .or_insert_with(|| serde_json::json!({}));
+        }
+
+        {
+            let plugin_dir_str = plugin_dir.to_string_lossy().to_string();
+            root["extraKnownMarketplaces"]
+                .as_object_mut()
+                .expect("extraKnownMarketplaces is an object")
+                .entry(MARKETPLACE_NAME)
+                .or_insert_with(|| {
+                    serde_json::json!({
+                        "source": {
+                            "source": "directory",
+                            "path": plugin_dir_str
+                        }
+                    })
+                });
+        }
+
+        // ------------------------------------------------------------------
+        // Step 5: Add enabledPlugins entry
+        // ------------------------------------------------------------------
+
+        {
+            let root_obj = root
+                .as_object_mut()
+                .expect("root is always an object at this point");
+            root_obj
+                .entry("enabledPlugins")
+                .or_insert_with(|| serde_json::json!({}));
+        }
+
+        root["enabledPlugins"]
+            .as_object_mut()
+            .expect("enabledPlugins is an object")
+            .entry(PLUGIN_KEY)
+            .or_insert(serde_json::Value::Bool(true));
+
+        // ------------------------------------------------------------------
+        // Step 6: Write settings.json back
+        // ------------------------------------------------------------------
+
         let output = match serde_json::to_string_pretty(&root) {
             Ok(s) => s,
             Err(e) => {
@@ -123,21 +219,47 @@ impl Integration for ClaudeIntegration {
         }
 
         println!(
-            "plan-reviewer: ExitPlanMode hook installed in {}",
+            "plan-reviewer: plugin registered in {}",
             settings_path.display()
         );
-        println!("plan-reviewer: hook command set to: {}", binary_path);
+        println!(
+            "plan-reviewer: marketplace '{}' and plugin '{}' entries added",
+            MARKETPLACE_NAME, PLUGIN_KEY
+        );
         Ok(())
     }
 
-    /// Remove the ExitPlanMode hook from ~/.claude/settings.json.
+    /// Remove the Claude Code plugin directory and both settings.json registration entries.
     ///
-    /// Idempotent: safe to run when the hook is not present (D-05).
-    /// Matches on `"matcher": "ExitPlanMode"` — NOT on binary path.
+    /// Does NOT touch the old-style hooks.PermissionRequest entries (Phase 07.3 handles that).
+    /// Idempotent: safe to run when nothing is installed.
     fn uninstall(&self, ctx: &InstallContext) -> Result<(), String> {
+        let plugin_dir = claude_plugin_dir(&ctx.home);
         let settings_path = claude_settings_path(&ctx.home);
 
-        // If settings file does not exist, nothing to do
+        // ------------------------------------------------------------------
+        // Step 1: Remove plugin directory
+        // ------------------------------------------------------------------
+
+        if plugin_dir.exists() {
+            if let Err(e) = std::fs::remove_dir_all(&plugin_dir) {
+                return Err(format!("cannot remove {}: {}", plugin_dir.display(), e));
+            }
+            println!(
+                "plan-reviewer: plugin directory removed: {}",
+                plugin_dir.display()
+            );
+        } else {
+            println!(
+                "plan-reviewer: plugin directory not found at {} (skipping)",
+                plugin_dir.display()
+            );
+        }
+
+        // ------------------------------------------------------------------
+        // Step 2: Read settings.json (nothing to do if missing)
+        // ------------------------------------------------------------------
+
         if !settings_path.exists() {
             println!(
                 "plan-reviewer: no settings file found at {} (nothing to uninstall)",
@@ -146,7 +268,6 @@ impl Integration for ClaudeIntegration {
             return Ok(());
         }
 
-        // Read and parse JSON
         let content = match std::fs::read_to_string(&settings_path) {
             Ok(c) => c,
             Err(e) => {
@@ -166,22 +287,28 @@ impl Integration for ClaudeIntegration {
             }
         };
 
-        // Idempotency check: if hook is not present, nothing to do (D-05)
-        if !claude_is_installed(&root) {
-            println!(
-                "plan-reviewer: ExitPlanMode hook not found in {} (no changes made)",
-                settings_path.display()
-            );
-            return Ok(());
-        }
+        // ------------------------------------------------------------------
+        // Step 3: Remove extraKnownMarketplaces["plan-reviewer-local"]
+        // ------------------------------------------------------------------
 
-        // Remove all entries where "matcher" == "ExitPlanMode"
-        // This removes ALL ExitPlanMode entries regardless of binary path
-        if let Some(arr) = root["hooks"]["PermissionRequest"].as_array_mut() {
-            arr.retain(|entry| entry["matcher"].as_str() != Some("ExitPlanMode"));
-        }
+        root["extraKnownMarketplaces"]
+            .as_object_mut()
+            .map(|obj| obj.remove(MARKETPLACE_NAME));
 
-        // Write back with pretty-printing
+        // ------------------------------------------------------------------
+        // Step 4: Remove enabledPlugins["plan-reviewer@plan-reviewer-local"]
+        // ------------------------------------------------------------------
+
+        root["enabledPlugins"]
+            .as_object_mut()
+            .map(|obj| obj.remove(PLUGIN_KEY));
+
+        // ------------------------------------------------------------------
+        // Step 5: Write settings.json back
+        // NOTE: Old-style hooks.PermissionRequest entries are NOT touched.
+        //       Phase 07.3 handles migration of the old bare hook entry.
+        // ------------------------------------------------------------------
+
         let output = match serde_json::to_string_pretty(&root) {
             Ok(s) => s,
             Err(e) => {
@@ -194,16 +321,17 @@ impl Integration for ClaudeIntegration {
         }
 
         println!(
-            "plan-reviewer: ExitPlanMode hook removed from {}",
+            "plan-reviewer: plugin registration removed from {}",
             settings_path.display()
         );
         Ok(())
     }
 
-    /// Returns `true` if the Claude Code hook is already configured.
+    /// Returns `true` if the Claude Code plugin is registered via the plugin directory model.
     ///
-    /// Reads settings.json from ctx.home; returns false if file doesn't exist
-    /// or cannot be parsed.
+    /// Checks whether `enabledPlugins["plan-reviewer@plan-reviewer-local"]` exists
+    /// in settings.json. This is the new idempotency key (replaces the old ExitPlanMode
+    /// matcher check).
     fn is_installed(&self, ctx: &InstallContext) -> bool {
         let settings_path = claude_settings_path(&ctx.home);
         if !settings_path.exists() {
@@ -211,7 +339,7 @@ impl Integration for ClaudeIntegration {
         }
         match std::fs::read_to_string(&settings_path) {
             Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
-                Ok(json) => claude_is_installed(&json),
+                Ok(json) => plugin_is_registered(&json),
                 Err(_) => false,
             },
             Err(_) => false,
@@ -220,42 +348,43 @@ impl Integration for ClaudeIntegration {
 }
 
 // ---------------------------------------------------------------------------
-// Claude Code helper functions (private to this module)
+// Helper functions (private to this module)
 // ---------------------------------------------------------------------------
 
-/// Returns the path to Claude Code's settings file: `{home}/.claude/settings.json`.
+/// Returns the path to the plugin directory: `{home}/.local/share/plan-reviewer/claude-plugin`.
 ///
 /// The `home` argument is the value of the `HOME` environment variable — the only
-/// external input that touches the filesystem path (T-04-02 mitigation: no user-supplied
+/// external input that touches the filesystem path (T-07.2-03 mitigation: no user-supplied
 /// path fragments are accepted).
+fn claude_plugin_dir(home: &str) -> PathBuf {
+    PathBuf::from(home).join(".local/share/plan-reviewer/claude-plugin")
+}
+
+/// Returns the path to Claude Code's settings file: `{home}/.claude/settings.json`.
 fn claude_settings_path(home: &str) -> PathBuf {
     PathBuf::from(home).join(".claude/settings.json")
 }
 
-/// Returns the JSON hook entry to insert into `root["hooks"]["PermissionRequest"]`.
+/// Returns `true` if the plugin directory model is registered in `settings`.
 ///
-/// ```json
-/// {"matcher":"ExitPlanMode","hooks":[{"type":"command","command":"<binary_path>"}]}
-/// ```
-fn claude_hook_entry(binary_path: &str) -> serde_json::Value {
-    serde_json::json!({
-        "matcher": "ExitPlanMode",
-        "hooks": [
-            {
-                "type": "command",
-                "command": binary_path
-            }
-        ]
-    })
+/// Checks for `enabledPlugins["plan-reviewer@plan-reviewer-local"]` — this is the
+/// new idempotency key for the plugin directory model. The marketplace entry alone
+/// is not sufficient because enabledPlugins is required for the plugin to load.
+fn plugin_is_registered(settings: &serde_json::Value) -> bool {
+    settings["enabledPlugins"]
+        .as_object()
+        .map(|obj| obj.contains_key(PLUGIN_KEY))
+        .unwrap_or(false)
 }
 
-/// Returns `true` if the Claude Code hook is already configured in `settings`.
+/// Returns `true` if the legacy ExitPlanMode hook entry is present in `settings`.
 ///
-/// Checks whether any entry in `settings["hooks"]["PermissionRequest"]` has
-/// `"matcher": "ExitPlanMode"`. This is the idempotency key used by both install
-/// and uninstall — the binary path is intentionally NOT checked so that entries
-/// written by a previous installation at a different path are still detected.
-fn claude_is_installed(settings: &serde_json::Value) -> bool {
+/// This checks for the old-style bare hook entry written by previous plan-reviewer
+/// versions. Used by Phase 07.3 migration logic to detect and clean up old installs.
+///
+/// Kept for Phase 07.3 migration use. Do NOT use as the idempotency key for new installs.
+#[allow(dead_code)]
+pub(crate) fn claude_legacy_hook_installed(settings: &serde_json::Value) -> bool {
     settings["hooks"]["PermissionRequest"]
         .as_array()
         .map(|arr| {
@@ -265,9 +394,19 @@ fn claude_is_installed(settings: &serde_json::Value) -> bool {
         .unwrap_or(false)
 }
 
+/// Returns the current crate version string, embedded at compile time.
+fn crate_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
+
+    // ---------------------------------------------------------------------------
+    // Helper function tests
+    // ---------------------------------------------------------------------------
 
     #[test]
     fn claude_settings_path_test() {
@@ -279,17 +418,34 @@ mod tests {
     }
 
     #[test]
-    fn claude_hook_entry_has_exit_plan_mode() {
-        let entry = claude_hook_entry("/usr/local/bin/plan-reviewer");
-        assert_eq!(entry["matcher"].as_str(), Some("ExitPlanMode"));
+    fn claude_plugin_dir_test() {
+        let path = claude_plugin_dir("/home/alice");
         assert_eq!(
-            entry["hooks"][0]["command"].as_str(),
-            Some("/usr/local/bin/plan-reviewer")
+            path,
+            std::path::PathBuf::from("/home/alice/.local/share/plan-reviewer/claude-plugin")
         );
     }
 
     #[test]
-    fn claude_is_installed_detects_matcher() {
+    fn plugin_is_registered_detects_enabled_plugins_key() {
+        let settings_with_plugin = serde_json::json!({
+            "enabledPlugins": {
+                "plan-reviewer@plan-reviewer-local": true
+            }
+        });
+        assert!(plugin_is_registered(&settings_with_plugin));
+
+        let settings_empty = serde_json::json!({});
+        assert!(!plugin_is_registered(&settings_empty));
+
+        let settings_empty_plugins = serde_json::json!({
+            "enabledPlugins": {}
+        });
+        assert!(!plugin_is_registered(&settings_empty_plugins));
+    }
+
+    #[test]
+    fn claude_legacy_hook_installed_detects_old_style_hook() {
         let settings_with_hook = serde_json::json!({
             "hooks": {
                 "PermissionRequest": [
@@ -297,12 +453,472 @@ mod tests {
                 ]
             }
         });
-        assert!(claude_is_installed(&settings_with_hook));
+        assert!(claude_legacy_hook_installed(&settings_with_hook));
 
-        let settings_empty = serde_json::json!({"hooks": {"PermissionRequest": []}});
-        assert!(!claude_is_installed(&settings_empty));
+        let settings_empty = serde_json::json!({});
+        assert!(!claude_legacy_hook_installed(&settings_empty));
+    }
 
-        let settings_no_hooks = serde_json::json!({});
-        assert!(!claude_is_installed(&settings_no_hooks));
+    #[test]
+    fn crate_version_is_non_empty() {
+        assert!(!crate_version().is_empty());
+    }
+
+    // ---------------------------------------------------------------------------
+    // Install tests (filesystem)
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn install_creates_plugin_json_with_required_keys() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        let result = integration.install(&ctx);
+        assert!(result.is_ok(), "install should succeed: {:?}", result);
+
+        let plugin_json_path = dir
+            .path()
+            .join(".local/share/plan-reviewer/claude-plugin/.claude-plugin/plugin.json");
+        assert!(plugin_json_path.exists(), "plugin.json should be created");
+
+        let content = std::fs::read_to_string(&plugin_json_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        assert!(
+            json["name"].as_str().is_some(),
+            "plugin.json must have 'name'"
+        );
+        assert!(
+            json["version"].as_str().is_some(),
+            "plugin.json must have 'version'"
+        );
+        assert!(
+            json["description"].as_str().is_some(),
+            "plugin.json must have 'description'"
+        );
+    }
+
+    #[test]
+    fn install_plugin_json_version_matches_crate_version() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let plugin_json_path = dir
+            .path()
+            .join(".local/share/plan-reviewer/claude-plugin/.claude-plugin/plugin.json");
+        let content = std::fs::read_to_string(&plugin_json_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        assert_eq!(
+            json["version"].as_str(),
+            Some(crate_version()),
+            "plugin.json version should match crate version"
+        );
+    }
+
+    #[test]
+    fn install_creates_hooks_json_with_exit_plan_mode() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let hooks_json_path = dir
+            .path()
+            .join(".local/share/plan-reviewer/claude-plugin/hooks/hooks.json");
+        assert!(hooks_json_path.exists(), "hooks.json should be created");
+
+        let content = std::fs::read_to_string(&hooks_json_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        let permission_requests = json["hooks"]["PermissionRequest"].as_array().unwrap();
+        assert!(
+            permission_requests.iter().any(|entry| {
+                entry["matcher"].as_str() == Some("ExitPlanMode")
+                    && entry["hooks"][0]["command"].as_str() == Some("plan-reviewer")
+            }),
+            "hooks.json must contain ExitPlanMode hook with 'plan-reviewer' command"
+        );
+    }
+
+    #[test]
+    fn install_adds_extra_known_marketplaces_to_settings() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let settings_path = dir.path().join(".claude/settings.json");
+        let content = std::fs::read_to_string(&settings_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        let marketplace = &json["extraKnownMarketplaces"][MARKETPLACE_NAME];
+        assert!(
+            !marketplace.is_null(),
+            "extraKnownMarketplaces['plan-reviewer-local'] should exist"
+        );
+        assert_eq!(
+            marketplace["source"]["source"].as_str(),
+            Some("directory"),
+            "source type must be 'directory'"
+        );
+        let expected_plugin_dir = dir
+            .path()
+            .join(".local/share/plan-reviewer/claude-plugin")
+            .to_string_lossy()
+            .to_string();
+        assert_eq!(
+            marketplace["source"]["path"].as_str(),
+            Some(expected_plugin_dir.as_str()),
+            "source path must point to plugin directory"
+        );
+    }
+
+    #[test]
+    fn install_adds_enabled_plugins_to_settings() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let settings_path = dir.path().join(".claude/settings.json");
+        let content = std::fs::read_to_string(&settings_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        assert_eq!(
+            json["enabledPlugins"][PLUGIN_KEY].as_bool(),
+            Some(true),
+            "enabledPlugins['plan-reviewer@plan-reviewer-local'] should be true"
+        );
+    }
+
+    #[test]
+    fn install_is_idempotent() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+        integration.install(&ctx).unwrap();
+
+        let settings_path = dir.path().join(".claude/settings.json");
+        let content = std::fs::read_to_string(&settings_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        // Check no duplicate entries in enabledPlugins
+        let enabled_plugins = json["enabledPlugins"].as_object().unwrap();
+        let count = enabled_plugins
+            .iter()
+            .filter(|(k, _)| k.as_str() == PLUGIN_KEY)
+            .count();
+        assert_eq!(
+            count, 1,
+            "should have exactly one enabledPlugins entry after two installs"
+        );
+
+        // Check no duplicate entries in extraKnownMarketplaces
+        let marketplaces = json["extraKnownMarketplaces"].as_object().unwrap();
+        let count = marketplaces
+            .iter()
+            .filter(|(k, _)| k.as_str() == MARKETPLACE_NAME)
+            .count();
+        assert_eq!(
+            count, 1,
+            "should have exactly one extraKnownMarketplaces entry after two installs"
+        );
+    }
+
+    #[test]
+    fn install_preserves_existing_settings_keys() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+
+        // Create settings.json with existing key
+        let claude_dir = dir.path().join(".claude");
+        std::fs::create_dir_all(&claude_dir).unwrap();
+        let settings_path = claude_dir.join("settings.json");
+        std::fs::write(&settings_path, r#"{"theme": "dark"}"#).unwrap();
+
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home,
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let content = std::fs::read_to_string(&settings_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        assert_eq!(
+            json["theme"].as_str(),
+            Some("dark"),
+            "existing 'theme' key should be preserved"
+        );
+    }
+
+    #[test]
+    fn install_returns_err_when_binary_path_is_none() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home,
+            binary_path: None,
+        };
+
+        let result = integration.install(&ctx);
+        assert!(result.is_err(), "install without binary_path should fail");
+    }
+
+    // ---------------------------------------------------------------------------
+    // Uninstall tests
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn uninstall_removes_plugin_directory() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let plugin_dir = dir.path().join(".local/share/plan-reviewer/claude-plugin");
+        assert!(plugin_dir.exists(), "plugin dir should exist after install");
+
+        let ctx_uninstall = InstallContext {
+            home: home.clone(),
+            binary_path: None,
+        };
+        let result = integration.uninstall(&ctx_uninstall);
+        assert!(result.is_ok(), "uninstall should succeed: {:?}", result);
+        assert!(
+            !plugin_dir.exists(),
+            "plugin dir should be removed after uninstall"
+        );
+    }
+
+    #[test]
+    fn uninstall_removes_both_settings_entries() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let ctx_uninstall = InstallContext {
+            home: home.clone(),
+            binary_path: None,
+        };
+        integration.uninstall(&ctx_uninstall).unwrap();
+
+        let settings_path = dir.path().join(".claude/settings.json");
+        let content = std::fs::read_to_string(&settings_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        assert!(
+            json["extraKnownMarketplaces"][MARKETPLACE_NAME].is_null(),
+            "extraKnownMarketplaces entry should be removed"
+        );
+        assert!(
+            json["enabledPlugins"][PLUGIN_KEY].is_null(),
+            "enabledPlugins entry should be removed"
+        );
+    }
+
+    #[test]
+    fn uninstall_does_not_touch_old_style_hook_entry() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+
+        // Create settings with old-style hook entry
+        let claude_dir = dir.path().join(".claude");
+        std::fs::create_dir_all(&claude_dir).unwrap();
+        let settings_path = claude_dir.join("settings.json");
+        let initial = serde_json::json!({
+            "hooks": {
+                "PermissionRequest": [
+                    {"matcher": "ExitPlanMode", "hooks": [{"type": "command", "command": "/usr/local/bin/plan-reviewer"}]}
+                ]
+            },
+            "enabledPlugins": {
+                "plan-reviewer@plan-reviewer-local": true
+            },
+            "extraKnownMarketplaces": {
+                "plan-reviewer-local": {
+                    "source": {"source": "directory", "path": "/some/path"}
+                }
+            }
+        });
+        std::fs::write(
+            &settings_path,
+            serde_json::to_string_pretty(&initial).unwrap(),
+        )
+        .unwrap();
+
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home,
+            binary_path: None,
+        };
+
+        integration.uninstall(&ctx).unwrap();
+
+        let content = std::fs::read_to_string(&settings_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        // Old-style hook entry should still be present (Phase 07.3 handles migration)
+        assert!(
+            claude_legacy_hook_installed(&json),
+            "old-style ExitPlanMode hook should NOT be touched by uninstall"
+        );
+    }
+
+    #[test]
+    fn uninstall_on_nonexistent_files_returns_ok() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home,
+            binary_path: None,
+        };
+
+        let result = integration.uninstall(&ctx);
+        assert!(
+            result.is_ok(),
+            "uninstall on missing files should succeed: {:?}",
+            result
+        );
+    }
+
+    // ---------------------------------------------------------------------------
+    // is_installed tests
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn is_installed_returns_false_when_no_files() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home,
+            binary_path: None,
+        };
+        assert!(!integration.is_installed(&ctx));
+    }
+
+    #[test]
+    fn is_installed_returns_true_after_install() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let ctx_check = InstallContext {
+            home,
+            binary_path: None,
+        };
+        assert!(integration.is_installed(&ctx_check));
+    }
+
+    #[test]
+    fn is_installed_returns_false_after_uninstall() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx_install = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+        let ctx_check = InstallContext {
+            home: home.clone(),
+            binary_path: None,
+        };
+
+        integration.install(&ctx_install).unwrap();
+        assert!(integration.is_installed(&ctx_check));
+
+        integration.uninstall(&ctx_check).unwrap();
+        assert!(!integration.is_installed(&ctx_check));
+    }
+
+    #[test]
+    fn is_installed_checks_enabled_plugins_key_not_legacy_hook() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+
+        // Create settings with old-style hook only (no enabledPlugins)
+        let claude_dir = dir.path().join(".claude");
+        std::fs::create_dir_all(&claude_dir).unwrap();
+        let settings_path = claude_dir.join("settings.json");
+        let initial = serde_json::json!({
+            "hooks": {
+                "PermissionRequest": [
+                    {"matcher": "ExitPlanMode", "hooks": [{"type": "command", "command": "/bin/plan-reviewer"}]}
+                ]
+            }
+        });
+        std::fs::write(
+            &settings_path,
+            serde_json::to_string_pretty(&initial).unwrap(),
+        )
+        .unwrap();
+
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home,
+            binary_path: None,
+        };
+
+        // is_installed should return false: only legacy hook present, not plugin registration
+        assert!(
+            !integration.is_installed(&ctx),
+            "is_installed should return false when only legacy hook is present"
+        );
     }
 }
