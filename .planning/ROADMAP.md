@@ -67,11 +67,12 @@ Plans:
   2. `curl -fsSL https://.../install.sh | sh` installs the binary without requiring Rust, Node.js, or any other runtime
   3. The install script detects whether the install directory is on PATH and warns the user if not
   4. macOS binaries pass ad hoc Gatekeeper signing so the OS does not block execution on first run
-**Plans:** 2 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Cargo.toml [[bin]] + cargo-dist init, build-setup.yml, codesign patch, custom install.sh
-- [ ] 03-02-PLAN.md — clap subcommand refactor (src/main.rs) + plan-reviewer install subcommand (src/install.rs)
+- [x] 03-01-PLAN.md — Cargo.toml [[bin]] + cargo-dist init, build-setup.yml, codesign patch, custom install.sh
+- [x] 03-02-PLAN.md — clap subcommand refactor (src/main.rs) + plan-reviewer install subcommand (src/install.rs)
+- [ ] 03-03-PLAN.md — Gap closure: fix OWNER placeholder in install.sh, push v0.1.0 release tag
 
 ## Progress
 
@@ -82,7 +83,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Hook & Review UI | 4/4 | Complete   | 2026-04-09 |
 | 2. Annotations & Diff | 4/4 | Complete | 2026-04-09 |
-| 3. Distribution | 0/2 | Not started | - |
+| 3. Distribution | 2/3 | In progress | - |
 | 4. Subcommands | 0/TBD | Not started | - |
 
 ### Phase 4: Subcommands (install, uninstall, update)
