@@ -8,7 +8,8 @@ mod update;
 #[cfg(test)]
 mod tests {
     use super::{
-        Cli, build_gemini_output, build_opencode_output, extract_diff, extract_plan_content,
+        Cli, Commands, build_gemini_output, build_opencode_output, extract_diff,
+        extract_plan_content,
     };
     use crate::hook;
     use crate::hook::HookOutput;
@@ -242,6 +243,34 @@ mod tests {
         let result = extract_diff(tmp.path().to_str().unwrap());
         assert_eq!(result, "", "Clean repo should return empty diff string");
     }
+
+    #[test]
+    fn test_cli_review_hook_subcommand_parses() {
+        let cli = Cli::try_parse_from(["plan-reviewer", "review-hook"]).expect("parse failed");
+        assert!(matches!(cli.command, Some(Commands::ReviewHook)));
+    }
+
+    #[test]
+    fn test_cli_review_hook_with_no_browser_flag() {
+        let cli = Cli::try_parse_from(["plan-reviewer", "--no-browser", "review-hook"])
+            .expect("parse failed");
+        assert!(matches!(cli.command, Some(Commands::ReviewHook)));
+        assert!(cli.no_browser);
+    }
+
+    #[test]
+    fn test_cli_review_hook_with_port_flag() {
+        let cli = Cli::try_parse_from(["plan-reviewer", "--port", "9090", "review-hook"])
+            .expect("parse failed");
+        assert!(matches!(cli.command, Some(Commands::ReviewHook)));
+        assert_eq!(cli.port, 9090);
+    }
+
+    #[test]
+    fn test_cli_no_subcommand_is_none() {
+        let cli = Cli::try_parse_from(["plan-reviewer"]).expect("parse failed");
+        assert!(cli.command.is_none());
+    }
 }
 
 use clap::{Parser, Subcommand};
@@ -272,6 +301,12 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Receive a hook event from stdin and open the browser review UI.
+    ///
+    /// This is the explicit subcommand form of the default hook behavior.
+    /// The bare `plan-reviewer` invocation (without a subcommand) is
+    /// deprecated and will be removed in a future major version.
+    ReviewHook,
     /// Wire the ExitPlanMode hook into one or more integrations (default: interactive picker)
     Install {
         /// Integration names: claude, gemini, opencode (omit for interactive picker)
@@ -447,6 +482,9 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
+        Some(Commands::ReviewHook) => {
+            run_hook_flow(cli.no_browser, cli.port);
+        }
         Some(Commands::Install { integrations }) => {
             // install subcommand: does NOT read stdin
             install::run_install(integrations.clone());
@@ -465,9 +503,16 @@ fn main() {
         }
         None => {
             if let Some(ref plan_file) = cli.plan_file {
+                // opencode uses --plan-file flag directly (no subcommand, no deprecation)
                 run_opencode_flow(cli.no_browser, cli.port, plan_file);
             } else {
-                // Default: hook review flow — reads stdin JSON
+                // Deprecated: bare plan-reviewer invocation without 'review-hook' subcommand.
+                eprintln!(
+                    "plan-reviewer: deprecation warning: invoking plan-reviewer without \
+                     the 'review-hook' subcommand is deprecated and will be removed in a future \
+                     major version. Use 'plan-reviewer review-hook' instead. \
+                     Run 'plan-reviewer update' to upgrade all integration files automatically."
+                );
                 run_hook_flow(cli.no_browser, cli.port);
             }
         }
