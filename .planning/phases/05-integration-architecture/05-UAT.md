@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: complete
 phase: 05-integration-architecture
-source: [05-01-SUMMARY.md]
+source: [05-01-SUMMARY.md, 05-02-SUMMARY.md]
 started: 2026-04-10T00:00:00Z
-updated: 2026-04-10T00:01:00Z
+updated: 2026-04-10T00:10:00Z
 ---
 
 ## Current Test
@@ -18,9 +18,8 @@ result: pass
 
 ### 2. Help Text Shows Updated Integration Roster
 expected: Running `plan-reviewer --help` (or `plan-reviewer install --help`) shows "claude, gemini, opencode" as the supported integrations — Codestral is not listed.
-result: issue
-reported: "OK for plan-reviewer install --help, but plan-reviewer --help only show Claude Code plan reviewer hook binary"
-severity: minor
+result: pass
+note: "Fixed by plan 05-02 — top-level about text now reads 'Plan reviewer hook binary (supports: claude, gemini, opencode)'"
 
 ### 3. Claude Install Works via New Trait Dispatch
 expected: Running `plan-reviewer install claude` completes without error (or detects existing install and reports idempotency). The install flow goes through the new `get_integration(slug).install(&ctx)` path — behavior is unchanged from the user's perspective.
@@ -41,24 +40,12 @@ result: pass
 ## Summary
 
 total: 6
-passed: 5
-issues: 1
+passed: 6
+issues: 0
 pending: 0
 skipped: 0
 blocked: 0
 
 ## Gaps
 
-- truth: "Running `plan-reviewer --help` shows the supported integrations (claude, gemini, opencode)"
-  status: failed
-  reason: "User reported: OK for plan-reviewer install --help, but plan-reviewer --help only show Claude Code plan reviewer hook binary"
-  severity: minor
-  test: 2
-  root_cause: "Top-level CLI `about` text in src/main.rs:89 was never updated to list integrations; clap does not automatically surface subcommand argument docs in parent help"
-  artifacts:
-    - path: "src/main.rs"
-      line: 89
-      issue: "`about` text is generic \"Claude Code plan reviewer hook binary\" without mentioning supported integrations"
-  missing:
-    - "Update `about` on line 89 to include supported integrations, e.g. \"Claude Code plan reviewer hook binary (supports: claude, gemini, opencode)\""
-  debug_session: ""
+[none — all gaps closed]
