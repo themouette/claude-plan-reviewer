@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 05-integration-architecture
 source: [05-01-SUMMARY.md]
 started: 2026-04-10T00:00:00Z
@@ -54,7 +54,11 @@ blocked: 0
   reason: "User reported: OK for plan-reviewer install --help, but plan-reviewer --help only show Claude Code plan reviewer hook binary"
   severity: minor
   test: 2
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "Top-level CLI `about` text in src/main.rs:89 was never updated to list integrations; clap does not automatically surface subcommand argument docs in parent help"
+  artifacts:
+    - path: "src/main.rs"
+      line: 89
+      issue: "`about` text is generic \"Claude Code plan reviewer hook binary\" without mentioning supported integrations"
+  missing:
+    - "Update `about` on line 89 to include supported integrations, e.g. \"Claude Code plan reviewer hook binary (supports: claude, gemini, opencode)\""
   debug_session: ""
