@@ -4,14 +4,14 @@ milestone: v0.3.0
 milestone_name: Integrations, Annotations & Polish
 status: executing
 stopped_at: Phase 6 complete — GeminiIntegration install/uninstall + hook flow routing implemented, 36 tests pass
-last_updated: "2026-04-10T21:44:45.888Z"
-last_activity: 2026-04-10
+last_updated: "2026-04-10T23:05:36.644Z"
+last_activity: 2026-04-10 -- Phase 07.2 planning complete
 progress:
-  total_phases: 7
+  total_phases: 9
   completed_phases: 4
-  total_plans: 9
+  total_plans: 13
   completed_plans: 9
-  percent: 100
+  percent: 69
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 ## Current Position
 
-Phase: 07.1 of 9 (add review file subcommand so any markdown file can be revie)
+Phase: 07.4 of 9 (add review file subcommand so any markdown file can be revie)
 Plan: Not started
 Status: Ready to execute
-Last activity: 2026-04-10
+Last activity: 2026-04-10 -- Phase 07.2 planning complete
 
 Progress: [████░░░░░░] 40% (v0.3.0)
 
@@ -65,7 +65,9 @@ Recent decisions affecting current work:
 ### Roadmap Evolution
 
 - Phase 4 added: add subcommands install uninstall update, install and uninstall can either accept a list of integration (claude, opencode...) or offer to chose integrations in an interactive UI. those should be idempotent. update should be modeled after ~/Projects/themouette/claude-vm update subcommand. the current behavior should be moved as a review subcommand that will be invoked if no subcommand is provided.
-- Phase 07.1 inserted after Phase 7: Add review <file> subcommand so any markdown file can be reviewed without constructing hook JSON — outputs neutral {behavior} decision for use in scripts and agent workflows (URGENT)
+- Phase 07.4 inserted after Phase 7: Add review <file> subcommand so any markdown file can be reviewed without constructing hook JSON — outputs neutral {behavior} decision for use in scripts and agent workflows (URGENT)
+- Phase 07.2 inserted after Phase 7: insert phase A from .planning/research/INTEGRATION-PLUGIN-REWORK.md (URGENT)
+- Phase 07.3 inserted after Phase 7: insert phase B from .planning/research/INTEGRATION-PLUGIN-REWORK.md (URGENT)
 
 ### Quick Tasks Completed
 
