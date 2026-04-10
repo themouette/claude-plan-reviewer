@@ -49,7 +49,7 @@ fi
 echo "Installing ${BINARY} ${LATEST_TAG} for ${TARGET}..."
 
 # --- Download and extract ---
-ARCHIVE_NAME="${BINARY}-${LATEST_TAG}-${TARGET}.tar.xz"
+ARCHIVE_NAME="${BINARY}-${LATEST_TAG}-${TARGET}.tar.gz"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${LATEST_TAG}/${ARCHIVE_NAME}"
 
 TMPDIR="$(mktemp -d)"
@@ -59,7 +59,7 @@ echo "Downloading ${DOWNLOAD_URL}..."
 curl -fsSL "${DOWNLOAD_URL}" -o "${TMPDIR}/${ARCHIVE_NAME}"
 
 echo "Extracting..."
-tar -xJf "${TMPDIR}/${ARCHIVE_NAME}" -C "${TMPDIR}"
+tar -xzf "${TMPDIR}/${ARCHIVE_NAME}" -C "${TMPDIR}"
 
 # --- Install binary ---
 mkdir -p "${INSTALL_DIR}"
@@ -87,7 +87,7 @@ esac
 
 # --- Wire Claude Code hook (D-09) ---
 echo "Wiring Claude Code ExitPlanMode hook..."
-"${INSTALL_DIR}/${BINARY}" install
+"${INSTALL_DIR}/${BINARY}" install claude
 
 echo ""
 echo "plan-reviewer ${LATEST_TAG} installed successfully."

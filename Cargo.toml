@@ -21,6 +21,8 @@ git2 = { version = "0.20", features = ["vendored-libgit2", "vendored-openssl"] }
 ammonia = "4"
 clap = { version = "4", features = ["derive"] }
 webbrowser = "1"
+self_update = { version = "0.44", default-features = false, features = ["archive-tar", "compression-flate2", "rustls"] }
+dialoguer = "0.12"
 
 [dev-dependencies]
 tempfile = "3"
@@ -37,6 +39,7 @@ installers = ["shell"]
 targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-musl", "x86_64-apple-darwin", "x86_64-unknown-linux-musl"]
 # Path that installers should place binaries in
 install-path = "~/.local/bin"
+unix-archive = ".tar.gz"
 github-build-setup = "../build-setup.yml"
 # Whether to install an updater program
 install-updater = false
