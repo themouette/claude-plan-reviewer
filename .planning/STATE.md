@@ -4,14 +4,14 @@ milestone: v0.3.0
 milestone_name: Integrations, Annotations & Polish
 status: executing
 stopped_at: Phase 6 complete — GeminiIntegration install/uninstall + hook flow routing implemented, 36 tests pass
-last_updated: "2026-04-10T20:50:04.706Z"
-last_activity: 2026-04-10 -- Phase 7 planning complete
+last_updated: "2026-04-10T21:44:45.888Z"
+last_activity: 2026-04-10
 progress:
-  total_phases: 6
-  completed_phases: 2
+  total_phases: 7
+  completed_phases: 4
   total_plans: 9
-  completed_plans: 4
-  percent: 44
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 ## Current Position
 
-Phase: 6 of 9 complete (Gemini CLI Integration)
-Plan: 2/2 complete
+Phase: 07.1 of 9 (add review file subcommand so any markdown file can be revie)
+Plan: Not started
 Status: Ready to execute
-Last activity: 2026-04-10 -- Phase 7 planning complete
+Last activity: 2026-04-10
 
 Progress: [████░░░░░░] 40% (v0.3.0)
 
@@ -46,6 +46,7 @@ Progress: [████░░░░░░] 40% (v0.3.0)
 | 02 annotations-diff | 4 | - | - |
 | 03 distribution | 3 | - | - |
 | 04 subcommands | 3 | - | - |
+| 7 | 2 | - | - |
 
 *v0.3.0 metrics will populate as plans complete*
 
@@ -64,6 +65,7 @@ Recent decisions affecting current work:
 ### Roadmap Evolution
 
 - Phase 4 added: add subcommands install uninstall update, install and uninstall can either accept a list of integration (claude, opencode...) or offer to chose integrations in an interactive UI. those should be idempotent. update should be modeled after ~/Projects/themouette/claude-vm update subcommand. the current behavior should be moved as a review subcommand that will be invoked if no subcommand is provided.
+- Phase 07.1 inserted after Phase 7: Add review <file> subcommand so any markdown file can be reviewed without constructing hook JSON — outputs neutral {behavior} decision for use in scripts and agent workflows (URGENT)
 
 ### Quick Tasks Completed
 

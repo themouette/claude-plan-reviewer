@@ -26,7 +26,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 - [ ] **Phase 5: Integration Architecture** - Refactor to `src/integrations/` with an `Integration` trait; establish idempotency contract all integrations must satisfy
 - [ ] **Phase 6: Gemini CLI Integration** - Wire Gemini CLI `BeforeTool exit_plan_mode` hook with install/uninstall subcommands
 - [ ] **Phase 6.1: Integration Test Harness** - Add `--no-browser`/`--port` flags and `assert_cmd`-based integration tests covering hook flow, install/uninstall, and server approve/deny cycle without touching real system config
-- [ ] **Phase 7: opencode Integration** - Wire opencode hook with bundled JS plugin install/uninstall
+- [x] **Phase 7: opencode Integration** - Wire opencode hook with bundled JS plugin install/uninstall (completed 2026-04-10)
 - [ ] **Phase 8: Annotation Quick-Actions & Theme** - Add predefined annotation actions and persistent light/dark theme switcher
 - [ ] **Phase 9: Documentation** - Write README install/usage guide and per-integration wiring docs
 
@@ -77,11 +77,21 @@ Plans:
   2. Triggering opencode plan review opens the plan-reviewer browser UI with plan content rendered
   3. Approving or denying in the browser returns the correct decision to opencode via HTTP handoff
   4. `plan-reviewer uninstall opencode` removes the plugin file and config entry, leaving `opencode.json` otherwise intact
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 07-01-PLAN.md — OpenCode JS plugin + install/uninstall Rust implementation
-- [ ] 07-02-PLAN.md — Hook flow extension for --plan-file opencode invocation
+- [x] 07-01-PLAN.md — OpenCode JS plugin + install/uninstall Rust implementation
+- [x] 07-02-PLAN.md — Hook flow extension for --plan-file opencode invocation
 **UI hint**: yes
+
+### Phase 07.1: Add review <file> subcommand so any markdown file can be reviewed without constructing hook JSON — outputs neutral {behavior} decision for use in scripts and agent workflows (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 7
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 07.1 to break down)
 
 ### Phase 8: Annotation Quick-Actions & Theme
 **Goal**: Users have six predefined annotation quick-actions that pre-fill the comment field with one click; the browser UI supports toggling between light and dark mode, the preference persists across sessions, and the UI defaults to OS preference on first load
@@ -117,6 +127,6 @@ Plans:
 | 5. Integration Architecture | v0.3.0 | 0/? | Not started | - |
 | 6. Gemini CLI Integration | v0.3.0 | 0/? | Not started | - |
 | 6.1. Integration Test Harness | v0.3.0 | 0/3 | Planned | - |
-| 7. opencode Integration | v0.3.0 | 0/2 | Planned | - |
+| 7. opencode Integration | v0.3.0 | 2/2 | Complete    | 2026-04-10 |
 | 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/? | Not started | - |
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |
