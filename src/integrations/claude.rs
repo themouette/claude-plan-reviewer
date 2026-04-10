@@ -14,9 +14,10 @@ impl Integration for ClaudeIntegration {
     /// Idempotent: safe to run multiple times. If the hook is already present
     /// (any entry with matcher == "ExitPlanMode"), returns Ok(()) immediately.
     fn install(&self, ctx: &InstallContext) -> Result<(), String> {
-        let binary_path = ctx.binary_path.as_deref().ok_or_else(|| {
-            "install requires a binary_path — none was provided".to_string()
-        })?;
+        let binary_path = ctx
+            .binary_path
+            .as_deref()
+            .ok_or_else(|| "install requires a binary_path — none was provided".to_string())?;
         let settings_path = claude_settings_path(&ctx.home);
 
         // Read existing settings or start with an empty object
@@ -67,14 +68,12 @@ impl Integration for ClaudeIntegration {
         {
             // Capture display string before taking a mutable borrow.
             let hooks_display = root["hooks"].to_string();
-            let hooks_obj = root["hooks"]
-                .as_object_mut()
-                .ok_or_else(|| {
-                    format!(
-                        "settings.json: expected 'hooks' to be an object, found: {}",
-                        hooks_display
-                    )
-                })?;
+            let hooks_obj = root["hooks"].as_object_mut().ok_or_else(|| {
+                format!(
+                    "settings.json: expected 'hooks' to be an object, found: {}",
+                    hooks_display
+                )
+            })?;
             hooks_obj
                 .entry("PermissionRequest")
                 .or_insert_with(|| serde_json::json!([]));
@@ -151,11 +150,7 @@ impl Integration for ClaudeIntegration {
         let content = match std::fs::read_to_string(&settings_path) {
             Ok(c) => c,
             Err(e) => {
-                return Err(format!(
-                    "cannot read {}: {}",
-                    settings_path.display(),
-                    e
-                ));
+                return Err(format!("cannot read {}: {}", settings_path.display(), e));
             }
         };
 
