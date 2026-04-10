@@ -19,14 +19,17 @@ impl Integration for ClaudeIntegration {
         // Read existing settings or start with an empty object
         let mut root: serde_json::Value = if settings_path.exists() {
             match std::fs::read_to_string(&settings_path) {
-                Ok(content) => serde_json::from_str(&content).unwrap_or_else(|_| {
-                    eprintln!(
-                        "plan-reviewer install: warning: {} contains invalid JSON; \
-                         starting from empty object (existing content will be overwritten)",
-                        settings_path.display()
-                    );
-                    serde_json::json!({})
-                }),
+                Ok(content) => match serde_json::from_str(&content) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        return Err(format!(
+                            "cannot parse {}: {} — refusing to overwrite. \
+                             Fix or remove the file first.",
+                            settings_path.display(),
+                            e
+                        ));
+                    }
+                },
                 Err(e) => {
                     return Err(format!("cannot read {}: {}", settings_path.display(), e));
                 }
@@ -46,17 +49,42 @@ impl Integration for ClaudeIntegration {
         }
 
         // Ensure root.hooks exists as an object (use entry() API — index operator does NOT create keys)
-        root.as_object_mut()
-            .unwrap()
-            .entry("hooks")
-            .or_insert_with(|| serde_json::json!({}));
+        {
+            let root_obj = root
+                .as_object_mut()
+                .expect("root is always an object at this point");
+            root_obj
+                .entry("hooks")
+                .or_insert_with(|| serde_json::json!({}));
+        }
 
-        // Ensure root.hooks.PermissionRequest exists as an array
-        root["hooks"]
-            .as_object_mut()
-            .unwrap()
-            .entry("PermissionRequest")
-            .or_insert_with(|| serde_json::json!([]));
+        // Ensure root["hooks"] is an object (entry() is a no-op when the key already exists
+        // with a non-object value, so we must validate explicitly), then ensure
+        // root["hooks"]["PermissionRequest"] exists as an array.
+        {
+            // Capture display string before taking a mutable borrow.
+            let hooks_display = root["hooks"].to_string();
+            let hooks_obj = root["hooks"]
+                .as_object_mut()
+                .ok_or_else(|| {
+                    format!(
+                        "settings.json: expected 'hooks' to be an object, found: {}",
+                        hooks_display
+                    )
+                })?;
+            hooks_obj
+                .entry("PermissionRequest")
+                .or_insert_with(|| serde_json::json!([]));
+        }
+
+        // Ensure root["hooks"]["PermissionRequest"] is an array
+        {
+            root["hooks"]["PermissionRequest"]
+                .as_array_mut()
+                .ok_or_else(|| {
+                    "settings.json: expected 'hooks.PermissionRequest' to be an array".to_string()
+                })?;
+        }
 
         // Idempotency check
         if claude_is_installed(&root) {
@@ -70,7 +98,7 @@ impl Integration for ClaudeIntegration {
         // Push the new hook entry
         root["hooks"]["PermissionRequest"]
             .as_array_mut()
-            .unwrap()
+            .expect("PermissionRequest was validated as array above")
             .push(claude_hook_entry(&ctx.binary_path));
 
         // Write back with pretty-printing (2-space indent, standard serde_json format)
@@ -120,12 +148,11 @@ impl Integration for ClaudeIntegration {
         let content = match std::fs::read_to_string(&settings_path) {
             Ok(c) => c,
             Err(e) => {
-                eprintln!(
-                    "plan-reviewer uninstall: cannot read {}: {}",
+                return Err(format!(
+                    "cannot read {}: {}",
                     settings_path.display(),
                     e
-                );
-                return Ok(());
+                ));
             }
         };
 
