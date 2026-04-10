@@ -40,6 +40,8 @@ install-path = "~/.local/bin"
 github-build-setup = "../build-setup.yml"
 # Whether to install an updater program
 install-updater = false
+# Allow manually edited CI files (macOS codesign step)
+allow-dirty = ["ci"]
 
 # The profile that 'dist' will build with
 [profile.dist]
