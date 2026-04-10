@@ -86,7 +86,10 @@ use hook::{HookInput, HookOutput};
 use server::Decision;
 
 #[derive(Parser, Debug)]
-#[command(version, about = "Claude Code plan reviewer hook binary")]
+#[command(
+    version,
+    about = "Plan reviewer hook binary (supports: claude, gemini, opencode)"
+)]
 struct Cli {
     /// Skip opening the browser and print the review URL to stderr only
     #[arg(long, default_value_t = false)]
