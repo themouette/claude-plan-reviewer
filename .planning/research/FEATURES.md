@@ -1,247 +1,338 @@
 # Feature Landscape
 
-**Domain:** Local plan review tool for Claude Code (ExitPlanMode hook)
-**Researched:** 2026-04-09
-**Reference:** plannotator (https://github.com/backnotprop/plannotator)
+**Domain:** AI coding-agent plan reviewer — v0.3.0 milestone additions
+**Researched:** 2026-04-10
+**Confidence:** MEDIUM-HIGH overall
+
+> This document supersedes the v0.1.0 feature research. It focuses exclusively on
+> features targeted for v0.3.0. The v0.1.0 research is preserved in git history.
 
 ---
 
-## Table Stakes
+## Context: What Already Exists
 
-Features users expect. Missing = product feels incomplete.
+The following are already built (v0.1.0) and are NOT re-researched here:
+
+- Plan review with markdown rendering and code diff display in browser
+- Claude Code ExitPlanMode hook wiring (full install/uninstall, JSON protocol)
+- Annotation system: `comment`, `delete`, `replace` types with free-text inputs
+- `AnnotationSidebar`, `serializeAnnotations`, full annotation output pipeline
+- `install`, `uninstall`, `update` subcommands
+- React 19 + TypeScript + Tailwind v4 + Vite frontend (dark-only CSS custom properties)
+
+---
+
+## Table Stakes (Users Expect These)
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Render plan as formatted markdown | Plan content is markdown; raw text is unreadable at scale | Low | The ExitPlanMode tool_input contains a `plan` field in markdown format (confirmed via bug report #9701). Must render headings, lists, code blocks. |
-| One-click approve | Core purpose of the hook — must be the default, zero-friction path | Low | Maps directly to `{"behavior": "allow"}` in hook stdout JSON |
-| One-click deny with message | Must be able to reject and give feedback in one action | Low | Maps to `{"behavior": "deny", "message": "..."}` — the message goes back to Claude |
-| Inline comment annotations | Users need to point at specific plan text and say "change this" | Medium | Select text → attach note; this is the primary annotation primitive |
-| Structured feedback to agent | Annotations must be formatted so Claude can act on them, not just stored | Medium | Plannotator formats as structured markdown with a "Plan Feedback" header; the `message` field in deny response carries this |
-| Auto-open browser on hook trigger | No manual steps — hook fires, browser opens, user reviews | Low | Binary spawns HTTP server, opens system browser via `open`/`xdg-open` |
-| Block until decision | Binary must hold stdin open, wait for browser UI response, then emit stdout JSON | Medium | HTTP long-poll or WebSocket between browser and binary; the hook process cannot exit until decision is made |
-| Keyboard shortcut for approve | Reviewing plans is frequent; mouse-only approve creates fatigue | Low | `Enter` or `Ctrl+Enter` to approve without annotations |
-| Keyboard shortcut for deny | Symmetric with approve | Low | `Ctrl+d` or similar to open deny dialog |
-| Visible plan content at a glance | Users must understand the full plan without scrolling past noise | Low | Clean render, no chrome clutter, full-width plan text |
+| Opencode: `submit_plan` tool via plugin | De-facto opencode plan review pattern; both Plannotator and open-plan-annotator use it; users switching from those tools expect this exact mechanism | HIGH | Requires a JS/TS plugin file installed in `~/.config/opencode/plugins/` or `.opencode/plugins/`. Plugin registers a `submit_plan` tool via the opencode Plugin SDK. `plan-reviewer install opencode` writes the file and updates `~/.config/opencode/opencode.json`. This is the ONLY working approach — the `permission.asked` hook is defined in SDK types but never triggered (GitHub issue #7006, unresolved as of Jan 2026). |
+| Annotation quick-action labels (6 predefined) | Reviewers want one-click annotation without typing; Plannotator ships 10 default labels as chip buttons | LOW | Chips above the comment form pre-fill the comment text. No new AnnotationType needed — label text becomes the `comment` field value. Labels: "Clarify this", "Needs test", "Give me an example", "Out of scope", "Search internet", "Search codebase". Zero changes to hook output format or Rust code. |
+| Light/dark theme toggle, persisted | Dark-only UIs frustrate light-mode users; developer tool audience expects this control | MEDIUM | Current CSS: hardcoded dark values in `:root` as CSS custom properties. Tailwind v4 class-based dark mode via `@custom-variant dark (&:where(.dark, .dark *))` in `index.css`. Toggle class on `<html>`. Persist to `localStorage`. Fall back to `prefers-color-scheme` when no stored preference. Requires defining ~15 light-mode color values. |
+| User README (install, configure, review, annotate) | Without documentation, install friction is insurmountable for new users | LOW | Markdown in repo root. Covers: `curl \| sh` install, `plan-reviewer install <tool>`, how hook fires per integration, the review workflow, annotation types, `update` subcommand. One doc, not split. |
+| Integration guide per tool (Claude Code + opencode) | Users of each tool need a specific section with exact config steps | LOW | Can live within README as headed sections. Claude Code section: minimal (already stable). Opencode section: `opencode.json` snippet, plugin placement, what `submit_plan` does, how to verify it loaded. |
 
 ---
 
-## Differentiators
-
-Features that set this product apart from plannotator. Not universally expected, but meaningfully better.
+## Differentiators (Competitive Advantage)
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Single binary, zero runtime | `curl \| sh` installs and works — no Bun, no Node, no monorepo | High | Rust + rust-embed bundles UI assets; this is the primary distribution differentiator over plannotator |
-| Approve with inline comments | Approve the plan AND attach comments Claude will see — no need to deny just to give notes | Medium | Plannotator sends annotations only on deny; "approve with notes" is a distinct, useful path. Maps to `{"behavior": "allow", "updatedInput": {...}}` — inject the comments into the plan text itself, or use a separate mechanism. Needs protocol investigation. |
-| Code diff view alongside plan | Show the git diff for the affected files next to the plan | High | Plannotator does this as a separate command; integrating it into the plan review view is more useful. Read `transcript_path` + `cwd` from hook stdin to find relevant diffs. |
-| Plan revision history | Show previous versions of the plan when agent revises | Medium | Requires storing prior plans per session. Plannotator does this; it's high-value when Claude revises a plan after "request changes" |
-| Fast approve path: no browser | If user sets a "trust" preference, skip the browser and auto-approve after N seconds or always | Low | Anti-review-fatigue pattern: for users who only want to see plans occasionally. Optional, gated behind settings. |
-| Global comment (document-level) | Attach a note not anchored to any specific text — useful for overall direction feedback | Low | Plannotator supports this. Low implementation cost, high communication value. |
-| Replace annotation | Select text in plan, type replacement — tells Claude exactly what to write instead | Medium | More precise than "comment saying change X to Y". Plannotator supports `['R', originalText, replacementText]`. |
-| Delete annotation | Mark a plan step for removal explicitly | Low | Cleaner signal than "comment saying skip this". Plannotator supports `['D', originalText]`. |
+| `plan-reviewer install opencode` writes plugin file | Same zero-friction UX as Claude Code install — one command sets everything up | HIGH | The JS plugin file is embedded in the Rust binary at compile time (`include_str!` on the plugin `.mjs` source). Install writes it to disk + updates `opencode.json`. Uninstall removes the file + config entry. This is the key differentiator over tools that require manual `opencode.json` editing. |
+| Annotation label tip text (agent-facing instruction) | Labels can carry an invisible agent instruction beyond just the label name — "Search internet: verify this by searching before proceeding" — shaping how the agent responds | LOW | Extend `Annotation` interface with optional `label` (display name) and `tip` (agent instruction). `serializeAnnotations` emits the tip text in the feedback block. Plannotator implements this; it meaningfully improves agent behavior. |
+| Three-state theme picker (Light / Dark / System) | "System" respects OS setting without the user having to re-toggle on theme changes — better than binary light/dark | LOW | Upgrade from binary toggle. `ThemeMode = 'light' \| 'dark' \| 'system'`. `'system'` removes the `localStorage` key so `prefers-color-scheme` takes over. Minimal extra complexity once binary toggle is in place. |
 
 ---
 
-## Anti-Features
+## Anti-Features (Commonly Requested, Often Problematic)
 
-Features to explicitly NOT build. Each is a complexity trap with low marginal return for v1.
-
-| Anti-Feature | Why Avoid | What to Do Instead |
-|--------------|-----------|-------------------|
-| Image/screenshot attachments on annotations | Plannotator supports this; adds file handling, storage, and encoding complexity for rare use | Text comments cover 99% of cases; defer forever |
-| Team sharing / URL encoding of plans | Requires encryption, server infrastructure, or large URL payloads; out of scope for local tool | Stay local-only for v1; sharing is explicitly OOS in PROJECT.md |
-| Multi-agent platform support (Copilot, Gemini, etc.) | Each platform has a different hook protocol; adds abstraction layers that bloat the binary | Claude Code only for v1; PROJECT.md explicitly scopes this out |
-| Plan diff / revision history storage across sessions | Requires persistent state, migration, storage format decisions | Plan revision within a single session is enough; no cross-session storage |
-| Code review as a standalone command | Plannotator has `/plannotator-review` for PRs and arbitrary diffs; this is a separate product surface | Focus on the ExitPlanMode hook flow; code diff is a secondary panel in that context, not a standalone feature |
-| TUI (terminal UI) | Inferior markdown/diff rendering; PROJECT.md already decided browser UI | Browser UI is the decision |
-| "Annotate any file" command | Plannotator has `/plannotator-annotate`; arbitrary file annotation is a separate tool, not a plan reviewer | Out of scope |
-| Real-time collaboration / websocket sync | Networking infrastructure for a local tool is disproportionate | Local only |
-| Auth / user identity on annotations | Plannotator stores `author` on each annotation; single-user local tool has no need | Omit author field; simplifies data model |
-| Insert annotation (new step insertion) | Requires position tracking in the document model; rarely used vs replace/comment | Use "replace" to rewrite a section; use "comment" to say "add X here"; defer insert as a first-class type |
-
----
-
-## Annotation Model
-
-Based on plannotator's model and the specific needs of this tool, the recommended annotation types are:
-
-### Recommended: Three-type model (not five)
-
-Plannotator supports five types: Delete, Insert, Replace, Comment, Global Comment. For v1, collapse to three:
-
-| Type | When | Signal to agent |
-|------|------|-----------------|
-| `delete` | Selected text should be removed from the plan | "Do not do this step" |
-| `replace` | Selected text should be rewritten | "Do this instead: [new text]" |
-| `comment` | Selected text needs attention but user isn't prescribing the fix | "Think about this differently: [note]" |
-
-Global comment (no anchor) maps naturally to a top-level `comment` with no `originalText`. This keeps the data model flat:
-
-```
-Annotation {
-  id: uuid,
-  type: "delete" | "replace" | "comment",
-  original_text: String,   // selected text (empty string for global comment)
-  replacement: Option<String>,  // only for "replace" type
-  note: Option<String>,    // for "comment" type; optional on "delete"/"replace"
-}
-```
-
-**Why not insert?** Insert requires knowing _where_ to insert in the document model (before/after which element). This needs a position index or a range, and the agent must parse that to reconstruct intent. Replace covers most insert use cases ("replace empty selection at position X with new text") but adds complexity. Defer.
-
-**Why no images?** Binary payload through the hook's stdout JSON is messy. Text covers the use cases. Skip forever.
-
-### Feedback formatting
-
-When denying, annotations serialize to structured markdown sent as the `message` field:
-
-```
-## Plan Feedback
-
-### Delete: "Run npm install in the root directory"
-> Reason: We use bun, not npm.
-
-### Replace: "Create a new PostgreSQL migration"
-> With: "Create a new SQLite migration using the existing migration helper"
-
-### Comment: "Phase 2: Refactor the auth module"
-> Consider doing this as a separate task after the current feature is stable.
-
-### Overall
-This plan skips error handling entirely. Each step should include what to do if the operation fails.
-```
-
-This format is readable by Claude without any special parsing. Each annotation maps to a human-readable block with the original text quoted.
-
----
-
-## Approve/Deny UX
-
-### Findings from research
-
-The critical insight from review fatigue research: **most plans should be approvable with one keystroke**. The annotation flow should feel like annotating a document before hitting send — not like filing a bug report.
-
-Three patterns from code review UX that apply here:
-
-1. **Approve is the default path.** The primary button / keyboard shortcut approves. Deny requires an intentional secondary action. This matches GitHub's PR model.
-
-2. **Approve-with-comments is a valid state.** Currently plannotator only sends annotations on deny. But "I'll proceed, just noting X" is a common reviewer state. Map this to `behavior: allow` with comments injected into the plan text or passed as a separate channel. Needs protocol investigation — the `updatedInput` field on allow could carry augmented plan text.
-
-3. **Deny requires a summary.** When requesting changes, Claude needs to know the overall intent, not just individual annotation targets. The deny dialog should prompt for a global note in addition to inline annotations.
-
-### Recommended UX flow
-
-```
-Hook fires → browser opens → plan renders
-
-  [No annotations needed]
-  User presses Enter → approve immediately → window closes → binary exits
-
-  [Wants to annotate then approve]
-  User selects text → picks Delete/Replace/Comment → fills in
-  User presses Ctrl+Enter → "approve with notes" → window closes → binary exits with allow + notes
-
-  [Wants agent to revise]
-  User annotates
-  User clicks "Request changes" → confirmation shows annotation count
-  Optional: user types overall feedback
-  User confirms → window closes → binary exits with deny + structured message
-```
-
-The browser window closing is the signal to the user that the decision is sent. No "submitted" page, no waiting state.
-
----
-
-## Diff Rendering
-
-### What matters
-
-Based on code review UX research: diff rendering for plan review is secondary to the plan text itself. The code diff is context — it shows _what changed_ to help the user evaluate whether the plan makes sense. The diff should be:
-
-- Visible alongside the plan, not replacing it
-- Unified diff view by default (most compact)
-- Side-by-side view available as toggle
-- Syntax highlighted per language
-- File tree navigation when multiple files are affected
-
-### What does NOT matter for v1
-
-- Line-level annotations on the diff (defer — adds significant complexity)
-- Staging/unstaging hunks (plannotator feature for code review, not plan review)
-- Cross-repo PR cloning (out of scope)
-
-### Implementation note
-
-`diff2html` (JavaScript library) handles unified + side-by-side + syntax highlighting from a standard git diff string. It works without React, is well-maintained, and produces GitHub-style output. The binary reads the diff from `cwd` in the hook stdin by running `git diff HEAD` (or similar). This is the right tool for the diff rendering surface.
-
-**Confidence:** MEDIUM — diff2html is the ecosystem standard, but embedding it in a Rust binary's bundled assets needs verification of bundle size.
+| Feature | Why Requested | Why Problematic | Alternative |
+|---------|---------------|-----------------|-------------|
+| Codestral config-file hook integration | PROJECT.md lists "codestral integration" as a milestone target | Codestral is a Mistral AI language model, not a CLI coding agent. It has no settings file, no hook system, and no plan approval mechanism. Mistral's actual CLI coding agent is `mistral-vibe` (`~/.vibe/config.toml`) but it has no documented external plan-review hook — only MCP server support and per-tool permission levels. Writing a config entry for "codestral" would have no effect. | Treat the v0.3.0 milestone deliverable as a documentation and UX decision: (a) update the `Codestral` stub's `unsupported_reason` to accurately explain it is a model, (b) document this clearly in the README, (c) optionally rename or remove the stub. Do NOT ship fake hook wiring. |
+| Opencode `permission.asked` hook wiring (Claude Code-style config entry) | Appears to be the obvious parallel to Claude Code's `settings.json` hook | The `permission.asked` plugin hook is defined in opencode SDK types but is NEVER called by the opencode runtime (confirmed issue #7006, January 2026). Config-based hooks in `opencode.json` only support `file_edited` and `session_completed` (experimental). There is no config-file equivalent of Claude's `PermissionRequest` entry for plan interception. | Use the `submit_plan` plugin tool pattern — the only working approach. |
+| opencode plugin using stdin/stdout subprocess | Seems natural for IPC between the JS plugin and the Rust binary | Documented issues: `child_process.spawn()` with piped stdio in opencode plugins does not reliably deliver data to the child process stdin (GitHub issue #21293). | Plugin communicates with the already-running Rust HTTP server via HTTP fetch — reliable, tested by Plannotator and open-plan-annotator. |
+| Custom annotation label editor in v0.3.0 | Plannotator supports up to 12 customizable labels with color pickers | High implementation cost (settings UI, persistence, validation) with low marginal value before the feature is validated. Ship 6 hardcoded labels first. | Defer label customization to v0.4.0+ after confirming users use the predefined ones. |
+| Annotation quick-action as a new AnnotationType | Could model quick-action labels as first-class types (`clarify`, `needs-test`, etc.) | Creates 6+ new type variants in the Rust `HookOutput` and serializer. Breaks existing output format. Adds a combinatoric maintenance surface (type × has-comment × has-replacement). | Labels are metadata on the existing `comment` type — the label text becomes the comment content. Zero Rust changes needed. |
 
 ---
 
 ## Feature Dependencies
 
 ```
-Block-until-decision (HTTP server + WebSocket/long-poll)
-  → All annotation features (need round-trip from browser to binary)
-  → Approve action
-  → Deny action
+Opencode JS plugin file (embedded in Rust binary at compile time)
+    └──required by──> plan-reviewer install opencode (writes plugin to disk)
+                          └──required by──> plan-reviewer uninstall opencode (removes plugin + config entry)
 
-Approve action
-  → Approve-with-comments (needs the above + annotation model)
+Opencode plugin (submit_plan tool) calls Rust HTTP server
+    └──depends on──> plan-reviewer binary running as HTTP server before plugin fires
+                      [Note: current arch starts server only when hook fires — opencode
+                       integration may require a different startup trigger]
 
-Deny action
-  → Structured feedback format (needs annotation model)
+Annotation quick-action labels
+    └──builds on──> Existing comment AnnotationType (no new type)
+    └──feeds into──> serializeAnnotations (emits label tip text if present)
+    └──optional enhancement──> label tip text (agent-facing instruction per label)
 
-Annotation model
-  → Delete annotation
-  → Replace annotation
-  → Comment annotation
-  → Global comment
+Theme CSS light-mode tokens (~15 new --color-* values)
+    └──required by──> Theme toggle button (React component in PageHeader)
+    └──required by──> localStorage persistence (useTheme hook)
+    └──requires──> Tailwind v4 @custom-variant dark declaration added to index.css
 
-Diff view
-  → Code diff rendering (needs git access via cwd from hook stdin)
+User README
+    └──requires──> All v0.3.0 features stable
+    └──depends on──> Opencode integration working to document it accurately
 ```
 
----
+### Dependency Notes
 
-## MVP Recommendation
-
-Prioritize for v1:
-
-1. Plan markdown rendering (table stakes — useless without it)
-2. One-click approve / deny (table stakes)
-3. Block-until-decision mechanism (architectural requirement for all of the above)
-4. Comment annotation (the single most useful annotation type)
-5. Deny with structured feedback (makes the tool useful vs plannotator's model)
-6. Delete and Replace annotations (complete the annotation model)
-
-Defer:
-
-- **Code diff view**: Useful but not essential for plan review; adds surface area and git integration complexity. Add in milestone 2.
-- **Approve-with-comments**: Useful differentiator but requires protocol investigation on how to pass notes on `allow`. Defer until the hook input/output protocol for ExitPlanMode is fully understood.
-- **Plan revision history**: Valuable for multi-round plan refinement; defer until core loop is proven.
-- **Fast approve / skip-browser mode**: Anti-fatigue feature for power users; add after core loop is working.
+- **Opencode plugin startup**: The current architecture starts the HTTP server when Claude Code fires the hook (binary is the hook command). For opencode, the binary is NOT the hook — it's a plugin-registered tool. The plugin needs to either (a) launch the binary as a subprocess that runs the server then returns JSON, or (b) call a pre-running binary via HTTP. This startup model needs design work in Phase 1.
+- **Labels do not touch Rust**: The quick-action label feature is entirely in the React frontend. `serializeAnnotations.ts` may need a small update to emit tip text if a `tip` field is added to `Annotation`, but the Rust `HookOutput` struct is unchanged.
+- **Theme FOUC prevention**: A small inline `<script>` in `index.html` `<head>` (before React loads) must apply the stored theme class before the browser renders. Without it, users see a flash of dark/light on page load.
 
 ---
 
-## Open Questions
+## MVP Definition for v0.3.0
 
-1. **Does ExitPlanMode tool_input contain the plan text?** The bug report (#9701) shows `plan` as a parameter value (`"## Import/Export Feature Implementation Plan\n\n[content]"`), but the official docs don't document `tool_input` for ExitPlanMode. This needs empirical verification by inspecting the hook stdin JSON at runtime. This is a blocker for knowing exactly what the binary receives.
+### Launch With (v0.3.0)
 
-2. **Can `updatedInput` on `behavior: allow` carry annotated plan text?** The hooks docs show `updatedInput` modifying tool input on allow decisions (e.g., rewriting a Bash command). If `updatedInput` can carry a modified `plan` value, approve-with-comments becomes possible in v1. Needs testing.
+- [ ] Opencode plugin file authored (JS, registers `submit_plan` tool, calls plan-reviewer HTTP server)
+- [ ] `plan-reviewer install opencode` — writes plugin to `~/.config/opencode/plugins/` + updates `opencode.json`
+- [ ] `plan-reviewer uninstall opencode` — removes plugin file + config entry
+- [ ] Annotation quick-action labels — 6 predefined chips: "Clarify this", "Needs test", "Give me an example", "Out of scope", "Search internet", "Search codebase"
+- [ ] Light/dark theme toggle in `PageHeader`, persisted to `localStorage`, falls back to `prefers-color-scheme`
+- [ ] FOUC-prevention inline script in `index.html`
+- [ ] Codestral stub updated: `unsupported_reason` accurately says "model, not agent; no hook infrastructure"
+- [ ] README: install guide, Claude Code integration steps, opencode integration steps, review workflow, annotation types
 
-3. **Is `transcript_path` in hook stdin useful for diff extraction?** The transcript is a JSONL file of the session. It may contain information about which files were being modified, which would let the binary infer a relevant git diff without user input.
+### Add After Validation (v0.4.0)
+
+- [ ] Annotation label tip text (agent-facing instruction per label) — add once users confirm they use predefined labels
+- [ ] Three-state theme picker (Light / Dark / System) — upgrade from binary toggle
+- [ ] Mistral-vibe integration research — only if users report using mistral-vibe
+- [ ] Ask-from-UI (select text, stream AI response inline) — already v0.4.0 candidate in PROJECT.md
+
+### Future Consideration (v0.5.0+)
+
+- [ ] Custom annotation label editor (add/remove/reorder/color labels in settings UI)
+- [ ] Annotation "insert" type (new content at a position) — high implementation cost vs replace
+
+---
+
+## Feature Prioritization Matrix
+
+| Feature | User Value | Implementation Cost | Priority |
+|---------|------------|---------------------|----------|
+| Opencode install/uninstall | HIGH — unlocks opencode user segment | HIGH — JS plugin file + embed + config R/W | P1 |
+| Annotation quick-action labels | HIGH — speeds up most common workflow | LOW — chips UI + pre-fill logic | P1 |
+| Light/dark theme toggle | MEDIUM — quality-of-life; dark-only frustrates light users | MEDIUM — new CSS tokens + toggle component + hook | P1 |
+| User README + integration guide | HIGH — without docs, new users are blocked | LOW — writing only | P1 |
+| Codestral stub update | LOW user impact but prevents confusion | LOW — text change + test update | P2 |
+| Label tip text | MEDIUM — shapes agent behavior meaningfully | LOW — small Annotation type extension | P2 |
+| Three-state theme picker | LOW — binary toggle covers 90% of need | LOW (once binary toggle exists) | P3 |
+
+---
+
+## Opencode Integration: Technical Detail
+
+**Architecture (HIGH confidence — verified via Plannotator opencode README, open-plan-annotator source, opencode plugin docs):**
+
+1. Plugin file in `~/.config/opencode/plugins/plan-reviewer.mjs` (global) or `.opencode/plugins/plan-reviewer.mjs` (project).
+2. `opencode.json` references it: `"plugin": ["/absolute/path/to/plan-reviewer.mjs"]` or `"plugin": ["@plan-reviewer/opencode@latest"]` if published to npm.
+3. Plugin exports a function returning an object with a `tool` property defining `submit_plan`.
+4. When LLM calls `submit_plan`, plugin makes an HTTP call to the plan-reviewer server.
+5. Server blocks, browser opens, user reviews, decision returns as HTTP response to plugin.
+6. Plugin returns structured feedback to the LLM as the tool result.
+
+**Config file paths:**
+- Global opencode config: `~/.config/opencode/opencode.json`
+- Global plugin directory: `~/.config/opencode/plugins/`
+- Project config: `<project>/opencode.json`
+- Project plugin directory: `<project>/.opencode/plugins/`
+
+**Config entry format:**
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["/path/to/plan-reviewer-opencode.mjs"]
+}
+```
+
+**Minimal plugin structure (JS, not TS — avoids transpilation requirement):**
+```javascript
+// plan-reviewer-opencode.mjs
+export const PlanReviewerPlugin = async (ctx) => {
+  return {
+    tool: {
+      submit_plan: {
+        description: "Submit a plan for human review before implementation.",
+        parameters: {
+          type: "object",
+          properties: {
+            plan: { type: "string", description: "The plan to review" }
+          },
+          required: ["plan"]
+        },
+        execute: async ({ plan }) => {
+          // POST to plan-reviewer local HTTP server
+          const resp = await fetch("http://localhost:<PORT>/review", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ plan })
+          });
+          return await resp.json(); // returns { decision, message }
+        }
+      }
+    }
+  };
+};
+```
+
+**What does NOT work for opencode:**
+- `permission.asked` hook — defined in SDK types but never triggered (issue #7006, Jan 2026)
+- Config-based hooks in `opencode.json` — only `file_edited` and `session_completed` (experimental)
+- `child_process.spawn()` with piped stdin/stdout — unreliable in opencode plugin context (issue #21293)
+
+---
+
+## Codestral Integration: Technical Detail
+
+**Conclusion (HIGH confidence from multiple sources):**
+
+"Codestral" is a Mistral AI language model. It is not a coding agent and has no settings file, hook system, or plan approval mechanism. There is nothing to wire.
+
+Mistral's CLI coding agent is `mistral-vibe`, using `~/.vibe/config.toml`. As of research date, mistral-vibe has no documented external plan-review hook or `submit_plan`-equivalent mechanism.
+
+**v0.3.0 deliverables for this item:**
+1. Update `get_integration(IntegrationSlug::Codestral).unsupported_reason` to say: "Codestral is a Mistral AI language model, not a coding agent. It has no hook infrastructure. For Mistral's coding agent (mistral-vibe), no plan review hook is currently available."
+2. Update the test `opencode_and_codestral_unsupported` to match the new reason string.
+3. Document in the README under "Supported integrations" table.
+
+---
+
+## Annotation Quick-Action Labels: Technical Detail
+
+**Reference:** Plannotator "Quick Labels" — chip buttons that auto-populate the comment field. Clicking a chip: creates or updates a `comment` annotation with the label text pre-filled.
+
+**Implementation (no new types, no Rust changes):**
+
+- Add optional `label?: string` to `Annotation` interface in `types.ts` (metadata only)
+- Render chip buttons in the selection popup (shown when text is selected in the plan)
+- Clicking a chip: `addAnnotation({ type: 'comment', comment: label.text, label: label.name })`
+- `serializeAnnotations.ts`: if `a.label` is set, render as `[COMMENT: ${a.label}]` header — no breaking change to existing output
+- Optional: add `tip?: string` per label; `serializeAnnotations` appends tip to the comment block
+
+**6 predefined labels (PROJECT.md spec):**
+
+| Label | Pre-filled Comment Text |
+|-------|------------------------|
+| Clarify this | "Clarify this section before proceeding — the intent is ambiguous." |
+| Needs test | "Add a test for this. Do not proceed without test coverage for this path." |
+| Give me an example | "Provide a concrete example of how this will work in practice." |
+| Out of scope | "This is out of scope for the current task. Skip this step." |
+| Search internet | "Search the internet to verify this claim before proceeding." |
+| Search codebase | "Search the codebase for existing implementations before writing new code." |
+
+---
+
+## Theme Switching: Technical Detail
+
+**Stack:** React 19 + Tailwind v4 (`@tailwindcss/vite ^4.2.2`) + Vite. CSS uses `@import "tailwindcss"` and CSS custom properties in `:root` (dark values only, 15 variables).
+
+**Tailwind v4 class-based dark mode:**
+```css
+/* index.css — add this line */
+@custom-variant dark (&:where(.dark, .dark *));
+```
+
+**Current architecture:** All styling uses CSS custom properties on component inline styles. Tailwind `dark:` utilities are NOT used. This means theming is controlled by redefining the CSS variables, not by adding `dark:` classes to every element.
+
+**Option A (recommended — minimal refactor):**
+
+Define light-mode values as defaults in `:root`, override with dark values in `:root.dark`:
+```css
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-text-primary: #0f172a;
+  /* ... all ~15 variables with light values */
+}
+
+:root.dark {
+  --color-bg: #0f1117;
+  --color-surface: #1a1d27;
+  /* ... existing dark values */
+}
+```
+
+Toggle: `document.documentElement.classList.toggle('dark', isDark)`.
+
+**Persistence pattern (Tailwind official recommendation):**
+```html
+<!-- index.html <head> — prevents FOUC -->
+<script>
+  (function() {
+    var theme = localStorage.getItem('theme');
+    var dark = theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.classList.toggle('dark', dark);
+  })();
+</script>
+```
+
+**React `useTheme` hook:**
+```typescript
+function useTheme() {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const stored = localStorage.getItem('theme');
+    if (stored === 'light' || stored === 'dark') return stored;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  return { theme, toggle: () => setTheme(t => t === 'dark' ? 'light' : 'dark') };
+}
+```
+
+Toggle button placed in `PageHeader` (already the top-level header component).
+
+---
+
+## Competitor Feature Analysis
+
+| Feature | Plannotator | open-plan-annotator | plan-reviewer (v0.3.0) |
+|---------|-------------|---------------------|------------------------|
+| Claude Code integration | Plugin marketplace | Plugin | Config hook (v0.1.0) |
+| Opencode integration | `@plannotator/opencode` plugin | `open-plan-annotator@latest` plugin | Plugin (v0.3.0) |
+| Codestral | Not mentioned | Not mentioned | Documented as N/A (model) |
+| Annotation types | Delete, Replace, Comment, Insert | Same | Comment, Delete, Replace |
+| Quick-action labels | 10 default + customizable up to 12 | Not documented | 6 predefined (v0.3.0) |
+| Light/dark mode | Not documented | Not documented | Toggle + persist (v0.3.0) |
+| Distribution | Bun runtime + npm | npm | Single static binary, `curl \| sh` |
+| Install command | Manual `opencode.json` edit | Manual | `plan-reviewer install opencode` |
 
 ---
 
 ## Sources
 
-- Plannotator annotation types: https://www.mintlify.com/backnotprop/plannotator/guides/annotation-types
-- Plannotator plan review basics: https://lzw.me/docs/opencodedocs/backnotprop/plannotator/platforms/plan-review-basics/
-- Claude Code hooks reference: https://code.claude.com/docs/en/hooks
-- Claude Code hooks guide: https://code.claude.com/docs/en/hooks-guide
-- ExitPlanMode tool description: https://github.com/Piebald-AI/claude-code-system-prompts/blob/main/system-prompts/tool-description-exitplanmode.md
-- ExitPlanMode bug report (plan field confirmed): https://github.com/anthropics/claude-code/issues/9701
-- Review fatigue design pattern: https://ravipalwe.medium.com/review-fatigue-is-breaking-human-in-the-loop-ai-heres-the-design-pattern-that-fixes-it-044d0ab1dd12
-- diff2html library: https://diff2html.xyz/
-- Armin Ronacher on plan mode UX: https://lucumr.pocoo.org/2025/12/17/what-is-plan-mode/
+| Source | Confidence | Used For |
+|--------|------------|----------|
+| https://opencode.ai/docs/plugins/ | HIGH | Opencode plugin format, hook events |
+| https://opencode.ai/docs/config/ | HIGH | Config file path, plugin array format |
+| https://github.com/anomalyco/opencode/issues/7006 | HIGH | `permission.asked` unimplemented — confirmed |
+| https://github.com/anomalyco/opencode/issues/21293 | HIGH | stdin/stdout spawn unreliable — confirmed |
+| https://github.com/backnotprop/plannotator/blob/main/apps/opencode-plugin/README.md | HIGH | Working opencode plugin pattern |
+| https://github.com/ndom91/open-plan-annotator | HIGH | Second working opencode plugin reference |
+| https://github.com/backnotprop/plannotator | HIGH | Quick Labels UX pattern, annotation types |
+| https://tailwindcss.com/docs/dark-mode | HIGH | Tailwind v4 dark mode class strategy |
+| https://github.com/mistralai/mistral-vibe | MEDIUM | Mistral's actual CLI coding agent — no plan hooks |
+| https://docs.mistral.ai/mistral-vibe/introduction | MEDIUM | mistral-vibe config.toml, no external hooks |
+| https://dev.to/jacobandrewsky/better-feedback-in-code-reviews-with-conventional-comments-2c3k | LOW | Annotation label design patterns |
+
+---
+
+*Feature research for: AI coding-agent plan reviewer (v0.3.0 — opencode/codestral integrations, annotation quick-actions, theme switching, user docs)*
+*Researched: 2026-04-10*

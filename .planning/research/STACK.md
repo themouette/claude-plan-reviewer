@@ -1,180 +1,173 @@
-# Technology Stack
+# Stack Research
 
-**Project:** claude-plan-reviewer
-**Researched:** 2026-04-09
+**Domain:** Local Rust binary + React/TS browser UI — v0.3.0 incremental additions
+**Researched:** 2026-04-10
+**Confidence:** HIGH for opencode (confirmed via official docs + plannotator source) | HIGH for theme | MEDIUM for codestral (confirmed: it is a model, no agent hook system)
 
-## Recommended Stack
+---
 
-### Core Runtime and HTTP Server
+## Scope
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| tokio | 1.x | Async runtime | De facto standard; required by axum; full features (macros, rt-multi-thread) |
-| axum | 0.8.x | Local HTTP server | Built by the Tokio team, tight tower ecosystem integration, first-class rust-embed support via optional `axum` feature flag, actively maintained |
+This document covers ONLY new stack decisions needed for v0.3.0. The existing validated stack (axum 0.8, rust-embed 8, git2 0.20, comrak, clap 4, self_update 0.44, dialoguer 0.12, React 19, TS, Vite, Tailwind CSS 4) is not re-researched here.
 
-**Use axum.** It has an optional `axum ^0.8` feature in rust-embed that wires static file serving in one call. The Tokio team ships both, so version compatibility is guaranteed.
+---
 
-**Do NOT use:**
-- `actix-web` — Actor model overhead is irrelevant for a single-user local tool; higher compile times; not the same ecosystem as tokio/tower
-- `warp` — Last release (v0.4.1) was August 2019. The filter composition model adds complexity with no benefit here. MEDIUM confidence (GitHub shows PRs in early 2025 but the crate version itself has not shipped)
-- `tiny_http` — Synchronous, thread-per-connection, no async; explicitly recommends using a framework instead; no middleware story
+## Recommended Stack — New Additions
 
-### Asset Embedding
+### opencode Integration
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| rust-embed | 8.x (currently 8.11.0) | Embed compiled frontend assets into binary | Debug mode reads from filesystem (fast iteration), release mode embeds; compression support; first-class axum integration feature flag; most widely used pattern for this use case |
+**Verdict: No Rust config changes. Requires writing an npm plugin in TypeScript.**
 
-**Use rust-embed.** The debug/release duality is the killer feature for this project: during development the binary reads the Vite build output from `frontend/dist/` directly; in release the files are baked in. The `axum` feature flag generates the necessary handler glue automatically.
+opencode does NOT have a config-based hook analogous to Claude Code's `ExitPlanMode`. The only config-based hooks are experimental (`experimental.hook.file_edited`, `experimental.hook.session_completed`) and have no plan approval event. Plan review in opencode is achieved via the plugin system: an npm package is listed in the `plugin` array and registers a `submit_plan` tool that the agent calls after drafting a plan.
 
-**Do NOT use:**
-- `include_dir` — No debug/release duality, no compression, no axum integration; you'd hand-roll everything rust-embed already provides
-- Raw `include_bytes!` / `include_str!` per file — Does not scale to a Vite build output with hashed asset filenames; requires manual MIME type assignment
+This is confirmed by:
+- Plannotator's opencode integration (`@plannotator/opencode@latest`) uses exactly this pattern
+- open-plan-annotator (`open-plan-annotator@latest`) uses the same `submit_plan` tool approach
+- opencode's changelog and docs show no config hook for plan approval as of v1.4.3 (April 10 2026)
 
-### Frontend Framework
+**What this means for plan-reviewer:**
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| React | 19.x | UI components | User preference; large ecosystem; strong TypeScript support; Vite produces static assets embeddable via rust-embed |
-| TypeScript | 5.x | Type safety | Strong typing for hook protocol structs and annotation model; catches protocol mismatches at compile time |
-| Vite | 6.x | Frontend build | First-class React + TS support; `--base ./` flag produces relative URLs compatible with rust-embed serving; outputs a `dist/` directory rust-embed embeds directly |
+| Approach | Verdict | Reason |
+|----------|---------|--------|
+| Write a config hook entry (like Claude Code) | NOT POSSIBLE | No such hook exists in opencode |
+| Write a Rust binary plugin | NOT POSSIBLE | opencode plugins must be TypeScript/JavaScript npm packages |
+| Publish an npm plugin package that shells out to the plan-reviewer binary | CORRECT PATH | Plugin registers `submit_plan` tool; on invocation it calls `plan-reviewer` via subprocess, waits for browser decision, returns result to opencode |
 
-**Use React + TypeScript + Vite.** The build pipeline is: `vite build --base ./` produces `dist/`, rust-embed embeds `dist/` at compile time. Use `create-vite` with the `react-ts` template. No React Router or SSR needed — a single-page app with local state is sufficient.
+**Integration path — opencode config file:**
 
-**Do NOT use:**
-- Svelte — Smaller bundle but less familiar; React chosen explicitly for ecosystem familiarity
-- SvelteKit / Next.js / Remix — SSR frameworks add complexity that is not needed for a local single-page tool
-- Leptos / Yew (Rust WASM) — WASM compile target adds build complexity and binary size for no UX gain
-- Tauri — This project deliberately avoids a native window manager. The goal is a browser tab, not a native app.
-- Vanilla JS — Manageable but annotation state management (accumulating multiple annotations, syncing with forms) gets fiddly without React's reactivity
+- Global: `~/.config/opencode/opencode.json` or `~/.config/opencode/opencode.jsonc`
+- Project: `opencode.json` or `opencode.jsonc` at project root (merged on top of global)
+- Field: `"plugin": ["@plan-reviewer/opencode@latest"]`
 
-**Build integration note:** Add a `build.rs` that runs `npm run build` in the `frontend/` directory before cargo compiles the Rust code so that `rust-embed` always picks up a fresh build. Gate the build.rs invocation behind a `SKIP_FRONTEND_BUILD` env var for faster iteration and CI cross-compilation.
-
-### Markdown Rendering
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| comrak | 0.x (check latest on crates.io) | Server-side markdown-to-HTML conversion | Full GFM support (tables, task lists, strikethrough, autolinks); actively maintained (author's day job since Sept 2025); used by crates.io, docs.rs, lib.rs, GitLab, Deno; AST model enables sanitization |
-
-**Render markdown server-side in Rust, serve HTML to the frontend.** Claude's plan output uses GFM-ish markdown (headings, code blocks, bullet lists, potentially tables). Rendering on the server means the JS bundle does not need a markdown parser.
-
-**Do NOT use:**
-- `pulldown-cmark` for this use case — Faster but historically lags behind the GFM spec (the community notes it doesn't fully track cmark-gfm). Suitable if you only need CommonMark; not if you want task list checkboxes and tables to render correctly
-- Client-side markdown rendering (marked.js, marked in the Svelte bundle) — Adds JS bundle weight and a second rendering path; unnecessary when the server can do it at zero frontend cost
-
-### Git Diff Parsing
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| git2 | 0.20.x | Parse repository diffs | Safe bindings to libgit2; provides `Diff` and `Patch` structs directly; no subprocess; works on the repo the hook is invoked from |
-
-**Use git2.** The hook is invoked from within a git repository (Claude Code's working directory). `git2::Repository::open(".")` then `repo.diff_index_to_workdir()` or `repo.diff_head_to_index()` gives a full diff without shelling out.
-
-**Do NOT use:**
-- Shelling out to `git diff` — Fragile: depends on `git` being in `PATH`, inherits the user's git config, requires parsing unstructured text output, breaks if git is not installed at expected path. libgit2 is self-contained
-- `gitoxide` (gix) — Promising pure-Rust rewrite but the diff API is still maturing; git2/libgit2 has a proven, stable diff API. Revisit in 12 months
-- `git-diff` crate — Deprecated
-
-**Note on static linking:** libgit2 can be statically linked via the `git2` crate's `vendored` feature flag (`git2 = { version = "0.20", features = ["vendored"] }`). This is required for distributable binaries — do not rely on the system libgit2.
-
-### CLI Argument Parsing
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| clap | 4.x (currently 4.6.0) | CLI argument parsing | Industry standard; derive macro keeps argument definitions co-located with the struct; auto-generates `--help` and `--version` from Cargo.toml |
-
-The binary has minimal CLI surface: it reads JSON from stdin and writes JSON to stdout. Clap's derive API handles any flags (`--port`, `--no-open`, `--version`) with negligible boilerplate.
-
-**Do NOT use:**
-- `structopt` — Superseded by clap v3+ derive; unmaintained
-- `argh` / `pico-args` — Lighter weight but unnecessary savings; clap compile time is acceptable here
-
-### JSON I/O (Hook Protocol)
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| serde | 1.x | Serialization framework | Universal; derive macros for zero-boilerplate struct mapping |
-| serde_json | 1.x | JSON stdin/stdout | `from_reader(stdin())` parses the hook input; `to_writer(stdout(), &response)` emits the response; handles the full PermissionRequest protocol |
-
-### Browser Launch
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| webbrowser | 1.x (currently 1.0.4) | Open browser tab | Cross-platform (macOS, Linux, Windows); non-blocking for GUI browsers; suppresses browser stdout/stderr from polluting the hook's stdout |
-
-**Do NOT use `open`** — The `open` crate is simpler but `webbrowser` guarantees opening even for local file URLs and provides explicit browser selection if needed.
-
-### Cross-Compilation and Binary Release
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| cargo-dist | 0.31.x | Release automation, curl-sh installer generation | Generates GitHub Actions CI that builds multi-target binaries, uploads to GitHub Releases, and produces a shell installer script; exactly the `curl \| sh` distribution model in the project requirements |
-
-**Targets to configure in `Cargo.toml` (via cargo-dist):**
-- `x86_64-apple-darwin`
-- `aarch64-apple-darwin`
-- `x86_64-unknown-linux-musl` (static, not gnu — avoids glibc version mismatch on older Linux)
-- `aarch64-unknown-linux-musl`
-
-**Use `*-musl` for Linux, not `*-gnu`.** musl produces fully static binaries. GNU binaries dynamically link glibc and break on distros with older glibc than the build machine.
-
-**Use cargo-dist.** It handles: build matrix across targets, tarball packaging, installer script generation, and GitHub Release artifact upload — in a single `dist init` + `dist generate` invocation.
-
-**Do NOT use:**
-- `cross` alone — Useful for building ARM on x86, but you still need to write all the release automation yourself; cargo-dist subsumes this use case
-- Native GitHub Actions matrix without cargo-dist — Works but requires manually writing the matrix, packaging logic, and installer script that cargo-dist generates for free
-- `cargo-zigbuild` alone — Useful for musl cross-compilation but again lacks the release automation layer
-
-**Note:** cargo-dist's `cargo-zigbuild` integration handles Linux cross-compilation automatically when targeting musl. The `git2 --vendored` flag ensures libgit2 is statically linked and does not interfere with the musl target.
-
-## Alternatives Considered
-
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| HTTP server | axum 0.8 | actix-web | Actor model unnecessary for local single-user tool; not Tokio/Tower ecosystem |
-| HTTP server | axum 0.8 | warp | Last published release August 2019; filter composition is complex with no benefit here |
-| HTTP server | axum 0.8 | tiny_http | Synchronous; no middleware; self-recommends using a framework instead |
-| Asset embedding | rust-embed 8 | include_dir | No debug/release duality; no axum integration; no compression |
-| Frontend | React + TS + Vite | Svelte + Vite | Smaller bundle but less familiar; React chosen for ecosystem preference |
-| Frontend | React + TS + Vite | Leptos/Yew | WASM compile target adds build complexity; no UX benefit |
-| Frontend | React + TS + Vite | Vanilla JS | Annotation state management gets fiddly without a reactive framework |
-| Markdown | comrak | pulldown-cmark | Lags GFM spec; no full task list / table guarantee |
-| Markdown | comrak | Client-side JS | Unnecessary JS bundle weight when server can render |
-| Git diff | git2 --vendored | Shell out to git | Fragile; unstructured output; PATH dependency |
-| Git diff | git2 --vendored | gitoxide | Diff API still maturing |
-| Release | cargo-dist | cross + manual CI | Requires writing installer script and release automation from scratch |
-| Linux target | *-musl | *-gnu | gnu links glibc dynamically; breaks on older distros |
-
-## Full Dependency Block
-
-```toml
-[dependencies]
-axum = { version = "0.8", features = ["macros"] }
-tokio = { version = "1", features = ["full"] }
-rust-embed = { version = "8", features = ["axum"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-git2 = { version = "0.20", features = ["vendored"] }
-comrak = { version = "0.31", default-features = false, features = ["syntect"] }
-clap = { version = "4", features = ["derive"] }
-webbrowser = "1"
-
-[build-dependencies]
-# none required — frontend build invoked from build.rs via std::process::Command
+**Example config after install:**
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["@plan-reviewer/opencode@latest"]
+}
 ```
 
-Note: `comrak` version should be confirmed against crates.io at implementation time; the `syntect` feature enables syntax highlighting in code blocks. Omit it if binary size is a concern (pulls in syntect's syntax definitions).
+**New artifacts required:**
+- A separate npm package (`packages/opencode-plugin/` in a monorepo, or a standalone repo)
+- The plugin registers a `submit_plan` tool via opencode SDK
+- On `submit_plan` invocation: shell out to `plan-reviewer` binary (path from env var or discovery), capture stdout JSON, return decision to opencode
+- `plan-reviewer install opencode` writes the plugin entry to opencode.json; `uninstall opencode` removes it
+
+**No new Rust crates needed** for the install/uninstall side — this is string manipulation on a JSON file, identical in pattern to the existing Claude Code installer. The Rust side uses `serde_json` (already present) to read/write `opencode.json`.
+
+### codestral Integration
+
+**Verdict: Codestral is a language model, not a coding agent. No hook integration is possible.**
+
+Codestral (by Mistral AI) is a code-generation LLM. It has no agent runtime, no settings file, no hook infrastructure. It is used as a backend model inside other tools (Continue.dev, LM Studio, Ollama, etc.). The relevant agentic product from Mistral is Devstral, but Devstral also has no published plan-approval hook system.
+
+**Current stub in integration.rs is correct**: `supported: false`, reason "Codestral is a model, not a coding agent with hook infrastructure." This should remain. Do not implement codestral integration in v0.3.0 — it is architecturally impossible without a future hook system from Mistral.
+
+**No new crates or config formats to research.**
+
+### Annotation Predefined Action Types — Frontend Only
+
+**Verdict: Pure frontend change. No new npm packages needed.**
+
+The existing `AnnotationType` union (`'comment' | 'delete' | 'replace'`) needs a new member: `'action'` (or keep as the existing types and add a `predefinedAction` field). The predefined actions (clarify this, needs test, give me an example, out of scope, search internet, search codebase) are strings passed as the annotation comment field with a fixed label.
+
+**Recommended approach:** Add `predefinedAction` as an optional field on the existing `Annotation` interface, or add `'action'` as a new `AnnotationType`. The latter is cleaner since it gets its own display badge color and requires no free-text textarea.
+
+**No new libraries.** The existing React component model handles this as a new branch in the `getTypeBadgeLabel` / `getTypeColor` switches. The serialization to the Claude hook's `message` field (already in `hook.rs`) is a string — predefined actions are serialized the same way as comments.
+
+**Frontend changes only:**
+- `types.ts`: extend `AnnotationType` or add `predefinedAction?: string` to `Annotation`
+- `AnnotationSidebar.tsx`: new card variant showing action button grid instead of textarea
+- `App.tsx`: add `onAddPredefinedAction` handler
+- No changes to `server.rs`, `hook.rs`, or any Rust code
+
+### Theme Switcher — Frontend Only, No New Packages
+
+**Verdict: Zero new npm packages. Tailwind CSS v4 already in the project supports class-based dark mode natively.**
+
+**Tailwind CSS v4 dark mode setup:**
+
+Add to `index.css`:
+```css
+@custom-variant dark (&:where(.dark, .dark *));
+```
+
+This makes every `dark:*` utility active whenever a `.dark` class appears on any ancestor. Toggle it on `<html>` (or `<body>`).
+
+**Persistence via localStorage — no library needed:**
+```ts
+// Read on load (in main.tsx, before React renders):
+const saved = localStorage.getItem('theme')
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+if (saved === 'dark' || (!saved && prefersDark)) {
+  document.documentElement.classList.add('dark')
+}
+
+// Toggle handler:
+function toggleTheme() {
+  const isDark = document.documentElement.classList.toggle('dark')
+  localStorage.setItem('theme', isDark ? 'dark' : 'light')
+}
+```
+
+**Existing CSS variable approach in index.css is already dark-only.** Implementing light mode means adding a second set of CSS custom properties scoped to `:root.light` (or `:root:not(.dark)`). The variables (`--color-bg`, `--color-surface`, `--color-text-primary`, etc.) already exist — add light-mode values.
+
+**No FOUC risk** because the theme class is set in `main.tsx` before the first React render paints. Since this is a single-page app served from a local HTTP server with no SSR, there is no server/client mismatch problem.
+
+**Frontend changes only:**
+- `index.css`: add `@custom-variant dark` line + light-mode color token overrides under `.light` (or `html:not(.dark)`)
+- `main.tsx`: add pre-render theme initialization
+- `App.tsx` or a new `ThemeToggle` component: button that calls `toggleTheme()`
+- No changes to any Rust code
+
+---
+
+## What NOT to Add
+
+| Avoid | Why |
+|-------|-----|
+| `next-themes` or any theme-management library | Zero-dependency approach works; the app has no SSR hydration problem |
+| `react-markdown` or `rehype-*` | Server-side markdown rendering already done by comrak; client-side redundant |
+| `prefers-color-scheme` media-query-only approach | Won't allow user override; localStorage toggle requires the class approach |
+| Any npm package for opencode plugin invocation of plan-reviewer binary | Use Node.js `child_process.spawnSync` in the plugin TS code; no extra dependency |
+| `toml` or `yaml` Rust crate | opencode config is JSON/JSONC; `serde_json` already handles it |
+
+---
+
+## Integration Points — Config File Summary
+
+| Integration | Config File | Field | Format |
+|-------------|-------------|-------|--------|
+| Claude Code | `~/.claude/settings.json` | `hooks.PermissionRequest[]` | `{"matcher":"ExitPlanMode","hooks":[{"type":"command","command":"<binary>"}]}` |
+| opencode | `~/.config/opencode/opencode.json` (global) or `opencode.json` (project) | `plugin[]` | `"@plan-reviewer/opencode@latest"` (npm package name string) |
+| codestral | N/A — model, not agent | N/A | N/A — not implementable |
+
+---
+
+## Version Compatibility
+
+All changes are additive to the existing stack. No version bumps required.
+
+| Change | Impact on Existing Deps |
+|--------|------------------------|
+| opencode JSON install/uninstall | None — uses `serde_json` already present |
+| Annotation predefined types | None — pure React/TS frontend change |
+| Dark mode | None — Tailwind CSS 4 already supports `@custom-variant dark` |
+
+---
 
 ## Sources
 
-- axum 0.8.0 announcement: https://tokio.rs/blog/2025-01-01-announcing-axum-0-8-0
-- rust-embed docs (8.11.0): https://docs.rs/rust-embed/latest/rust_embed/
-- clap docs (4.6.0): https://docs.rs/clap/latest/clap/
-- git2 docs (0.20.4): https://docs.rs/git2/latest/git2/
-- pulldown-cmark docs (0.13.3): https://docs.rs/pulldown-cmark/latest/pulldown_cmark/
-- comrak GitHub: https://github.com/kivikakk/comrak
-- cargo-dist docs: https://axodotdev.github.io/cargo-dist/book/introduction.html
-- cargo-dist releases: https://github.com/axodotdev/cargo-dist/releases
-- webbrowser crate: https://crates.io/crates/webbrowser
-- Svelte+Rust axum embedding forum: https://users.rust-lang.org/t/how-to-embed-svelte-site-in-rust-binary-with-axum/127709
-- Single Rust Binary with Vite+Svelte: https://fdeantoni.medium.com/single-rust-binary-with-vite-svelte-66944f9ac561
+- opencode config docs: https://opencode.ai/docs/config/ — confirmed `plugin[]` array format, `~/.config/opencode/opencode.json` global path
+- opencode plugins docs: https://opencode.ai/docs/plugins/ — confirmed TypeScript-only plugin system, no config-based command hooks for plan approval
+- opencode modes docs: https://opencode.ai/docs/modes/ — confirmed plan mode exists, no approval hook fires
+- plannotator opencode guide: https://plannotator.ai/docs/guides/opencode/ — confirmed `plugin: ["@plannotator/opencode@latest"]` pattern
+- open-plan-annotator GitHub: https://github.com/ndom91/open-plan-annotator — confirmed `submit_plan` tool registration pattern, plugin-based (not config hook)
+- opencode hooks issue: https://github.com/anomalyco/opencode/issues/1473 — confirmed maintainer chose plugin system over traditional hooks
+- Tailwind CSS v4 dark mode: https://tailwindcss.com/docs/dark-mode — confirmed `@custom-variant dark` syntax for class-based dark mode
+- KristjanPikhof/OpenCode-Hooks: https://github.com/KristjanPikhof/OpenCode-Hooks — confirmed available hook events (session.*, tool.*, file.changed); no plan approval hook
+- Codestral: https://mistral.ai/news/codestral — confirmed model product, no agent runtime or hook system
+
+---
+*Stack research for: claude-plan-reviewer v0.3.0 (opencode/codestral hooks, annotation actions, theme switcher)*
+*Researched: 2026-04-10*
