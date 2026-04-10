@@ -1,4 +1,5 @@
 mod hook;
+mod install;
 mod server;
 
 #[cfg(test)]
@@ -72,16 +73,25 @@ mod tests {
     }
 }
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use hook::{HookInput, HookOutput};
 use server::Decision;
 
 #[derive(Parser, Debug)]
 #[command(version, about = "Claude Code plan reviewer hook binary")]
-struct Args {
+struct Cli {
     /// Skip opening the browser and print the review URL to stderr only
     #[arg(long, default_value_t = false)]
     no_browser: bool,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Wire the ExitPlanMode hook into ~/.claude/settings.json (Claude Code only)
+    Install,
 }
 
 /// Extract the unified diff of the working tree against HEAD from the given
@@ -142,9 +152,22 @@ fn extract_diff(cwd: &str) -> String {
 }
 
 fn main() {
-    // 1. Parse CLI args
-    let args = Args::parse();
+    // 1. Parse CLI args FIRST — before stdin read (Pitfall 5: install must not hang on stdin)
+    let cli = Cli::parse();
 
+    match &cli.command {
+        Some(Commands::Install) => {
+            // install subcommand: does NOT read stdin
+            install::run_install();
+        }
+        None => {
+            // Default: hook review flow — reads stdin JSON
+            run_hook_flow(cli.no_browser);
+        }
+    }
+}
+
+fn run_hook_flow(no_browser: bool) {
     // 2. Read all of stdin synchronously (before any async runtime)
     let input_json = match std::io::read_to_string(std::io::stdin()) {
         Ok(s) => s,
@@ -186,13 +209,14 @@ fn main() {
         .build()
         .unwrap();
 
-    let output = rt.block_on(async_main(args, plan_md, diff_content));
+    // Pass no_browser as a plain bool (not the old args struct)
+    let output = rt.block_on(async_main(no_browser, plan_md, diff_content));
 
     // 7. Write decision to stdout — THE ONLY stdout write
     serde_json::to_writer(std::io::stdout(), &output).expect("failed to write hook output");
 }
 
-async fn async_main(args: Args, plan_md: String, diff_content: String) -> HookOutput {
+async fn async_main(no_browser: bool, plan_md: String, diff_content: String) -> HookOutput {
     // Start server
     let (port, decision_rx) = match server::start_server(plan_md, diff_content).await {
         Ok(v) => v,
@@ -208,7 +232,7 @@ async fn async_main(args: Args, plan_md: String, diff_content: String) -> HookOu
     eprintln!("Review UI: {}", url);
 
     // Open browser unless --no-browser (CONF-02)
-    if !args.no_browser {
+    if !no_browser {
         if let Err(e) = webbrowser::open(&url) {
             eprintln!("Failed to open browser: {}", e);
             eprintln!("Open manually: {}", url);
