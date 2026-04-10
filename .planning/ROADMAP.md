@@ -39,10 +39,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
   1. Running `plan-reviewer install <any-integration>` a second time does not duplicate hook entries or corrupt config
   2. Running `plan-reviewer uninstall <any-integration>` on a clean system exits 0 without error
   3. Adding a new integration requires only implementing the `Integration` trait and registering it — no changes to the install/uninstall command dispatch logic
-**Plans:** 1 plan
-
-Plans:
-- [ ] 05-01-PLAN.md — Refactor integration.rs into integrations/ module tree with Integration trait, migrate Claude impl, add Gemini/Opencode stubs, simplify dispatch
+**Plans**: TBD
 
 ### Phase 6: Gemini CLI Integration
 **Goal**: Users can install and uninstall plan-reviewer as a Gemini CLI `BeforeTool exit_plan_mode` hook via `plan-reviewer install gemini` and `plan-reviewer uninstall gemini`; the hook reads the plan from `tool_input.plan_path` and runs the full browser review flow
@@ -98,7 +95,7 @@ Plans:
 | 2. Annotations & Diff | v0.1.0 | 4/4 | Complete | 2026-04-09 |
 | 3. Distribution | v0.1.0 | 3/3 | Complete | 2026-04-10 |
 | 4. Subcommands | v0.1.0 | 3/3 | Complete | 2026-04-10 |
-| 5. Integration Architecture | v0.3.0 | 0/1 | Planning | - |
+| 5. Integration Architecture | v0.3.0 | 0/? | Not started | - |
 | 6. Gemini CLI Integration | v0.3.0 | 0/? | Not started | - |
 | 7. opencode Integration | v0.3.0 | 0/? | Not started | - |
 | 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/? | Not started | - |
