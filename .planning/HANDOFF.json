@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-04-10T09:37:25.438Z",
+  "phase": "03",
+  "phase_name": "distribution",
+  "phase_dir": ".planning/phases/03-distribution",
+  "plan": 3,
+  "task": 2,
+  "total_tasks": 2,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "Replace OWNER placeholder in install.sh with themouette", "status": "done", "commit": "ac2dcfb"},
+    {"id": 2, "name": "Push v0.1.0 git tag to trigger release workflow", "status": "blocked_human_action", "progress": "Tag pushed but CI failed twice; fixes committed, tag needs to be recreated"}
+  ],
+  "remaining_tasks": [
+    {"id": 2, "name": "Verify v0.1.0 release published on GitHub Releases with 4 platform archives", "status": "awaiting_human"}
+  ],
+  "blockers": [
+    {"description": "v0.1.0 tag points to old commit before cargo-dist allow-dirty and vendored-openssl fixes", "type": "human_action", "workaround": "Delete tag locally and on origin, retag at HEAD, repush"},
+    {"description": "CI still needs to pass after retag", "type": "external", "workaround": "Monitor https://github.com/themouette/claude-plan-reviewer/actions"}
+  ],
+  "human_actions_pending": [
+    {
+      "action": "Retag v0.1.0 at current HEAD and push to trigger release",
+      "context": "Two CI fixes were committed after the tag was pushed: allow-dirty=[ci] and vendored-openssl. The tag must be moved to HEAD.",
+      "blocking": true,
+      "commands": [
+        "git push origin main",
+        "git tag -d v0.1.0",
+        "git push origin :refs/tags/v0.1.0",
+        "git tag -a v0.1.0 -m 'Release v0.1.0'",
+        "git push origin v0.1.0"
+      ]
+    }
+  ],
+  "decisions": [
+    {"decision": "allow-dirty=[ci] in Cargo.toml dist config", "rationale": "Prevents cargo-dist from rejecting release.yml modified with manual macOS codesign step", "phase": "03"},
+    {"decision": "git2 vendored-openssl feature", "rationale": "openssl-sys can't locate OpenSSL on musl cross-compile targets; vendoring compiles it from source for fully static binaries", "phase": "03"},
+    {"decision": "Separate ci.yml workflow for clippy/fmt/eslint", "rationale": "Keeps release.yml focused on releases; ci.yml runs on all PRs and main pushes", "phase": "03"},
+    {"decision": "bin/release script modeled on claude-vm", "rationale": "Consistent release UX across projects; handles version bump, test/clippy gates, tag creation and push", "phase": "03"}
+  ],
+  "uncommitted_files": [
+    ".planning/STATE.md",
+    "src/server.rs"
+  ],
+  "next_action": "User retags v0.1.0 at HEAD and pushes. Monitor CI at https://github.com/themouette/claude-plan-reviewer/actions. Once 4 platform archives appear on GitHub Releases, create 03-03-SUMMARY.md and run phase verification.",
+  "context_notes": "Phase 03 plan 03-03 (gap closure) is nearly done. Task 1 (OWNER fix) committed. Task 2 blocked on human tag push. All CI infrastructure (clippy, fmt, eslint, GH Actions versions) cleaned up in this session. Source is in good shape — fmt/clippy/eslint all pass."
+}
