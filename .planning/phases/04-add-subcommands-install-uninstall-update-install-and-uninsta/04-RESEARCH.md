@@ -505,22 +505,25 @@ fn current_platform() -> &'static str {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **What tool is "codestral" in D-03?**
    - What we know: Codestral is a Mistral AI model, not a standalone terminal agent. No coding agent named "codestral" with a settings.json hook system was found.
    - What's unclear: Does the user mean a specific terminal agent that uses Codestral as its backend? (Possibly a fork of opencode? Or a future tool?)
    - Recommendation: Ask the user before implementing `codestral` integration. In the meantime, add the slug to the CLI enum but print "codestral integration: not yet implemented" when selected.
+   - **RESOLVED** — Defined as `supported: false` stub with reason "Codestral is a model, not a coding agent with hook infrastructure." Slug exists in the enum per D-03; D-04 delegates the finding to research.
 
 2. **What should `opencode` integration actually do?**
    - What we know: `opencode` (sst/opencode) does not have a JSON config hook for plan approval. Its hook system requires TypeScript plugins.
    - What's unclear: Does the user want (a) a TypeScript plugin file written to `~/.config/opencode/plugins/`, (b) a message telling the user to install a plugin manually, or (c) is this planned for a future tool version of opencode that will have a shell-command hook?
    - Recommendation: Implement as "write a minimal TypeScript plugin file" OR defer to a future phase. The plan should reserve the `opencode` slot in the `Commands` enum but print a "opencode integration requires plugin install" message.
+   - **RESOLVED** — Defined as `supported: false` stub with reason "opencode has no plan approval hook in its JSON config; requires TypeScript plugin." Per D-04 research finding, this is the correct outcome for Phase 4.
 
 3. **Is the archive format change backward-compatible with existing v0.1.0 installs?**
    - What we know: Changing `unix-archive` to `.tar.gz` affects future releases only. The `install.sh` and `self_update` must both change to `.tar.gz` consistently.
    - What's unclear: Will users who installed v0.1.0 via `install.sh` (which used `.tar.xz`) experience any issue? No — they have the binary already; the update flow downloads the new `.tar.gz` release.
    - Recommendation: Change both `Cargo.toml` `unix-archive` and `install.sh` in the same PR as the update subcommand.
+   - **RESOLVED** — Backward-compatible. Existing v0.1.0 users already have the binary; the `update` flow downloads the new `.tar.gz` release directly. Both `Cargo.toml` and `install.sh` are updated atomically in Plan 04-01.
 
 ---
 
