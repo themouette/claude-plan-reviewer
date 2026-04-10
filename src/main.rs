@@ -7,10 +7,23 @@ mod update;
 
 #[cfg(test)]
 mod tests {
-    use super::{build_gemini_output, extract_diff, extract_plan_content};
+    use super::{Cli, build_gemini_output, extract_diff, extract_plan_content};
     use crate::hook;
     use crate::hook::HookOutput;
     use crate::server;
+    use clap::Parser;
+
+    #[test]
+    fn test_cli_port_flag_default_zero() {
+        let cli = Cli::try_parse_from(["plan-reviewer"]).expect("parse failed");
+        assert_eq!(cli.port, 0, "--port default should be 0");
+    }
+
+    #[test]
+    fn test_cli_port_flag_accepts_value() {
+        let cli = Cli::try_parse_from(["plan-reviewer", "--port", "8080"]).expect("parse failed");
+        assert_eq!(cli.port, 8080, "--port should accept 8080");
+    }
 
     #[test]
     fn test_extract_plan_content_inline() {
@@ -192,6 +205,10 @@ struct Cli {
     #[arg(long, default_value_t = false)]
     no_browser: bool,
 
+    /// Bind the review server to this port (0 = OS-assigned, default)
+    #[arg(long, default_value_t = 0)]
+    port: u16,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -337,12 +354,12 @@ fn main() {
         }
         None => {
             // Default: hook review flow — reads stdin JSON
-            run_hook_flow(cli.no_browser);
+            run_hook_flow(cli.no_browser, cli.port);
         }
     }
 }
 
-fn run_hook_flow(no_browser: bool) {
+fn run_hook_flow(no_browser: bool, port: u16) {
     // 2. Read all of stdin synchronously (before any async runtime)
     let input_json = match std::io::read_to_string(std::io::stdin()) {
         Ok(s) => s,
@@ -386,7 +403,7 @@ fn run_hook_flow(no_browser: bool) {
         .build()
         .unwrap();
 
-    let decision = rt.block_on(async_main(no_browser, plan_md, diff_content));
+    let decision = rt.block_on(async_main(no_browser, port, plan_md, diff_content));
 
     // 7. Build integration-specific output JSON and write to stdout — THE ONLY stdout write
     let output_json: serde_json::Value = if hook_input.is_gemini() {
@@ -411,9 +428,14 @@ fn run_hook_flow(no_browser: bool) {
     serde_json::to_writer(std::io::stdout(), &output_json).expect("failed to write hook output");
 }
 
-async fn async_main(no_browser: bool, plan_md: String, diff_content: String) -> Decision {
+async fn async_main(
+    no_browser: bool,
+    port: u16,
+    plan_md: String,
+    diff_content: String,
+) -> Decision {
     // Start server
-    let (port, decision_rx) = match server::start_server(plan_md, diff_content).await {
+    let (port, decision_rx) = match server::start_server(plan_md, diff_content, port).await {
         Ok(v) => v,
         Err(e) => {
             eprintln!("Failed to start server: {}", e);
