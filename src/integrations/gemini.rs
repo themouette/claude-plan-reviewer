@@ -6,271 +6,127 @@ use std::path::PathBuf;
 // ---------------------------------------------------------------------------
 
 /// Full install/uninstall implementation for Gemini CLI.
+///
+/// Uses the Gemini CLI extension directory model (~/.gemini/extensions/plan-reviewer/).
+/// Gemini CLI auto-discovers extensions in this directory — no settings.json entry needed.
 pub struct GeminiIntegration;
 
 impl Integration for GeminiIntegration {
-    /// Wire the exit_plan_mode BeforeTool hook into ~/.gemini/settings.json.
+    /// Install the plan-reviewer Gemini CLI extension.
     ///
-    /// Idempotent: safe to run multiple times. If the hook is already present
-    /// (any BeforeTool entry whose hooks[] array contains name "plan-reviewer"),
-    /// returns Ok(()) immediately.
+    /// Writes the extension directory at {home}/.gemini/extensions/plan-reviewer/
+    /// with gemini-extension.json and hooks/hooks.json. Idempotent — always rewrites
+    /// files with current version. No settings.json modification.
     fn install(&self, ctx: &InstallContext) -> Result<(), String> {
-        let binary_path = ctx
+        // binary_path must be Some (validated as guard, but hooks.json uses bare "plan-reviewer")
+        let _binary_path = ctx
             .binary_path
             .as_deref()
             .ok_or_else(|| "install requires a binary_path — none was provided".to_string())?;
-        let settings_path = gemini_settings_path(&ctx.home);
 
-        // Read existing settings or start with an empty object
-        let mut root: serde_json::Value = if settings_path.exists() {
-            match std::fs::read_to_string(&settings_path) {
-                Ok(content) => match serde_json::from_str(&content) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        return Err(format!(
-                            "cannot parse {}: {} -- refusing to overwrite. Fix or remove the file first.",
-                            settings_path.display(),
-                            e
-                        ));
-                    }
-                },
-                Err(e) => {
-                    return Err(format!("cannot read {}: {}", settings_path.display(), e));
-                }
-            }
-        } else {
-            serde_json::json!({})
-        };
+        let ext_dir = gemini_extension_dir(&ctx.home);
 
-        // Ensure root is an object
-        if !root.is_object() {
-            eprintln!(
-                "plan-reviewer install: {} root is not a JSON object; \
-                 starting from empty object",
-                settings_path.display()
-            );
-            root = serde_json::json!({});
+        // Create extension root directory
+        if let Err(e) = std::fs::create_dir_all(&ext_dir) {
+            return Err(format!("cannot create {}: {}", ext_dir.display(), e));
         }
 
-        // Ensure root["hooks"] exists as an object
-        {
-            let root_obj = root
-                .as_object_mut()
-                .expect("root is always an object at this point");
-            root_obj
-                .entry("hooks")
-                .or_insert_with(|| serde_json::json!({}));
+        // Write gemini-extension.json manifest
+        let manifest_path = ext_dir.join("gemini-extension.json");
+        let manifest = format!(
+            r#"{{"name":"plan-reviewer","version":"{}","description":"Plan review hook for Gemini CLI"}}"#,
+            crate_version()
+        );
+        if let Err(e) = std::fs::write(&manifest_path, &manifest) {
+            return Err(format!("cannot write {}: {}", manifest_path.display(), e));
         }
 
-        // Validate root["hooks"] is an object
-        {
-            let hooks_display = root["hooks"].to_string();
-            let hooks_obj = root["hooks"].as_object_mut().ok_or_else(|| {
-                format!(
-                    "settings.json: expected 'hooks' to be an object, found: {}",
-                    hooks_display
-                )
-            })?;
-            // Ensure root["hooks"]["BeforeTool"] exists as an array
-            hooks_obj
-                .entry("BeforeTool")
-                .or_insert_with(|| serde_json::json!([]));
+        // Create hooks/ subdirectory
+        let hooks_dir = ext_dir.join("hooks");
+        if let Err(e) = std::fs::create_dir_all(&hooks_dir) {
+            return Err(format!("cannot create {}: {}", hooks_dir.display(), e));
         }
 
-        // Validate root["hooks"]["BeforeTool"] is an array
-        {
-            root["hooks"]["BeforeTool"].as_array_mut().ok_or_else(|| {
-                "settings.json: expected 'hooks.BeforeTool' to be an array".to_string()
-            })?;
-        }
-
-        // Idempotency check
-        if gemini_is_installed(&root) {
-            println!(
-                "plan-reviewer: BeforeTool hook already configured in {} (no changes made)",
-                settings_path.display()
-            );
-            return Ok(());
-        }
-
-        // Push the new hook entry
-        root["hooks"]["BeforeTool"]
-            .as_array_mut()
-            .expect("BeforeTool was validated as array above")
-            .push(gemini_hook_entry(binary_path));
-
-        // Write back with pretty-printing
-        let output = match serde_json::to_string_pretty(&root) {
-            Ok(s) => s,
-            Err(e) => {
-                return Err(format!("cannot serialize settings.json: {}", e));
-            }
-        };
-
-        // Create ~/.gemini/ if it doesn't exist
-        if let Some(parent) = settings_path.parent()
-            && let Err(e) = std::fs::create_dir_all(parent)
-        {
-            return Err(format!("cannot create {}: {}", parent.display(), e));
-        }
-
-        if let Err(e) = std::fs::write(&settings_path, output) {
-            return Err(format!("cannot write {}: {}", settings_path.display(), e));
+        // Write hooks/hooks.json
+        // Uses bare "plan-reviewer" command (relies on PATH; Phase 07.3 changes to "plan-reviewer hook")
+        // timeout: 300000 (5 minutes) — mandatory per research (default 60s is too short for interactive review)
+        let hooks_path = hooks_dir.join("hooks.json");
+        let hooks_json = r#"{"hooks":{"BeforeTool":[{"matcher":"exit_plan_mode","hooks":[{"name":"plan-reviewer","type":"command","command":"plan-reviewer","timeout":300000}]}]}}"#;
+        if let Err(e) = std::fs::write(&hooks_path, hooks_json) {
+            return Err(format!("cannot write {}: {}", hooks_path.display(), e));
         }
 
         println!(
-            "plan-reviewer: BeforeTool hook installed in {}",
-            settings_path.display()
+            "plan-reviewer: Gemini CLI extension installed at {}",
+            ext_dir.display()
         );
-        println!("plan-reviewer: hook command set to: {}", binary_path);
+        println!(
+            "plan-reviewer: Gemini CLI auto-discovers extensions — no settings.json modification needed"
+        );
         Ok(())
     }
 
-    /// Remove the exit_plan_mode BeforeTool hook from ~/.gemini/settings.json.
+    /// Remove the plan-reviewer Gemini CLI extension directory.
     ///
-    /// Idempotent: safe to run when the hook is not present.
-    /// Matches on name "plan-reviewer" in hooks[] sub-array — NOT on binary path.
+    /// Idempotent: returns Ok if the extension directory does not exist.
+    /// Does NOT touch ~/.gemini/settings.json — old settings.json entries are
+    /// Phase 07.3 migration concern.
     fn uninstall(&self, ctx: &InstallContext) -> Result<(), String> {
-        let settings_path = gemini_settings_path(&ctx.home);
+        let ext_dir = gemini_extension_dir(&ctx.home);
 
-        // If settings file does not exist, nothing to do
-        if !settings_path.exists() {
+        if ext_dir.exists() {
+            if let Err(e) = std::fs::remove_dir_all(&ext_dir) {
+                return Err(format!("cannot remove {}: {}", ext_dir.display(), e));
+            }
             println!(
-                "plan-reviewer: no settings file found at {} (nothing to uninstall)",
-                settings_path.display()
+                "plan-reviewer: Gemini CLI extension removed from {}",
+                ext_dir.display()
             );
-            return Ok(());
+        } else {
+            println!("plan-reviewer: {} not found (skipping)", ext_dir.display());
         }
 
-        // Read and parse JSON
-        let content = match std::fs::read_to_string(&settings_path) {
-            Ok(c) => c,
-            Err(e) => {
-                return Err(format!("cannot read {}: {}", settings_path.display(), e));
-            }
-        };
-
-        let mut root: serde_json::Value = match serde_json::from_str(&content) {
-            Ok(v) => v,
-            Err(e) => {
-                eprintln!(
-                    "plan-reviewer uninstall: warning: {} contains invalid JSON: {} (no changes made)",
-                    settings_path.display(),
-                    e
-                );
-                return Ok(());
-            }
-        };
-
-        // Idempotency check: if hook is not present, nothing to do
-        if !gemini_is_installed(&root) {
-            println!(
-                "plan-reviewer: BeforeTool hook not found in {} (no changes made)",
-                settings_path.display()
-            );
-            return Ok(());
-        }
-
-        // Remove all BeforeTool entries whose hooks[] array contains name "plan-reviewer"
-        if let Some(arr) = root["hooks"]["BeforeTool"].as_array_mut() {
-            arr.retain(|entry| {
-                entry["hooks"]
-                    .as_array()
-                    .map(|hooks| {
-                        !hooks
-                            .iter()
-                            .any(|h| h["name"].as_str() == Some("plan-reviewer"))
-                    })
-                    .unwrap_or(true)
-            });
-        }
-
-        // Write back with pretty-printing
-        let output = match serde_json::to_string_pretty(&root) {
-            Ok(s) => s,
-            Err(e) => {
-                return Err(format!("cannot serialize settings.json: {}", e));
-            }
-        };
-
-        if let Err(e) = std::fs::write(&settings_path, output) {
-            return Err(format!("cannot write {}: {}", settings_path.display(), e));
-        }
-
-        println!(
-            "plan-reviewer: BeforeTool hook removed from {}",
-            settings_path.display()
-        );
         Ok(())
     }
 
-    /// Returns `true` if the Gemini CLI hook is already configured.
+    /// Returns `true` if the Gemini CLI extension is installed.
     ///
-    /// Reads settings.json from ctx.home; returns false if file doesn't exist
-    /// or cannot be parsed.
+    /// Checks whether gemini-extension.json exists in the extension directory.
+    /// This is the new idempotency key (replaces the old settings.json check).
     fn is_installed(&self, ctx: &InstallContext) -> bool {
-        let settings_path = gemini_settings_path(&ctx.home);
-        if !settings_path.exists() {
-            return false;
-        }
-        match std::fs::read_to_string(&settings_path) {
-            Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
-                Ok(json) => gemini_is_installed(&json),
-                Err(_) => false,
-            },
-            Err(_) => false,
-        }
+        gemini_extension_dir(&ctx.home)
+            .join("gemini-extension.json")
+            .exists()
     }
 }
 
 // ---------------------------------------------------------------------------
-// Gemini CLI helper functions (private to this module)
+// Gemini CLI helper functions
 // ---------------------------------------------------------------------------
 
-/// Returns the path to Gemini CLI's settings file: `{home}/.gemini/settings.json`.
-fn gemini_settings_path(home: &str) -> PathBuf {
-    PathBuf::from(home).join(".gemini/settings.json")
+/// Returns the path to the Gemini CLI extension directory:
+/// `{home}/.gemini/extensions/plan-reviewer`.
+///
+/// pub(crate) — used by update.rs for version-aware manifest reading.
+pub(crate) fn gemini_extension_dir(home: &str) -> PathBuf {
+    PathBuf::from(home).join(".gemini/extensions/plan-reviewer")
 }
 
-/// Returns the JSON hook entry to insert into `root["hooks"]["BeforeTool"]`.
-///
-/// ```json
-/// {
-///   "matcher": "exit_plan_mode",
-///   "hooks": [
-///     {
-///       "name": "plan-reviewer",
-///       "type": "command",
-///       "command": "<binary_path>",
-///       "timeout": 300000
-///     }
-///   ]
-/// }
-/// ```
-///
-/// The `timeout: 300000` (5 minutes) is MANDATORY — Gemini CLI defaults to 60 seconds,
-/// which is too short for interactive browser review (per 06-RESEARCH.md Pitfall 1).
-fn gemini_hook_entry(binary_path: &str) -> serde_json::Value {
-    serde_json::json!({
-        "matcher": "exit_plan_mode",
-        "hooks": [
-            {
-                "name": "plan-reviewer",
-                "type": "command",
-                "command": binary_path,
-                "timeout": 300000
-            }
-        ]
-    })
+/// Returns the current crate version string (from Cargo.toml).
+fn crate_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
 }
 
-/// Returns `true` if the Gemini CLI hook is already configured in `settings`.
+/// Returns `true` if a Gemini CLI settings.json contains a BeforeTool hook
+/// entry with name "plan-reviewer".
 ///
-/// Checks whether any entry in `settings["hooks"]["BeforeTool"]` has a `hooks[]`
-/// sub-array containing an element with `"name": "plan-reviewer"`. This is the
-/// idempotency key — NOT the binary path, so entries written at a different path
-/// are still detected.
-fn gemini_is_installed(settings: &serde_json::Value) -> bool {
+/// pub(crate) — kept for Phase 07.3 migration: detecting old-style hook entries
+/// so they can be cleaned up during the migration pass.
+///
+/// NOTE: This function checks the OLD settings.json format (pre-07.2). It is NOT
+/// used by the new extension-directory-based install/uninstall.
+#[allow(dead_code)]
+pub(crate) fn gemini_legacy_hook_installed(settings: &serde_json::Value) -> bool {
     settings["hooks"]["BeforeTool"]
         .as_array()
         .map(|arr| {
@@ -298,28 +154,16 @@ mod tests {
     // ---------------------------------------------------------------------------
 
     #[test]
-    fn gemini_settings_path_test() {
-        let path = gemini_settings_path("/home/alice");
-        assert_eq!(path, PathBuf::from("/home/alice/.gemini/settings.json"));
-    }
-
-    #[test]
-    fn gemini_hook_entry_structure() {
-        let entry = gemini_hook_entry("/usr/local/bin/plan-reviewer");
-        assert_eq!(entry["matcher"].as_str(), Some("exit_plan_mode"));
-        let hooks = entry["hooks"].as_array().unwrap();
-        assert_eq!(hooks.len(), 1);
-        assert_eq!(hooks[0]["name"].as_str(), Some("plan-reviewer"));
-        assert_eq!(hooks[0]["type"].as_str(), Some("command"));
+    fn gemini_extension_dir_test() {
+        let path = gemini_extension_dir("/home/alice");
         assert_eq!(
-            hooks[0]["command"].as_str(),
-            Some("/usr/local/bin/plan-reviewer")
+            path,
+            PathBuf::from("/home/alice/.gemini/extensions/plan-reviewer")
         );
-        assert_eq!(hooks[0]["timeout"].as_i64(), Some(300000));
     }
 
     #[test]
-    fn gemini_is_installed_returns_true_when_hook_present() {
+    fn gemini_legacy_hook_installed_returns_true_when_hook_present() {
         let settings = serde_json::json!({
             "hooks": {
                 "BeforeTool": [
@@ -337,27 +181,17 @@ mod tests {
                 ]
             }
         });
-        assert!(gemini_is_installed(&settings));
+        assert!(gemini_legacy_hook_installed(&settings));
     }
 
     #[test]
-    fn gemini_is_installed_returns_false_for_empty_object() {
+    fn gemini_legacy_hook_installed_returns_false_for_empty_object() {
         let settings = serde_json::json!({});
-        assert!(!gemini_is_installed(&settings));
+        assert!(!gemini_legacy_hook_installed(&settings));
     }
 
     #[test]
-    fn gemini_is_installed_returns_false_for_empty_before_tool_array() {
-        let settings = serde_json::json!({
-            "hooks": {
-                "BeforeTool": []
-            }
-        });
-        assert!(!gemini_is_installed(&settings));
-    }
-
-    #[test]
-    fn gemini_is_installed_returns_false_when_no_plan_reviewer_name() {
+    fn gemini_legacy_hook_installed_returns_false_when_no_plan_reviewer() {
         let settings = serde_json::json!({
             "hooks": {
                 "BeforeTool": [
@@ -374,7 +208,7 @@ mod tests {
                 ]
             }
         });
-        assert!(!gemini_is_installed(&settings));
+        assert!(!gemini_legacy_hook_installed(&settings));
     }
 
     // ---------------------------------------------------------------------------
@@ -382,7 +216,7 @@ mod tests {
     // ---------------------------------------------------------------------------
 
     #[test]
-    fn install_creates_settings_when_no_file_exists() {
+    fn install_creates_extension_directory_when_no_prior_state() {
         let dir = tempdir().unwrap();
         let home = dir.path().to_str().unwrap().to_string();
         let integration = GeminiIntegration;
@@ -394,19 +228,109 @@ mod tests {
         let result = integration.install(&ctx);
         assert!(result.is_ok(), "install should succeed: {:?}", result);
 
-        let settings_path = dir.path().join(".gemini/settings.json");
-        assert!(settings_path.exists(), "settings.json should be created");
+        let ext_dir = dir.path().join(".gemini/extensions/plan-reviewer");
+        assert!(ext_dir.exists(), "extension directory should be created");
+    }
 
-        let content = std::fs::read_to_string(&settings_path).unwrap();
+    #[test]
+    fn install_writes_gemini_extension_json_with_correct_keys() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = GeminiIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let manifest_path = dir
+            .path()
+            .join(".gemini/extensions/plan-reviewer/gemini-extension.json");
+        assert!(manifest_path.exists(), "gemini-extension.json should exist");
+
+        let content = std::fs::read_to_string(&manifest_path).unwrap();
         let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-        assert!(
-            gemini_is_installed(&json),
-            "installed hook should be detected"
+
+        assert_eq!(
+            json["name"].as_str(),
+            Some("plan-reviewer"),
+            "name should be 'plan-reviewer'"
         );
-        // Verify timeout is 300000
-        let before_tool = &json["hooks"]["BeforeTool"];
-        let hooks = before_tool[0]["hooks"].as_array().unwrap();
+        assert!(
+            json["version"].as_str().is_some(),
+            "version field should be present"
+        );
+        assert_eq!(
+            json["version"].as_str(),
+            Some(crate_version()),
+            "version should match crate version"
+        );
+        assert!(
+            json["description"].as_str().is_some(),
+            "description field should be present"
+        );
+    }
+
+    #[test]
+    fn install_writes_hooks_json_with_before_tool_exit_plan_mode() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = GeminiIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let hooks_path = dir
+            .path()
+            .join(".gemini/extensions/plan-reviewer/hooks/hooks.json");
+        assert!(hooks_path.exists(), "hooks/hooks.json should exist");
+
+        let content = std::fs::read_to_string(&hooks_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        // Verify BeforeTool hook exists with exit_plan_mode matcher
+        let before_tool = json["hooks"]["BeforeTool"].as_array().unwrap();
+        assert!(
+            !before_tool.is_empty(),
+            "BeforeTool array should not be empty"
+        );
+
+        let entry = &before_tool[0];
+        assert_eq!(
+            entry["matcher"].as_str(),
+            Some("exit_plan_mode"),
+            "matcher should be 'exit_plan_mode'"
+        );
+
+        let hooks = entry["hooks"].as_array().unwrap();
+        assert_eq!(hooks.len(), 1);
+        assert_eq!(hooks[0]["name"].as_str(), Some("plan-reviewer"));
+        assert_eq!(hooks[0]["type"].as_str(), Some("command"));
+        assert_eq!(hooks[0]["command"].as_str(), Some("plan-reviewer"));
         assert_eq!(hooks[0]["timeout"].as_i64(), Some(300000));
+    }
+
+    #[test]
+    fn install_does_not_create_or_modify_settings_json() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = GeminiIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let settings_path = dir.path().join(".gemini/settings.json");
+        assert!(
+            !settings_path.exists(),
+            "install should NOT create ~/.gemini/settings.json"
+        );
     }
 
     #[test]
@@ -422,60 +346,26 @@ mod tests {
         integration.install(&ctx).unwrap();
         integration.install(&ctx).unwrap();
 
-        let settings_path = dir.path().join(".gemini/settings.json");
-        let content = std::fs::read_to_string(&settings_path).unwrap();
-        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        // Both manifest and hooks file should exist and be valid JSON
+        let manifest_path = dir
+            .path()
+            .join(".gemini/extensions/plan-reviewer/gemini-extension.json");
+        let hooks_path = dir
+            .path()
+            .join(".gemini/extensions/plan-reviewer/hooks/hooks.json");
 
-        // Should only have ONE BeforeTool entry with plan-reviewer
-        let before_tool = json["hooks"]["BeforeTool"].as_array().unwrap();
-        let plan_reviewer_count = before_tool
-            .iter()
-            .filter(|entry| {
-                entry["hooks"]
-                    .as_array()
-                    .map(|h| {
-                        h.iter()
-                            .any(|h| h["name"].as_str() == Some("plan-reviewer"))
-                    })
-                    .unwrap_or(false)
-            })
-            .count();
-        assert_eq!(
-            plan_reviewer_count, 1,
-            "should have exactly one plan-reviewer entry after two installs"
+        let manifest_content = std::fs::read_to_string(&manifest_path).unwrap();
+        let hooks_content = std::fs::read_to_string(&hooks_path).unwrap();
+
+        // Both should be valid JSON (no corruption from double install)
+        assert!(
+            serde_json::from_str::<serde_json::Value>(&manifest_content).is_ok(),
+            "gemini-extension.json should be valid JSON after double install"
         );
-    }
-
-    #[test]
-    fn install_preserves_existing_settings_keys() {
-        let dir = tempdir().unwrap();
-        let home = dir.path().to_str().unwrap().to_string();
-
-        // Create settings file with existing key
-        let gemini_dir = dir.path().join(".gemini");
-        std::fs::create_dir_all(&gemini_dir).unwrap();
-        let settings_path = gemini_dir.join("settings.json");
-        std::fs::write(&settings_path, r#"{"theme": "dark"}"#).unwrap();
-
-        let integration = GeminiIntegration;
-        let ctx = InstallContext {
-            home,
-            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
-        };
-
-        integration.install(&ctx).unwrap();
-
-        let content = std::fs::read_to_string(&settings_path).unwrap();
-        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-
-        // Existing key should be preserved
-        assert_eq!(
-            json["theme"].as_str(),
-            Some("dark"),
-            "theme key should be preserved"
+        assert!(
+            serde_json::from_str::<serde_json::Value>(&hooks_content).is_ok(),
+            "hooks.json should be valid JSON after double install"
         );
-        // Hook should be present
-        assert!(gemini_is_installed(&json));
     }
 
     #[test]
@@ -497,108 +387,53 @@ mod tests {
     // ---------------------------------------------------------------------------
 
     #[test]
-    fn uninstall_removes_plan_reviewer_entry_preserves_others() {
+    fn uninstall_removes_extension_directory_entirely() {
         let dir = tempdir().unwrap();
         let home = dir.path().to_str().unwrap().to_string();
-
-        // Create settings with both plan-reviewer and another hook
-        let gemini_dir = dir.path().join(".gemini");
-        std::fs::create_dir_all(&gemini_dir).unwrap();
-        let settings_path = gemini_dir.join("settings.json");
-        let initial = serde_json::json!({
-            "hooks": {
-                "BeforeTool": [
-                    {
-                        "matcher": "exit_plan_mode",
-                        "hooks": [
-                            {
-                                "name": "plan-reviewer",
-                                "type": "command",
-                                "command": "/usr/local/bin/plan-reviewer",
-                                "timeout": 300000
-                            }
-                        ]
-                    },
-                    {
-                        "matcher": "other_tool",
-                        "hooks": [
-                            {
-                                "name": "other-hook",
-                                "type": "command",
-                                "command": "/usr/bin/other"
-                            }
-                        ]
-                    }
-                ]
-            }
-        });
-        std::fs::write(
-            &settings_path,
-            serde_json::to_string_pretty(&initial).unwrap(),
-        )
-        .unwrap();
-
         let integration = GeminiIntegration;
         let ctx = InstallContext {
-            home,
-            binary_path: None,
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
         };
 
-        integration.uninstall(&ctx).unwrap();
+        // Install first
+        integration.install(&ctx).unwrap();
 
-        let content = std::fs::read_to_string(&settings_path).unwrap();
-        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-
-        // plan-reviewer should be gone
+        let ext_dir = dir.path().join(".gemini/extensions/plan-reviewer");
         assert!(
-            !gemini_is_installed(&json),
-            "plan-reviewer hook should be removed"
+            ext_dir.exists(),
+            "extension directory should exist after install"
         );
 
-        // other hook should still be there
-        let before_tool = json["hooks"]["BeforeTool"].as_array().unwrap();
-        assert_eq!(before_tool.len(), 1, "other hook should still be present");
-        assert_eq!(before_tool[0]["matcher"].as_str(), Some("other_tool"));
-    }
-
-    #[test]
-    fn uninstall_on_nonexistent_settings_returns_ok() {
-        let dir = tempdir().unwrap();
-        let home = dir.path().to_str().unwrap().to_string();
-        let integration = GeminiIntegration;
-        let ctx = InstallContext {
-            home,
+        // Uninstall
+        let ctx_uninstall = InstallContext {
+            home: home.clone(),
             binary_path: None,
         };
+        let result = integration.uninstall(&ctx_uninstall);
+        assert!(result.is_ok(), "uninstall should succeed: {:?}", result);
 
-        let result = integration.uninstall(&ctx);
         assert!(
-            result.is_ok(),
-            "uninstall on missing file should succeed: {:?}",
-            result
+            !ext_dir.exists(),
+            "extension directory should be removed after uninstall"
         );
     }
 
     #[test]
-    fn uninstall_when_hook_not_present_returns_ok() {
+    fn uninstall_on_nonexistent_directory_returns_ok() {
         let dir = tempdir().unwrap();
         let home = dir.path().to_str().unwrap().to_string();
-
-        let gemini_dir = dir.path().join(".gemini");
-        std::fs::create_dir_all(&gemini_dir).unwrap();
-        let settings_path = gemini_dir.join("settings.json");
-        std::fs::write(&settings_path, r#"{"hooks": {"BeforeTool": []}}"#).unwrap();
-
         let integration = GeminiIntegration;
         let ctx = InstallContext {
             home,
             binary_path: None,
         };
 
+        // No installation was done
         let result = integration.uninstall(&ctx);
         assert!(
             result.is_ok(),
-            "uninstall with no hook present should succeed: {:?}",
+            "uninstall on missing directory should succeed: {:?}",
             result
         );
     }
@@ -608,53 +443,40 @@ mod tests {
     // ---------------------------------------------------------------------------
 
     #[test]
-    fn is_installed_returns_false_when_no_settings_file() {
+    fn is_installed_returns_true_when_gemini_extension_json_exists() {
         let dir = tempdir().unwrap();
         let home = dir.path().to_str().unwrap().to_string();
         let integration = GeminiIntegration;
         let ctx = InstallContext {
-            home,
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let ctx_check = InstallContext {
+            home: home.clone(),
             binary_path: None,
         };
-        assert!(!integration.is_installed(&ctx));
+        assert!(
+            integration.is_installed(&ctx_check),
+            "is_installed should return true when gemini-extension.json exists"
+        );
     }
 
     #[test]
-    fn is_installed_returns_true_when_hook_present() {
+    fn is_installed_returns_false_when_extension_dir_does_not_exist() {
         let dir = tempdir().unwrap();
         let home = dir.path().to_str().unwrap().to_string();
-
-        let gemini_dir = dir.path().join(".gemini");
-        std::fs::create_dir_all(&gemini_dir).unwrap();
-        let settings_path = gemini_dir.join("settings.json");
-        let settings = serde_json::json!({
-            "hooks": {
-                "BeforeTool": [
-                    {
-                        "matcher": "exit_plan_mode",
-                        "hooks": [
-                            {
-                                "name": "plan-reviewer",
-                                "type": "command",
-                                "command": "/usr/local/bin/plan-reviewer",
-                                "timeout": 300000
-                            }
-                        ]
-                    }
-                ]
-            }
-        });
-        std::fs::write(
-            &settings_path,
-            serde_json::to_string_pretty(&settings).unwrap(),
-        )
-        .unwrap();
-
         let integration = GeminiIntegration;
         let ctx = InstallContext {
             home,
             binary_path: None,
         };
-        assert!(integration.is_installed(&ctx));
+
+        assert!(
+            !integration.is_installed(&ctx),
+            "is_installed should return false when extension dir does not exist"
+        );
     }
 }
