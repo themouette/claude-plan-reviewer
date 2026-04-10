@@ -1,4 +1,5 @@
 // plan-reviewer-opencode.mjs
+// plan-reviewer-version: __PLAN_REVIEWER_VERSION__
 // Installed by plan-reviewer. Binary path injected at install time.
 import { execFileSync } from "node:child_process";
 import { writeFileSync, unlinkSync } from "node:fs";

@@ -356,7 +356,9 @@ impl Integration for ClaudeIntegration {
 /// The `home` argument is the value of the `HOME` environment variable — the only
 /// external input that touches the filesystem path (T-07.2-03 mitigation: no user-supplied
 /// path fragments are accepted).
-fn claude_plugin_dir(home: &str) -> PathBuf {
+///
+/// pub(crate) — used by update.rs for version-aware manifest reading.
+pub(crate) fn claude_plugin_dir(home: &str) -> PathBuf {
     PathBuf::from(home).join(".local/share/plan-reviewer/claude-plugin")
 }
 
