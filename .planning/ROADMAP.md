@@ -64,9 +64,9 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
   4. `--no-browser` and `--port` flags are present in `plan-reviewer --help` output
 **Plans:** 3 plans
 Plans:
-- [ ] 06.1-01-PLAN.md — Add --port CLI flag and thread through to server bind
-- [ ] 06.1-02-PLAN.md — Test infrastructure: fixtures + install/uninstall integration tests
-- [ ] 06.1-03-PLAN.md — Full server approve/deny cycle integration tests
+- [x] 06.1-01-PLAN.md — Add --port CLI flag and thread through to server bind
+- [x] 06.1-02-PLAN.md — Test infrastructure: fixtures + install/uninstall integration tests
+- [x] 06.1-03-PLAN.md — Full server approve/deny cycle integration tests
 
 ### Phase 7: opencode Integration
 **Goal**: Users can install and uninstall plan-reviewer as an opencode hook via `plan-reviewer install opencode` and `plan-reviewer uninstall opencode`; the binary bundles the required JS plugin, writes it to disk on install, and wires `opencode.json`
