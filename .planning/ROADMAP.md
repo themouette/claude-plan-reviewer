@@ -97,12 +97,12 @@ Plans:
   3. `plan-reviewer update` detects installed integrations via manifest presence and rewrites stale plugin/extension files
   4. OpenCode plugin file includes a version comment enabling version-aware update
   5. All install/uninstall operations are idempotent
-**Plans:** 3 plans
+**Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 07.2-01-PLAN.md — Claude Code plugin directory + settings.json registration
-- [ ] 07.2-02-PLAN.md — Gemini CLI extension directory with auto-discovery
-- [ ] 07.2-03-PLAN.md — OpenCode version comment + post-update integration refresh
+- [x] 07.2-01-PLAN.md — Claude Code plugin directory + settings.json registration
+- [x] 07.2-02-PLAN.md — Gemini CLI extension directory with auto-discovery
+- [x] 07.2-03-PLAN.md — OpenCode version comment + post-update integration refresh
 
 ### Phase 07.3: Hook Subcommand (INSERTED)
 
