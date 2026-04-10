@@ -54,7 +54,11 @@ Plans:
   2. Triggering Gemini CLI plan mode opens the plan-reviewer browser UI with the plan content rendered
   3. Approving or denying in the browser returns the correct JSON decision to Gemini CLI
   4. `plan-reviewer uninstall gemini` removes the hook entry from `~/.gemini/settings.json` and leaves all other settings intact
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Implement GeminiIntegration install/uninstall/is_installed in gemini.rs, mark Gemini as available
+- [ ] 06-02-PLAN.md — Extend hook flow for plan_path file reading and integration-aware JSON output routing
 
 ### Phase 7: opencode Integration
 **Goal**: Users can install and uninstall plan-reviewer as an opencode hook via `plan-reviewer install opencode` and `plan-reviewer uninstall opencode`; the binary bundles the required JS plugin, writes it to disk on install, and wires `opencode.json`
@@ -100,7 +104,7 @@ Plans:
 | 3. Distribution | v0.1.0 | 3/3 | Complete | 2026-04-10 |
 | 4. Subcommands | v0.1.0 | 3/3 | Complete | 2026-04-10 |
 | 5. Integration Architecture | v0.3.0 | 1/2 | Gap closure | 2026-04-10 |
-| 6. Gemini CLI Integration | v0.3.0 | 0/? | Not started | - |
+| 6. Gemini CLI Integration | v0.3.0 | 0/2 | Planned | - |
 | 7. opencode Integration | v0.3.0 | 0/? | Not started | - |
 | 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/? | Not started | - |
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |
