@@ -82,9 +82,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Dependencies (self_update, dialoguer), archive format fix (.tar.gz), integration abstraction module
-- [ ] 04-02-PLAN.md — Install/uninstall refactor with integration abstraction, TUI picker, main.rs wiring
-- [ ] 04-03-PLAN.md — Update subcommand (self_update from GitHub releases), final main.rs wiring
+- [x] 04-01-PLAN.md — Dependencies (self_update, dialoguer), archive format fix (.tar.gz), integration abstraction module
+- [x] 04-02-PLAN.md — Install/uninstall refactor with integration abstraction, TUI picker, main.rs wiring
+- [x] 04-03-PLAN.md — Update subcommand (self_update from GitHub releases), final main.rs wiring
 
 ## Progress
 
