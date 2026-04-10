@@ -133,15 +133,15 @@ fn install_claude(home: &str, binary_path: &str) {
     };
 
     // Create ~/.claude/ if it doesn't exist
-    if let Some(parent) = settings_path.parent() {
-        if let Err(e) = std::fs::create_dir_all(parent) {
-            eprintln!(
-                "plan-reviewer install: cannot create {}: {}",
-                parent.display(),
-                e
-            );
-            std::process::exit(1);
-        }
+    if let Some(parent) = settings_path.parent()
+        && let Err(e) = std::fs::create_dir_all(parent)
+    {
+        eprintln!(
+            "plan-reviewer install: cannot create {}: {}",
+            parent.display(),
+            e
+        );
+        std::process::exit(1);
     }
 
     if let Err(e) = std::fs::write(&settings_path, output) {

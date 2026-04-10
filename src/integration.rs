@@ -87,10 +87,7 @@ pub fn get_integration(slug: &IntegrationSlug) -> Integration {
 
 /// Return definitions for all known integrations, in display order.
 pub fn all_integrations() -> Vec<Integration> {
-    IntegrationSlug::all()
-        .iter()
-        .map(get_integration)
-        .collect()
+    IntegrationSlug::all().iter().map(get_integration).collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -183,8 +180,8 @@ pub fn resolve_integrations(given: &[String], prompt: &str) -> Vec<IntegrationSl
 /// Pre-checks already-installed integrations so the user sees current state.
 /// Returns the user's selection or exits(0) if nothing is selected / cancelled.
 pub fn show_integration_picker(prompt: &str) -> Vec<IntegrationSlug> {
-    use dialoguer::{MultiSelect, theme::ColorfulTheme};
     use dialoguer::console::Term;
+    use dialoguer::{MultiSelect, theme::ColorfulTheme};
 
     let all = all_integrations();
     let home = std::env::var("HOME").unwrap_or_default();
@@ -198,14 +195,12 @@ pub fn show_integration_picker(prompt: &str) -> Vec<IntegrationSlug> {
             }
             if i.slug == IntegrationSlug::Claude {
                 let settings = claude_settings_path(&home);
-                if settings.exists() {
-                    if let Ok(content) = std::fs::read_to_string(&settings) {
-                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                            if claude_is_installed(&json) {
-                                return format!("{} (installed)", i.display_name);
-                            }
-                        }
-                    }
+                if settings.exists()
+                    && let Ok(content) = std::fs::read_to_string(&settings)
+                    && let Ok(json) = serde_json::from_str::<serde_json::Value>(&content)
+                    && claude_is_installed(&json)
+                {
+                    return format!("{} (installed)", i.display_name);
                 }
             }
             i.display_name.to_string()
@@ -218,12 +213,11 @@ pub fn show_integration_picker(prompt: &str) -> Vec<IntegrationSlug> {
         .map(|i| {
             if i.slug == IntegrationSlug::Claude {
                 let settings = claude_settings_path(&home);
-                if settings.exists() {
-                    if let Ok(content) = std::fs::read_to_string(&settings) {
-                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                            return claude_is_installed(&json);
-                        }
-                    }
+                if settings.exists()
+                    && let Ok(content) = std::fs::read_to_string(&settings)
+                    && let Ok(json) = serde_json::from_str::<serde_json::Value>(&content)
+                {
+                    return claude_is_installed(&json);
                 }
             }
             false
@@ -241,10 +235,7 @@ pub fn show_integration_picker(prompt: &str) -> Vec<IntegrationSlug> {
         });
 
     match selections {
-        Some(idxs) if !idxs.is_empty() => idxs
-            .into_iter()
-            .map(|i| all[i].slug.clone())
-            .collect(),
+        Some(idxs) if !idxs.is_empty() => idxs.into_iter().map(|i| all[i].slug.clone()).collect(),
         _ => {
             eprintln!("No integrations selected.");
             std::process::exit(0);
@@ -258,10 +249,22 @@ mod tests {
 
     #[test]
     fn slug_round_trip() {
-        assert_eq!(IntegrationSlug::from_str("claude"), Some(IntegrationSlug::Claude));
-        assert_eq!(IntegrationSlug::from_str("CLAUDE"), Some(IntegrationSlug::Claude));
-        assert_eq!(IntegrationSlug::from_str("opencode"), Some(IntegrationSlug::Opencode));
-        assert_eq!(IntegrationSlug::from_str("codestral"), Some(IntegrationSlug::Codestral));
+        assert_eq!(
+            IntegrationSlug::from_str("claude"),
+            Some(IntegrationSlug::Claude)
+        );
+        assert_eq!(
+            IntegrationSlug::from_str("CLAUDE"),
+            Some(IntegrationSlug::Claude)
+        );
+        assert_eq!(
+            IntegrationSlug::from_str("opencode"),
+            Some(IntegrationSlug::Opencode)
+        );
+        assert_eq!(
+            IntegrationSlug::from_str("codestral"),
+            Some(IntegrationSlug::Codestral)
+        );
         assert_eq!(IntegrationSlug::from_str("unknown"), None);
     }
 
@@ -304,13 +307,20 @@ mod tests {
         let codestral = get_integration(&IntegrationSlug::Codestral);
         assert!(!codestral.supported);
         let reason = codestral.unsupported_reason.unwrap();
-        assert!(reason.contains("model, not a coding agent"), "reason: {}", reason);
+        assert!(
+            reason.contains("model, not a coding agent"),
+            "reason: {}",
+            reason
+        );
     }
 
     #[test]
     fn claude_settings_path_test() {
         let path = claude_settings_path("/home/alice");
-        assert_eq!(path, std::path::PathBuf::from("/home/alice/.claude/settings.json"));
+        assert_eq!(
+            path,
+            std::path::PathBuf::from("/home/alice/.claude/settings.json")
+        );
     }
 
     #[test]

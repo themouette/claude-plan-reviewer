@@ -193,7 +193,11 @@ fn main() {
             // uninstall subcommand: does NOT read stdin
             uninstall::run_uninstall(integrations.clone());
         }
-        Some(Commands::Update { check, version, yes }) => {
+        Some(Commands::Update {
+            check,
+            version,
+            yes,
+        }) => {
             // update subcommand: does NOT read stdin
             update::run_update(*check, version.clone(), *yes);
         }

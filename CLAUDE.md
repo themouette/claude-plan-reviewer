@@ -116,7 +116,20 @@ A Rust binary that intercepts Claude Code's plan approval flow, renders plans an
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
-Conventions not yet established. Will populate as patterns emerge during development.
+## Code Quality
+
+Always run the following before committing:
+
+```bash
+cargo fmt
+cargo clippy -- -D warnings
+```
+
+Both checks are enforced by the pre-commit hook in `.githooks/`. After cloning, activate it with:
+
+```bash
+git config core.hooksPath .githooks
+```
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->
