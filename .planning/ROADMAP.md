@@ -107,12 +107,19 @@ Plans:
 ### Phase 07.3: Hook Subcommand (INSERTED)
 
 **Goal:** The nameless default behaviour (`plan-reviewer` reads stdin JSON) becomes an explicit `plan-reviewer hook` subcommand. Existing installs migrate automatically on next `update`.
-**Requirements**: TBD
+**Requirements**: INTEG-05
 **Depends on:** Phase 07.2
-**Plans:** 0 plans
+**Success Criteria** (what must be TRUE):
+  1. `plan-reviewer hook` reads stdin JSON and opens the browser review UI identically to the old bare invocation
+  2. Bare `plan-reviewer` (no subcommand, no --plan-file) still works but emits a deprecation warning on stderr
+  3. `plan-reviewer --plan-file /path` (opencode) does NOT emit a deprecation warning
+  4. All hooks.json write locations (claude.rs install, gemini.rs install, update.rs write functions) use `"plan-reviewer hook"` as the command string
+  5. `plan-reviewer update` detects pre-plugin installs (old bare settings.json entry, no plugin manifest) and migrates to the plugin model with the new `hook` subcommand
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 07.3 to break down)
+- [ ] 07.3-01-PLAN.md — Add Commands::Hook subcommand + update all hook command strings
+- [ ] 07.3-02-PLAN.md — Case 2 pre-plugin migration in update.rs
 
 ### Phase 07.4: Add review <file> subcommand
 **Goal**: Users can run `plan-reviewer review <file.md>` to open any markdown file in the browser review UI and receive a neutral `{"behavior":"allow"|"deny"}` JSON decision on stdout — no hook JSON construction needed, enabling scripts and agent workflows to use plan-reviewer as a standalone review tool
@@ -163,7 +170,7 @@ Plans:
 | 6.1. Integration Test Harness | v0.3.0 | 0/3 | Planned | - |
 | 7. opencode Integration | v0.3.0 | 2/2 | Complete    | 2026-04-10 |
 | 7.2. Integration Plugin Infrastructure | v0.3.0 | 0/3 | Planned | - |
-| 7.3. Hook Subcommand | v0.3.0 | 0/? | Not started | - |
+| 7.3. Hook Subcommand | v0.3.0 | 0/2 | Planned | - |
 | 7.4. Review File Subcommand | v0.3.0 | 0/1 | Planned | - |
 | 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/? | Not started | - |
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |
