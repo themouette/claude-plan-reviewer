@@ -1,11 +1,11 @@
 use std::sync::{Arc, Mutex};
 
 use axum::{
+    Json, Router,
     extract::State,
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
-    Json, Router,
 };
 use axum_embed::{FallbackBehavior, ServeEmbed};
 use rust_embed::RustEmbed;
