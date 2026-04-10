@@ -160,7 +160,7 @@ pub fn resolve_integrations(given: &[String], prompt: &str) -> Vec<IntegrationSl
 /// Returns the user's selection or exits(0) if nothing is selected / cancelled.
 pub fn show_integration_picker(prompt: &str) -> Vec<IntegrationSlug> {
     use dialoguer::console::Term;
-    use dialoguer::{theme::ColorfulTheme, MultiSelect};
+    use dialoguer::{MultiSelect, theme::ColorfulTheme};
 
     let all = IntegrationSlug::all();
     let home = std::env::var("HOME").unwrap_or_default();

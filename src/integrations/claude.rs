@@ -28,11 +28,7 @@ impl Integration for ClaudeIntegration {
                     serde_json::json!({})
                 }),
                 Err(e) => {
-                    return Err(format!(
-                        "cannot read {}: {}",
-                        settings_path.display(),
-                        e
-                    ));
+                    return Err(format!("cannot read {}: {}", settings_path.display(), e));
                 }
             }
         } else {
@@ -86,22 +82,14 @@ impl Integration for ClaudeIntegration {
         };
 
         // Create ~/.claude/ if it doesn't exist
-        if let Some(parent) = settings_path.parent() {
-            if let Err(e) = std::fs::create_dir_all(parent) {
-                return Err(format!(
-                    "cannot create {}: {}",
-                    parent.display(),
-                    e
-                ));
-            }
+        if let Some(parent) = settings_path.parent()
+            && let Err(e) = std::fs::create_dir_all(parent)
+        {
+            return Err(format!("cannot create {}: {}", parent.display(), e));
         }
 
         if let Err(e) = std::fs::write(&settings_path, output) {
-            return Err(format!(
-                "cannot write {}: {}",
-                settings_path.display(),
-                e
-            ));
+            return Err(format!("cannot write {}: {}", settings_path.display(), e));
         }
 
         println!(
@@ -177,11 +165,7 @@ impl Integration for ClaudeIntegration {
         };
 
         if let Err(e) = std::fs::write(&settings_path, output) {
-            return Err(format!(
-                "cannot write {}: {}",
-                settings_path.display(),
-                e
-            ));
+            return Err(format!("cannot write {}: {}", settings_path.display(), e));
         }
 
         println!(
