@@ -7,7 +7,9 @@ mod update;
 
 #[cfg(test)]
 mod tests {
-    use super::{Cli, build_gemini_output, extract_diff, extract_plan_content};
+    use super::{
+        Cli, build_gemini_output, build_opencode_output, extract_diff, extract_plan_content,
+    };
     use crate::hook;
     use crate::hook::HookOutput;
     use crate::server;
@@ -120,6 +122,57 @@ mod tests {
     }
 
     #[test]
+    fn test_opencode_allow_output_format() {
+        let decision = server::Decision {
+            behavior: "allow".to_string(),
+            message: None,
+        };
+        let output = build_opencode_output(&decision);
+        assert_eq!(output["behavior"].as_str(), Some("allow"));
+        assert!(
+            output.get("message").is_none(),
+            "allow should not have message field"
+        );
+        assert!(
+            output.get("hookSpecificOutput").is_none(),
+            "opencode format must not have hookSpecificOutput"
+        );
+        assert!(
+            output.get("decision").is_none(),
+            "opencode format uses behavior, not decision key"
+        );
+    }
+
+    #[test]
+    fn test_opencode_deny_output_format() {
+        let decision = server::Decision {
+            behavior: "deny".to_string(),
+            message: Some("Needs more tests".to_string()),
+        };
+        let output = build_opencode_output(&decision);
+        assert_eq!(output["behavior"].as_str(), Some("deny"));
+        assert_eq!(output["message"].as_str(), Some("Needs more tests"));
+        assert!(
+            output.get("hookSpecificOutput").is_none(),
+            "opencode format must not have hookSpecificOutput"
+        );
+    }
+
+    #[test]
+    fn test_opencode_deny_without_message() {
+        let decision = server::Decision {
+            behavior: "deny".to_string(),
+            message: None,
+        };
+        let output = build_opencode_output(&decision);
+        assert_eq!(output["behavior"].as_str(), Some("deny"));
+        assert!(
+            output.get("message").is_none(),
+            "deny without message should not have message field"
+        );
+    }
+
+    #[test]
     fn test_extract_diff_nonexistent_path() {
         let result = extract_diff("/nonexistent/path/xyz");
         assert_eq!(result, "", "Non-existent path should return empty string");
@@ -208,6 +261,10 @@ struct Cli {
     /// Bind the review server to this port (0 = OS-assigned, default)
     #[arg(long, default_value_t = 0)]
     port: u16,
+
+    /// Read plan content from a file instead of stdin (used by opencode plugin)
+    #[arg(long)]
+    plan_file: Option<String>,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -331,6 +388,60 @@ fn build_gemini_output(decision: &Decision) -> serde_json::Value {
     }
 }
 
+/// Build the opencode response JSON from a browser decision.
+///
+/// Format: {"behavior":"allow"} or {"behavior":"deny","message":"..."}
+/// This is the format the JS plugin parses in opencode_plugin.mjs.
+fn build_opencode_output(decision: &Decision) -> serde_json::Value {
+    match decision.behavior.as_str() {
+        "allow" => serde_json::json!({ "behavior": "allow" }),
+        _ => {
+            let mut obj = serde_json::json!({
+                "behavior": "deny"
+            });
+            if let Some(ref msg) = decision.message {
+                obj["message"] = serde_json::Value::String(msg.clone());
+            }
+            obj
+        }
+    }
+}
+
+fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
+    // Read plan content from file — does NOT read stdin
+    let plan_md = match std::fs::read_to_string(plan_file) {
+        Ok(content) => content,
+        Err(e) => {
+            eprintln!("Failed to read plan file at {}: {}", plan_file, e);
+            std::process::exit(1);
+        }
+    };
+    eprintln!(
+        "Plan loaded from file ({} bytes): {}",
+        plan_md.len(),
+        plan_file
+    );
+
+    // Extract diff from current working directory (no HookInput cwd available)
+    let cwd = std::env::current_dir()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let diff_content = extract_diff(&cwd);
+    eprintln!("Diff extracted ({} bytes)", diff_content.len());
+
+    // Start tokio runtime and run the browser review flow
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    let decision = rt.block_on(async_main(no_browser, port, plan_md, diff_content));
+
+    // Build opencode output format and write to stdout — THE ONLY stdout write
+    let output = build_opencode_output(&decision);
+    serde_json::to_writer(std::io::stdout(), &output).expect("failed to write hook output");
+}
+
 fn main() {
     // 1. Parse CLI args FIRST — before stdin read (Pitfall 5: install must not hang on stdin)
     let cli = Cli::parse();
@@ -353,8 +464,12 @@ fn main() {
             update::run_update(*check, version.clone(), *yes);
         }
         None => {
-            // Default: hook review flow — reads stdin JSON
-            run_hook_flow(cli.no_browser, cli.port);
+            if let Some(ref plan_file) = cli.plan_file {
+                run_opencode_flow(cli.no_browser, cli.port, plan_file);
+            } else {
+                // Default: hook review flow — reads stdin JSON
+                run_hook_flow(cli.no_browser, cli.port);
+            }
         }
     }
 }
