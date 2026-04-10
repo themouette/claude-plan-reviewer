@@ -41,7 +41,10 @@ impl Integration for OpenCodeIntegration {
         }
 
         // Write the plugin file: replace __PLAN_REVIEWER_BIN__ with the actual binary path
-        let plugin_source = OPENCODE_PLUGIN_SOURCE.replace("__PLAN_REVIEWER_BIN__", binary_path);
+        // and __PLAN_REVIEWER_VERSION__ with the crate version at install time
+        let plugin_source = OPENCODE_PLUGIN_SOURCE
+            .replace("__PLAN_REVIEWER_BIN__", binary_path)
+            .replace("__PLAN_REVIEWER_VERSION__", env!("CARGO_PKG_VERSION"));
         if let Err(e) = std::fs::write(&plugin_path, &plugin_source) {
             return Err(format!("cannot write {}: {}", plugin_path.display(), e));
         }
@@ -240,8 +243,24 @@ fn opencode_config_path(home: &str) -> PathBuf {
 
 /// Returns the path for the installed plugin file:
 /// `{home}/.config/opencode/plugins/plan-reviewer-opencode.mjs`.
-fn opencode_plugin_path(home: &str) -> PathBuf {
+///
+/// pub(crate) — used by update.rs for version-aware plugin file detection.
+pub(crate) fn opencode_plugin_path(home: &str) -> PathBuf {
     PathBuf::from(home).join(".config/opencode/plugins/plan-reviewer-opencode.mjs")
+}
+
+/// Read the plan-reviewer version from an installed .mjs plugin file.
+///
+/// Parses the `// plan-reviewer-version: X.Y.Z` comment line.
+/// Returns None if the file cannot be read or the version line is absent.
+pub(crate) fn read_mjs_version(plugin_path: &std::path::Path) -> Option<String> {
+    let content = std::fs::read_to_string(plugin_path).ok()?;
+    for line in content.lines() {
+        if let Some(version) = line.strip_prefix("// plan-reviewer-version: ") {
+            return Some(version.trim().to_string());
+        }
+    }
+    None
 }
 
 /// Returns `true` if `plugin_path_str` is present in `config["plugin"]` array.
@@ -472,6 +491,69 @@ mod tests {
             plugin_content.contains("/usr/local/bin/plan-reviewer"),
             "actual binary path should be in installed plugin file"
         );
+    }
+
+    #[test]
+    fn install_writes_version_comment() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = OpenCodeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let plugin_path = dir
+            .path()
+            .join(".config/opencode/plugins/plan-reviewer-opencode.mjs");
+        let plugin_content = std::fs::read_to_string(&plugin_path).unwrap();
+
+        // Version comment line should be present
+        assert!(
+            plugin_content.contains("// plan-reviewer-version: "),
+            "installed plugin should contain version comment line"
+        );
+        // Version placeholder should NOT be present
+        assert!(
+            !plugin_content.contains("__PLAN_REVIEWER_VERSION__"),
+            "__PLAN_REVIEWER_VERSION__ placeholder should be replaced in installed plugin file"
+        );
+        // Binary placeholder should NOT be present
+        assert!(
+            !plugin_content.contains("__PLAN_REVIEWER_BIN__"),
+            "__PLAN_REVIEWER_BIN__ placeholder should be replaced in installed plugin file"
+        );
+    }
+
+    #[test]
+    fn read_mjs_version_extracts_version() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("test.mjs");
+        std::fs::write(&file_path, "// plan-reviewer-opencode.mjs\n// plan-reviewer-version: 1.2.3\n// other comment\n").unwrap();
+
+        let result = read_mjs_version(&file_path);
+        assert_eq!(result, Some("1.2.3".to_string()));
+    }
+
+    #[test]
+    fn read_mjs_version_returns_none_without_comment() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("test.mjs");
+        std::fs::write(&file_path, "// no version here\nconst x = 1;\n").unwrap();
+
+        let result = read_mjs_version(&file_path);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn read_mjs_version_returns_none_for_missing_file() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("nonexistent.mjs");
+
+        let result = read_mjs_version(&file_path);
+        assert_eq!(result, None);
     }
 
     // ---------------------------------------------------------------------------
