@@ -257,6 +257,13 @@ fn run_hook_flow(no_browser: bool) {
 
     // 7. Write decision to stdout — THE ONLY stdout write
     serde_json::to_writer(std::io::stdout(), &output).expect("failed to write hook output");
+
+    // 8. Watchdog exit: stdout write is complete, safe to exit now (WR-01: watchdog must
+    //    run AFTER the write, not before, to avoid discarding the hook response).
+    rt.block_on(async {
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    });
+    std::process::exit(0);
 }
 
 async fn async_main(no_browser: bool, plan_md: String, diff_content: String) -> HookOutput {
@@ -304,12 +311,6 @@ async fn async_main(no_browser: bool, plan_md: String, diff_content: String) -> 
             }
         }
     };
-
-    // Spawn 3-second watchdog for clean exit (HOOK-04)
-    tokio::spawn(async {
-        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-        std::process::exit(0);
-    });
 
     // Convert Decision to HookOutput
     match decision.behavior.as_str() {
