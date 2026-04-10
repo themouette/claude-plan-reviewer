@@ -8,6 +8,17 @@ A Rust binary that intercepts Claude Code's plan approval flow, renders plans an
 
 One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
 
+## Current Milestone: v0.3.0 Integrations, Annotations & Polish
+
+**Goal:** Expand plan-reviewer with full opencode/codestral integration, richer annotation actions, theme switching, and user documentation.
+
+**Target features:**
+- opencode integration — full hook wiring (real config path + format, working install/uninstall)
+- codestral integration — full hook wiring (real config path + format, working install/uninstall)
+- Richer annotation actions — predefined types: clarify this, needs test, give me an example, out of scope, search internet, search codebase
+- Theme switcher — light/dark mode in browser UI, persisted
+- User docs / README + integration guide — install, configure, use; how to wire each tool
+
 ## Current State
 
 v0.1.0 shipped 2026-04-10.
@@ -31,11 +42,18 @@ v0.1.0 shipped 2026-04-10.
 - ✓ install/uninstall subcommands: binary manages its own Claude Code hook wiring/unwiring — v0.1.0
 - ✓ update subcommand: binary self-updates from GitHub releases — v0.1.0
 
-### Active (v0.2.0 candidates)
+### Active (v0.3.0)
 
-- [ ] opencode integration: hook wiring for opencode's settings format
-- [ ] codestral integration: hook wiring for codestral's settings format
-- [ ] Plan reviewer settings UI: configure timeout, auto-open, annotation defaults in browser
+- [ ] opencode integration: full hook wiring (real config path + format, working install/uninstall)
+- [ ] codestral integration: full hook wiring (real config path + format, working install/uninstall)
+- [ ] Richer annotation actions: predefined types — clarify this, needs test, give me an example, out of scope, search internet, search codebase
+- [ ] Theme switcher: light/dark mode in browser UI, persisted across sessions
+- [ ] User docs / README: install, configure, and use guide
+- [ ] Integration guide: how to wire plan-reviewer with Claude Code, opencode, codestral
+
+### Future (v0.4.0 candidates)
+
+- [ ] Ask-from-UI: select text, type a question, stream AI response inline (integration-aware; each tool declares its ask command)
 
 ### Out of Scope
 
@@ -91,4 +109,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-10 after v0.1.0 milestone shipped*
+*Last updated: 2026-04-10 after v0.3.0 milestone started*
