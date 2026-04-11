@@ -38,7 +38,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 
 **Milestone Goal:** A `/annotate` slash command in the Claude Code plugin lets users review any markdown document from within a Claude conversation, with the result returned to Claude via stdout so it can act on the feedback.
 
-- [ ] **Phase 10: Slash Command Install/Uninstall** - `plan-reviewer install claude` creates `commands/annotate.md` in the plugin directory; `uninstall claude` removes it; `/annotate` appears in Claude Code's slash command menu
+- [x] **Phase 10: Slash Command Install/Uninstall** - `plan-reviewer install claude` creates `commands/annotate.md` in the plugin directory; `uninstall claude` removes it; `/annotate` appears in Claude Code's slash command menu (completed 2026-04-11)
 - [ ] **Phase 11: Slash Command Prompt** - The `annotate.md` prompt implements input resolution (explicit path → last `.md` → temp file), background execution via `plan-reviewer review`, and structured `allow`/`deny` result handling
 
 ## Phase Details
@@ -53,7 +53,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
   3. Adding a new integration requires only implementing the `Integration` trait and registering it — no changes to the install/uninstall command dispatch logic
 **Plans:** 1 plan
 Plans:
-- [ ] 10-01-PLAN.md — Idempotency refactor + commands/annotate.md write + unit and integration tests
+- [x] 10-01-PLAN.md — Idempotency refactor + commands/annotate.md write + unit and integration tests
 
 ### Phase 6: Gemini CLI Integration
 **Goal**: Users can install and uninstall plan-reviewer as a Gemini CLI `BeforeTool exit_plan_mode` hook via `plan-reviewer install gemini` and `plan-reviewer uninstall gemini`; the hook reads the plan from `tool_input.plan_path` and runs the full browser review flow
@@ -187,7 +187,7 @@ Plans:
   2. `/annotate` appears in Claude Code's slash command autocomplete menu after install
   3. After `plan-reviewer uninstall claude`, the `commands/` directory is removed; re-running uninstall exits 0 without error
   4. Integration tests verify the file is created and removed in a tmpdir-isolated HOME
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 10-01-PLAN.md — Idempotency refactor + commands/annotate.md write + unit and integration tests
 
@@ -221,5 +221,5 @@ Plans:
 | 7.4. Review File Subcommand | v0.3.0 | 1/1 | Complete   | 2026-04-11 |
 | 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/2 | Planned | - |
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |
-| 10. Slash Command Install/Uninstall | v0.4.0 | 0/? | Not started | - |
+| 10. Slash Command Install/Uninstall | v0.4.0 | 1/1 | Complete   | 2026-04-11 |
 | 11. Slash Command Prompt | v0.4.0 | 0/? | Not started | - |
