@@ -165,8 +165,8 @@ const QUICK_ACTIONS = [
   'search codebase',
 ] as const
 
-const inlineChips = QUICK_ACTIONS.slice(0, 2)
-const overflowChips = QUICK_ACTIONS.slice(2)
+const inlineChips = QUICK_ACTIONS.slice(0, 0)
+const overflowChips = QUICK_ACTIONS.slice(0)
 
 function FloatingAnnotationAffordance({ top, left, selectedText, onAddAnnotation }: FloatingAnnotationAffordanceProps) {
   const detailsRef = useRef<HTMLDetailsElement>(null)
