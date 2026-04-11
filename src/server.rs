@@ -32,6 +32,8 @@ pub struct Decision {
 pub struct AppState {
     pub plan_md: String,
     pub diff_content: String,
+    pub approve_label: String,
+    pub deny_label: String,
     pub decision_tx: Mutex<Option<oneshot::Sender<Decision>>>,
 }
 
@@ -43,6 +45,13 @@ async fn get_plan(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 
 async fn get_diff(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     Json(serde_json::json!({ "diff": state.diff_content }))
+}
+
+async fn get_config(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    Json(serde_json::json!({
+        "approve_label": state.approve_label,
+        "deny_label": state.deny_label,
+    }))
 }
 
 async fn post_decide(
@@ -67,6 +76,8 @@ async fn post_decide(
 pub async fn start_server(
     plan_md: String,
     diff_content: String,
+    approve_label: String,
+    deny_label: String,
     port: u16,
 ) -> Result<(u16, oneshot::Receiver<Decision>), Box<dyn std::error::Error + Send + Sync>> {
     // 1. Create decision channel
@@ -80,6 +91,8 @@ pub async fn start_server(
     let state = Arc::new(AppState {
         plan_md,
         diff_content,
+        approve_label,
+        deny_label,
         decision_tx: Mutex::new(Some(decision_tx)),
     });
 
@@ -95,6 +108,7 @@ pub async fn start_server(
     let app = Router::new()
         .route("/api/plan", get(get_plan))
         .route("/api/diff", get(get_diff))
+        .route("/api/config", get(get_config))
         .route("/api/decide", post(post_decide))
         .fallback_service(spa)
         .with_state(state);

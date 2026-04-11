@@ -330,6 +330,12 @@ enum Commands {
     Review {
         /// Path to the markdown file to review
         file: String,
+        /// Label for the Approve button in the browser UI
+        #[arg(long, default_value = "Approve")]
+        approve_label: String,
+        /// Label for the Deny button in the browser UI
+        #[arg(long, default_value = "Deny")]
+        deny_label: String,
     },
     /// Wire the ExitPlanMode hook into one or more integrations (default: interactive picker)
     Install {
@@ -494,7 +500,14 @@ fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
         .build()
         .unwrap();
 
-    let decision = rt.block_on(async_main(no_browser, port, plan_md, diff_content));
+    let decision = rt.block_on(async_main(
+        no_browser,
+        port,
+        plan_md,
+        diff_content,
+        "Approve".to_string(),
+        "Deny".to_string(),
+    ));
 
     // Build opencode output format and write to stdout — THE ONLY stdout write
     let output = build_opencode_output(&decision);
@@ -507,7 +520,7 @@ fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
 /// review UI, and writes neutral `{"behavior":"allow"|"deny"}` JSON to stdout.
 /// This enables scripts and agent workflows to invoke plan-reviewer without
 /// constructing hook-specific JSON.
-fn run_review_flow(no_browser: bool, port: u16, file: &str) {
+fn run_review_flow(no_browser: bool, port: u16, file: &str, approve_label: &str, deny_label: &str) {
     // Read plan content from file — does NOT read stdin
     let plan_md = match std::fs::read_to_string(file) {
         Ok(content) => content,
@@ -543,7 +556,14 @@ fn run_review_flow(no_browser: bool, port: u16, file: &str) {
         .build()
         .unwrap();
 
-    let decision = rt.block_on(async_main(no_browser, port, plan_md, diff_content));
+    let decision = rt.block_on(async_main(
+        no_browser,
+        port,
+        plan_md,
+        diff_content,
+        approve_label.to_string(),
+        deny_label.to_string(),
+    ));
 
     // Build neutral output format and write to stdout — THE ONLY stdout write
     let output = build_opencode_output(&decision);
@@ -558,8 +578,12 @@ fn main() {
         Some(Commands::ReviewHook) => {
             run_hook_flow(cli.no_browser, cli.port);
         }
-        Some(Commands::Review { file }) => {
-            run_review_flow(cli.no_browser, cli.port, file);
+        Some(Commands::Review {
+            file,
+            approve_label,
+            deny_label,
+        }) => {
+            run_review_flow(cli.no_browser, cli.port, file, approve_label, deny_label);
         }
         Some(Commands::Install { integrations }) => {
             // install subcommand: does NOT read stdin
@@ -639,7 +663,14 @@ fn run_hook_flow(no_browser: bool, port: u16) {
         .build()
         .unwrap();
 
-    let decision = rt.block_on(async_main(no_browser, port, plan_md, diff_content));
+    let decision = rt.block_on(async_main(
+        no_browser,
+        port,
+        plan_md,
+        diff_content,
+        "Approve".to_string(),
+        "Deny".to_string(),
+    ));
 
     // 7. Build integration-specific output JSON and write to stdout — THE ONLY stdout write
     let output_json: serde_json::Value = if hook_input.is_gemini() {
@@ -669,18 +700,21 @@ async fn async_main(
     port: u16,
     plan_md: String,
     diff_content: String,
+    approve_label: String,
+    deny_label: String,
 ) -> Decision {
     // Start server
-    let (port, decision_rx) = match server::start_server(plan_md, diff_content, port).await {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("Failed to start server: {}", e);
-            return Decision {
-                behavior: "deny".to_string(),
-                message: Some(format!("Internal error: {}", e)),
-            };
-        }
-    };
+    let (port, decision_rx) =
+        match server::start_server(plan_md, diff_content, approve_label, deny_label, port).await {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Failed to start server: {}", e);
+                return Decision {
+                    behavior: "deny".to_string(),
+                    message: Some(format!("Internal error: {}", e)),
+                };
+            }
+        };
 
     let url = format!("http://127.0.0.1:{}", port);
 
