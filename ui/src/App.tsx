@@ -418,7 +418,15 @@ plan-reviewer uninstall opencode`}</code>
   )
 }
 
-function ConfirmationView({ decision }: { decision: Decision }) {
+function ConfirmationView({
+  decision,
+  approveLabel = 'Approve',
+  denyLabel = 'Deny',
+}: {
+  decision: Decision
+  approveLabel?: string
+  denyLabel?: string
+}) {
   const approved = decision === 'allow'
 
   useEffect(() => {
@@ -452,7 +460,7 @@ function ConfirmationView({ decision }: { decision: Decision }) {
           marginBottom: '12px',
         }}
       >
-        {approved ? 'Plan approved' : 'Plan denied'}
+        {approved ? `${approveLabel} — done` : `${denyLabel} — done`}
       </h2>
       <p
         style={{
@@ -1071,7 +1079,9 @@ export default function App() {
         <div style={{ flexGrow: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
           {appState === 'loading' && <LoadingSpinner />}
           {appState === 'error' && <ErrorView />}
-          {appState === 'confirmed' && decision && <ConfirmationView decision={decision} />}
+          {appState === 'confirmed' && decision && (
+            <ConfirmationView decision={decision} approveLabel={approveLabel} denyLabel={denyLabel} />
+          )}
         </div>
       )}
 
