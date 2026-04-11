@@ -271,6 +271,25 @@ mod tests {
         let cli = Cli::try_parse_from(["plan-reviewer"]).expect("parse failed");
         assert!(cli.command.is_none());
     }
+
+    #[test]
+    fn test_cli_review_subcommand_parses() {
+        let cli =
+            Cli::try_parse_from(["plan-reviewer", "review", "test.md"]).expect("parse failed");
+        match cli.command {
+            Some(Commands::Review { file }) => assert_eq!(file, "test.md"),
+            other => panic!("expected Commands::Review, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_cli_review_subcommand_requires_file() {
+        let result = Cli::try_parse_from(["plan-reviewer", "review"]);
+        assert!(
+            result.is_err(),
+            "review without file argument should fail to parse"
+        );
+    }
 }
 
 use clap::{Parser, Subcommand};
@@ -307,6 +326,11 @@ enum Commands {
     /// The bare `plan-reviewer` invocation (without a subcommand) is
     /// deprecated and will be removed in a future major version.
     ReviewHook,
+    /// Review any markdown file in the browser UI (outputs neutral {behavior} JSON)
+    Review {
+        /// Path to the markdown file to review
+        file: String,
+    },
     /// Wire the ExitPlanMode hook into one or more integrations (default: interactive picker)
     Install {
         /// Integration names: claude, gemini, opencode (omit for interactive picker)
@@ -477,6 +501,55 @@ fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
     serde_json::to_writer(std::io::stdout(), &output).expect("failed to write hook output");
 }
 
+/// Run the browser review flow for any markdown file on disk.
+///
+/// Reads `file` from the filesystem (does NOT read stdin), opens the browser
+/// review UI, and writes neutral `{"behavior":"allow"|"deny"}` JSON to stdout.
+/// This enables scripts and agent workflows to invoke plan-reviewer without
+/// constructing hook-specific JSON.
+fn run_review_flow(no_browser: bool, port: u16, file: &str) {
+    // Read plan content from file — does NOT read stdin
+    let plan_md = match std::fs::read_to_string(file) {
+        Ok(content) => content,
+        Err(e) => {
+            eprintln!("Failed to read file at {}: {}", file, e);
+            std::process::exit(1);
+        }
+    };
+    eprintln!("Plan loaded from file ({} bytes): {}", plan_md.len(), file);
+
+    // In debug mode, verify frontend assets exist before starting the server.
+    #[cfg(debug_assertions)]
+    {
+        if server::Assets::get("index.html").is_none() {
+            eprintln!("ERROR: Frontend assets not found at ui/dist/index.html");
+            eprintln!(
+                "Run 'cd ui && npm run build' first, or run 'cargo run' from the project root."
+            );
+            std::process::exit(1);
+        }
+    }
+
+    // Extract diff from current working directory
+    let cwd = std::env::current_dir()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let diff_content = extract_diff(&cwd);
+    eprintln!("Diff extracted ({} bytes)", diff_content.len());
+
+    // Start tokio runtime and run the browser review flow
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    let decision = rt.block_on(async_main(no_browser, port, plan_md, diff_content));
+
+    // Build neutral output format and write to stdout — THE ONLY stdout write
+    let output = build_opencode_output(&decision);
+    serde_json::to_writer(std::io::stdout(), &output).expect("failed to write hook output");
+}
+
 fn main() {
     // 1. Parse CLI args FIRST — before stdin read (Pitfall 5: install must not hang on stdin)
     let cli = Cli::parse();
@@ -484,6 +557,9 @@ fn main() {
     match &cli.command {
         Some(Commands::ReviewHook) => {
             run_hook_flow(cli.no_browser, cli.port);
+        }
+        Some(Commands::Review { file }) => {
+            run_review_flow(cli.no_browser, cli.port, file);
         }
         Some(Commands::Install { integrations }) => {
             // install subcommand: does NOT read stdin
