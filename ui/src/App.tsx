@@ -29,7 +29,12 @@ type Decision = 'allow' | 'deny'
 
 // --- Sub-components ---
 
-function PageHeader({ activeTab, onTabChange }: { activeTab: Tab; onTabChange: (tab: Tab) => void }) {
+function PageHeader({ activeTab, onTabChange, theme, onThemeToggle }: {
+  activeTab: Tab
+  onTabChange: (tab: Tab) => void
+  theme: 'dark' | 'light'
+  onThemeToggle: () => void
+}) {
   return (
     <header
       style={{
@@ -49,7 +54,34 @@ function PageHeader({ activeTab, onTabChange }: { activeTab: Tab; onTabChange: (
       <span style={{ fontSize: '20px', fontWeight: 600, color: 'var(--color-text-primary)' }}>
         Plan Review
       </span>
-      <TabBar activeTab={activeTab} onTabChange={onTabChange} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <TabBar activeTab={activeTab} onTabChange={onTabChange} />
+        <button
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          onClick={onThemeToggle}
+          style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '6px',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--color-text-secondary)',
+            fontSize: '18px',
+            outline: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(148, 163, 184, 0.15)' }}
+          onMouseOut={(e) => { e.currentTarget.style.background = 'none' }}
+          onFocus={(e) => { e.currentTarget.style.outline = '2px solid var(--color-focus)'; e.currentTarget.style.outlineOffset = '2px' }}
+          onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
+        >
+          {theme === 'dark' ? '\u2600' : '\u263D'}
+        </button>
+      </div>
     </header>
   )
 }
@@ -486,6 +518,19 @@ function PlanViewToggle({ viewMode, onViewModeChange }: { viewMode: ViewMode; on
 // --- Main App ---
 
 export default function App() {
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const stored = localStorage.getItem('plan-reviewer-theme')
+    if (stored === 'dark' || stored === 'light') return stored
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  })
+
+  function handleThemeToggle() {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    document.documentElement.setAttribute('data-theme', next)
+    localStorage.setItem('plan-reviewer-theme', next)
+  }
+
   const [appState, setAppState] = useState<AppState>('loading')
   const [planMd, setPlanMd] = useState<string>('')
   const [planHtml, setPlanHtml] = useState<string>('')
@@ -990,7 +1035,7 @@ export default function App() {
         minHeight: '100vh',
       }}
     >
-      <PageHeader activeTab={activeTab} onTabChange={setActiveTab} />
+      <PageHeader activeTab={activeTab} onTabChange={setActiveTab} theme={theme} onThemeToggle={handleThemeToggle} />
 
       {/* Non-reviewing states: loading, error, confirmed */}
       {appState !== 'reviewing' && (
