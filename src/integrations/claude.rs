@@ -761,6 +761,78 @@ mod tests {
             count, 1,
             "should have exactly one extraKnownMarketplaces entry after two installs"
         );
+
+        // commands/annotate.md should exist after idempotent install (file writes are unconditional)
+        let annotate_path = dir
+            .path()
+            .join(".local/share/plan-reviewer/claude-plugin/commands/annotate.md");
+        assert!(
+            annotate_path.exists(),
+            "commands/annotate.md should exist after idempotent install"
+        );
+    }
+
+    #[test]
+    fn install_creates_annotate_md_with_expected_content() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let annotate_path = dir
+            .path()
+            .join(".local/share/plan-reviewer/claude-plugin/commands/annotate.md");
+        assert!(
+            annotate_path.exists(),
+            "commands/annotate.md should be created by install"
+        );
+
+        let content = std::fs::read_to_string(&annotate_path).unwrap();
+        assert!(content.contains("# Annotate"), "should contain heading");
+        assert!(
+            content.contains("$ARGUMENTS"),
+            "should contain $ARGUMENTS placeholder"
+        );
+        assert_eq!(
+            content,
+            "# Annotate\n\nOpens the plan-reviewer browser UI to review a file.\n\n$ARGUMENTS\n",
+            "content must match D-03 spec exactly"
+        );
+    }
+
+    #[test]
+    fn install_creates_annotate_md_even_when_already_installed() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        // First install
+        integration.install(&ctx).unwrap();
+
+        // Manually delete the commands directory to simulate upgrading an existing install
+        let commands_dir = dir
+            .path()
+            .join(".local/share/plan-reviewer/claude-plugin/commands");
+        std::fs::remove_dir_all(&commands_dir).unwrap();
+        assert!(!commands_dir.exists(), "commands dir removed for test setup");
+
+        // Second install — must recreate commands/annotate.md even though plugin_is_registered() returns true
+        integration.install(&ctx).unwrap();
+
+        let annotate_path = commands_dir.join("annotate.md");
+        assert!(
+            annotate_path.exists(),
+            "commands/annotate.md should be recreated on re-install (D-01)"
+        );
     }
 
     #[test]
