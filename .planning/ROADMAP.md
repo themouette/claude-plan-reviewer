@@ -166,7 +166,9 @@ Plans:
   1. A user who has never seen this project can install plan-reviewer using only the README `curl | sh` instructions
   2. The README explains how to approve, deny, and annotate a plan in the browser UI
   3. The README or linked integration guides show the exact `install` command and expected config change for each supported integration (Claude Code, Gemini CLI, opencode)
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 09-01-PLAN.md — Rewrite README.md with install, usage, integration guides, and subcommands reference
 
 ---
 
