@@ -25,6 +25,7 @@ impl Integration for ClaudeIntegration {
     ///
     /// Writes:
     ///   {home}/.local/share/plan-reviewer/claude-plugin/.claude-plugin/plugin.json
+    ///   {home}/.local/share/plan-reviewer/claude-plugin/.claude-plugin/marketplace.json
     ///   {home}/.local/share/plan-reviewer/claude-plugin/hooks/hooks.json
     ///
     /// Adds to ~/.claude/settings.json:
@@ -71,6 +72,37 @@ impl Integration for ClaudeIntegration {
         println!(
             "plan-reviewer: plugin manifest written to {}",
             plugin_json_path.display()
+        );
+
+        // Write .claude-plugin/marketplace.json
+        let marketplace_json = serde_json::json!({
+            "name": MARKETPLACE_NAME,
+            "owner": {
+                "name": "plan-reviewer authors"
+            },
+            "plugins": [
+                {
+                    "name": "plan-reviewer",
+                    "source": "./",
+                    "description": "Plan review hook for Claude Code"
+                }
+            ]
+        });
+        let marketplace_json_str = match serde_json::to_string_pretty(&marketplace_json) {
+            Ok(s) => s,
+            Err(e) => return Err(format!("cannot serialize marketplace.json: {}", e)),
+        };
+        let marketplace_json_path = manifest_dir.join("marketplace.json");
+        if let Err(e) = std::fs::write(&marketplace_json_path, &marketplace_json_str) {
+            return Err(format!(
+                "cannot write {}: {}",
+                marketplace_json_path.display(),
+                e
+            ));
+        }
+        println!(
+            "plan-reviewer: marketplace manifest written to {}",
+            marketplace_json_path.display()
         );
 
         // Write hooks/hooks.json
@@ -578,6 +610,55 @@ mod tests {
             content.contains("plan-reviewer review-hook"),
             "hooks.json command should be 'plan-reviewer review-hook', got: {}",
             content
+        );
+    }
+
+    #[test]
+    fn install_creates_marketplace_json_with_plugin_entry() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let marketplace_json_path = dir
+            .path()
+            .join(".local/share/plan-reviewer/claude-plugin/.claude-plugin/marketplace.json");
+        assert!(
+            marketplace_json_path.exists(),
+            "marketplace.json should be created"
+        );
+
+        let content = std::fs::read_to_string(&marketplace_json_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        assert_eq!(
+            json["name"].as_str(),
+            Some(MARKETPLACE_NAME),
+            "marketplace name must match MARKETPLACE_NAME"
+        );
+
+        let plugins = json["plugins"].as_array().unwrap();
+        assert_eq!(
+            plugins.len(),
+            1,
+            "marketplace should list exactly one plugin"
+        );
+
+        let plugin = &plugins[0];
+        assert_eq!(
+            plugin["name"].as_str(),
+            Some("plan-reviewer"),
+            "plugin name must be 'plan-reviewer'"
+        );
+        assert_eq!(
+            plugin["source"].as_str(),
+            Some("./"),
+            "plugin source must be './' (relative to marketplace root)"
         );
     }
 
