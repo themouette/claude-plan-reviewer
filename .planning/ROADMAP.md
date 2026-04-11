@@ -170,7 +170,7 @@ Plans:
 | 6.1. Integration Test Harness | v0.3.0 | 0/3 | Planned | - |
 | 7. opencode Integration | v0.3.0 | 2/2 | Complete    | 2026-04-10 |
 | 7.2. Integration Plugin Infrastructure | v0.3.0 | 0/3 | Planned | - |
-| 7.3. Hook Subcommand | v0.3.0 | 0/2 | Planned | - |
+| 7.3. Hook Subcommand | v0.3.0 | 2/2 | Complete | 2026-04-11 |
 | 7.4. Review File Subcommand | v0.3.0 | 0/1 | Planned | - |
 | 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/? | Not started | - |
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |
