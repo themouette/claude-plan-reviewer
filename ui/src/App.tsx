@@ -278,7 +278,7 @@ function FloatingAnnotationAffordance({ top, left, selectedText, onAddAnnotation
         >
           &#9662; more
         </summary>
-        <div style={{
+        <div role="menu" style={{
           position: 'absolute',
           top: '100%',
           left: 0,
