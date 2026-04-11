@@ -22,7 +22,7 @@ One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no work
 
 ## Current State
 
-v0.1.0 shipped 2026-04-10.
+v0.1.0 shipped 2026-04-10. Phase 08 complete 2026-04-11.
 
 - **Binary**: `plan-reviewer` — single static Rust binary, ~1,350 Rust LOC + ~3,060 frontend LOC (React+TS)
 - **Subcommands**: `install [integration]`, `uninstall [integration]`, `update [--check] [--version X] [-y]`
@@ -30,6 +30,7 @@ v0.1.0 shipped 2026-04-10.
 - **Supported integrations**: Claude Code (full), opencode + codestral (stubs — hooks not yet spec'd)
 - **Distribution**: cargo-dist releases for darwin-arm64, darwin-x64, linux-musl-arm64, linux-musl-x64
 - **Human UAT pending**: TUI picker (TTY required), live `update` download, `--check` mode, `--version` pinning
+- **Phase 08 (complete)**: annotation quick-action chips (6 chips all in overflow dropdown), persistent light/dark theme switcher (localStorage + OS fallback, flash-free)
 
 ## Requirements
 
