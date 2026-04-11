@@ -45,9 +45,29 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [ ] **DOCS-02**: User can find usage and configuration instructions in README
 - [ ] **DOCS-03**: User can find an integration guide for Claude Code, Gemini CLI, and opencode
 
+## v0.4.0 Requirements
+
+Requirements for the Agent-Native Review milestone.
+
+### Slash Command
+
+- [ ] **SLSH-01**: User can invoke `/annotate` in a Claude Code conversation to open the browser review UI
+- [ ] **SLSH-02**: User can pass a file path argument (`/annotate path/to/file.md`) to review a specific file
+- [ ] **SLSH-03**: When no argument given, Claude resolves the target to the last `.md` file written in the current session
+- [ ] **SLSH-04**: When no file is found on disk, Claude writes the last markdown message content to a temp file and reviews that
+- [ ] **SLSH-05**: Review runs in the background — no timeout constraint on how long the user spends in the browser
+- [ ] **SLSH-06**: The review result (`{"behavior":"allow"|"deny","message":"..."}`) is returned to Claude via stdout when the process completes
+- [ ] **SLSH-07**: Claude acts on `allow` by proceeding; Claude acts on `deny` by treating the message as blocking feedback and revising
+
+### Plugin Integration
+
+- [ ] **PLGN-01**: `plan-reviewer install claude` creates a `commands/annotate.md` file in the plugin directory alongside the existing hook
+- [ ] **PLGN-02**: `plan-reviewer uninstall claude` removes the `commands/` directory
+- [ ] **PLGN-03**: `/annotate` is discoverable in Claude Code's slash command menu after install
+
 ## Future Requirements
 
-### v0.4.0 candidates
+### v0.5.0 candidates
 
 - **ASK-01**: User can select text in the plan/diff, type a question, and receive an AI response inline (integration-aware; each integration declares its ask command)
 
@@ -94,6 +114,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 - Mapped to phases: 20
 - Unmapped: 0
 
+**v0.4.0 coverage:**
+- v0.4.0 requirements: 10 total
+- Mapped to phases: TBD (roadmap pending)
+- Unmapped: 10 ⚠
+
 ---
 *Requirements defined: 2026-04-10*
-*Last updated: 2026-04-10 — REVIEW-01/02/03 added for Phase 07.1*
+*Last updated: 2026-04-11 — v0.4.0 requirements added (Agent-Native Review / /annotate slash command)*

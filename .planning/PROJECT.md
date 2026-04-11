@@ -8,16 +8,17 @@ A Rust binary that intercepts Claude Code's plan approval flow, renders plans an
 
 One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
 
-## Current Milestone: v0.3.0 Integrations, Annotations & Polish
+## Current Milestone: v0.4.0 Agent-Native Review
 
-**Goal:** Expand plan-reviewer with full opencode/codestral integration, richer annotation actions, theme switching, and user documentation.
+**Goal:** A `/annotate` slash command in the Claude Code plugin lets users review any markdown document from within a Claude conversation, with the result returned to Claude via stdout so it can act on the feedback.
 
 **Target features:**
-- opencode integration — full hook wiring (real config path + format, working install/uninstall)
-- codestral integration — full hook wiring (real config path + format, working install/uninstall)
-- Richer annotation actions — predefined types: clarify this, needs test, give me an example, out of scope, search internet, search codebase
-- Theme switcher — light/dark mode in browser UI, persisted
-- User docs / README + integration guide — install, configure, use; how to wire each tool
+- `/annotate [file?]` slash command registered in the plugin's `commands/` directory
+- Input resolution: explicit file path → last `.md` file written by Claude → last Claude message (written to temp file)
+- Background execution — no timeout, user can take as long as needed in the browser
+- Result (`{"behavior":"allow"|"deny","message":"..."}`) returned to Claude via stdout on completion
+- Claude acts on approve (proceed) or deny (revise based on message)
+- `plan-reviewer install claude` / `uninstall claude` manages the slash command file alongside the hook
 
 ## Current State
 
@@ -42,16 +43,14 @@ v0.1.0 shipped 2026-04-10.
 - ✓ install/uninstall subcommands: binary manages its own Claude Code hook wiring/unwiring — v0.1.0
 - ✓ update subcommand: binary self-updates from GitHub releases — v0.1.0
 
-### Active (v0.3.0)
+### Active (v0.4.0)
 
-- [ ] opencode integration: full hook wiring (real config path + format, working install/uninstall)
-- [ ] codestral integration: full hook wiring (real config path + format, working install/uninstall)
-- [ ] Richer annotation actions: predefined types — clarify this, needs test, give me an example, out of scope, search internet, search codebase
-- [ ] Theme switcher: light/dark mode in browser UI, persisted across sessions
-- [ ] User docs / README: install, configure, and use guide
-- [ ] Integration guide: how to wire plan-reviewer with Claude Code, opencode, codestral
+- [ ] `/annotate` slash command: invoke from Claude Code conversation to open browser review UI on any markdown file
+- [ ] Input resolution: file path arg → last `.md` written by Claude → last Claude message as temp file
+- [ ] Background execution + stdout return: result flows back to Claude when user completes review
+- [ ] `plan-reviewer install claude` creates `commands/annotate.md`; uninstall removes it
 
-### Future (v0.4.0 candidates)
+### Future (v0.5.0 candidates)
 
 - [ ] Ask-from-UI: select text, type a question, stream AI response inline (integration-aware; each tool declares its ask command)
 
@@ -109,4 +108,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-10 after v0.3.0 milestone started*
+*Last updated: 2026-04-11 after v0.4.0 milestone started (Agent-Native Review)*
