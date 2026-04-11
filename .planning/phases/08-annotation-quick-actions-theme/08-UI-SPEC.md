@@ -45,7 +45,7 @@ Declared values (must be multiples of 4):
 Exceptions:
 - Floating affordance chip height: 28px (existing established size — not a multiple of 4 but matches current pill height; do not change)
 - Floating affordance container padding: 4px (matches existing `padding: '4px'` on the affordance bubble)
-- Floating affordance chip padding: `0 10px` (matches existing pill padding)
+- Floating affordance chip padding: `0 8px` (grid-aligned; deliberate departure from the existing `0 10px` pill padding — the new chip component must use 8px, not 10px)
 - Theme toggle button: 32px × 32px minimum touch target
 
 Source: `ui/src/App.tsx` lines 127–178 for existing pill measurements.
@@ -57,13 +57,15 @@ Source: `ui/src/App.tsx` lines 127–178 for existing pill measurements.
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 16px | 400 | 1.6 |
-| Label / chip | 13px | 600 | 1.0 (height-bound button, no line-height needed) |
+| Label / chip | 14px | 600 | 1.0 (height-bound button, no line-height needed) |
 | Heading (h2) | 20px | 600 | 1.2 |
 | Display (h1) | 28px | 600 | 1.2 |
 
 Code blocks: 14px, monospace (`ui-monospace, "Cascadia Code", "Fira Code", monospace`), weight 400.
 
 Table cells: 14px, weight 400 (td) / weight 600 (th).
+
+Note: chip labels (14px weight 600) are visually distinct from code/table text (14px weight 400) by font weight alone — no size difference required.
 
 Source: `ui/src/index.css` `.plan-prose` rules — pre-existing, do not change.
 
@@ -126,6 +128,12 @@ Source: D-13 from `08-CONTEXT.md` — Claude's discretion.
 
 ---
 
+## Visuals
+
+Primary visual anchor: the plan prose area. The affordance chips and theme toggle are secondary affordances that appear on demand.
+
+---
+
 ## Component Inventory
 
 ### New: Quick-action chips in `FloatingAnnotationAffordance`
@@ -137,9 +145,9 @@ Source: D-13 from `08-CONTEXT.md` — Claude's discretion.
 
 **Chip visual spec:**
 - Height: 28px (matches existing pills)
-- Padding: `0 10px`
+- Padding: `0 8px`
 - Border-radius: 4px
-- Font: 13px, weight 600
+- Font: 14px, weight 600
 - Background: `rgba(148, 163, 184, 0.15)` (neutral — distinct from annotation-type pills)
 - Color: `var(--color-text-secondary)`
 - Border: none
@@ -152,7 +160,7 @@ Source: D-13 from `08-CONTEXT.md` — Claude's discretion.
 - `<summary>` renders as a chip: same visual spec as quick-action chips above, label `▾ more`
 - Dropdown `<div>` opens below the `<summary>`, `position: absolute`, z-index 21
 - Dropdown background: `var(--color-surface)`, border: `1px solid var(--color-border)`, border-radius: 6px, box-shadow: `0 4px 12px rgba(0,0,0,0.3)`, padding: 4px
-- Dropdown items stack vertically, each: full width button, height 32px, padding `0 12px`, text-align left, font 13px weight 400, color `var(--color-text-primary)`, background none, border none, cursor pointer
+- Dropdown items stack vertically, each: full width button, height 32px, padding `0 12px`, text-align left, font 14px weight 400, color `var(--color-text-primary)`, background none, border none, cursor pointer
 - Dropdown item hover: background `rgba(148, 163, 184, 0.1)`
 - Dismiss: `<details>` closes natively on outside click via blur; also closes when any item is selected (call `ref.current.removeAttribute('open')` or use controlled pattern)
 - ARIA: `<summary>` gets `aria-expanded` via the `details` open attribute automatically; dropdown items get `role="menuitem"` with `aria-label`
@@ -308,6 +316,8 @@ Source: D-04 from `08-CONTEXT.md` (chip labels). All other copy from existing co
 5. **`<details>` dropdown** dismissal: listen for `click` outside via `document.addEventListener('click', ...)` in a `useEffect` if native `<details>` dismiss-on-outside-click is insufficient in the target browsers. Alternative: toggle `open` attribute on the `<details>` ref when an item is selected.
 
 6. **Highlight CSS custom properties** for `::highlight(annotation-*)` use hardcoded `rgba` values. These are not affected by `data-theme` because CSS Custom Highlight colors are applied in a separate paint layer. Keep as-is — no light/dark variant needed for highlight overlays; the alpha transparency makes them readable on both backgrounds.
+
+7. **Chip padding change:** The new quick-action chips use `0 8px` padding (grid-aligned). This is a deliberate departure from the existing `0 10px` on the Comment/Delete/Replace pills. Do not update existing pills — the 8px spec applies only to the new chip component.
 
 ---
 
