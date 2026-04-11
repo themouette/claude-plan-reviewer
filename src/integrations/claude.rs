@@ -27,13 +27,15 @@ impl Integration for ClaudeIntegration {
     ///   {home}/.local/share/plan-reviewer/claude-plugin/.claude-plugin/plugin.json
     ///   {home}/.local/share/plan-reviewer/claude-plugin/.claude-plugin/marketplace.json
     ///   {home}/.local/share/plan-reviewer/claude-plugin/hooks/hooks.json
+    ///   {home}/.local/share/plan-reviewer/claude-plugin/commands/annotate.md
     ///
     /// Adds to ~/.claude/settings.json:
     ///   extraKnownMarketplaces["plan-reviewer-local"] (directory source)
     ///   enabledPlugins["plan-reviewer@plan-reviewer-local"] = true
     ///
-    /// Idempotent: if enabledPlugins[PLUGIN_KEY] already exists, returns Ok(())
-    /// without duplicating entries.
+    /// Idempotent: plugin files are always (re)written on every install.
+    /// Only the settings.json mutations (extraKnownMarketplaces and enabledPlugins)
+    /// are skipped if enabledPlugins[PLUGIN_KEY] already exists.
     fn install(&self, ctx: &InstallContext) -> Result<(), String> {
         let _binary_path = ctx
             .binary_path
@@ -133,6 +135,22 @@ impl Integration for ClaudeIntegration {
             hooks_json_path.display()
         );
 
+        // Write commands/annotate.md
+        let commands_dir = plugin_dir.join("commands");
+        if let Err(e) = std::fs::create_dir_all(&commands_dir) {
+            return Err(format!("cannot create {}: {}", commands_dir.display(), e));
+        }
+        let annotate_content =
+            "# Annotate\n\nOpens the plan-reviewer browser UI to review a file.\n\n$ARGUMENTS\n";
+        let annotate_path = commands_dir.join("annotate.md");
+        if let Err(e) = std::fs::write(&annotate_path, annotate_content) {
+            return Err(format!("cannot write {}: {}", annotate_path.display(), e));
+        }
+        println!(
+            "plan-reviewer: annotate command written to {}",
+            annotate_path.display()
+        );
+
         // ------------------------------------------------------------------
         // Step 2: Read or create ~/.claude/settings.json
         // ------------------------------------------------------------------
@@ -174,7 +192,7 @@ impl Integration for ClaudeIntegration {
 
         if plugin_is_registered(&root) {
             println!(
-                "plan-reviewer: plugin already configured in {} (no changes made)",
+                "plan-reviewer: settings already configured in {} (no settings changes made)",
                 settings_path.display()
             );
             return Ok(());
@@ -823,7 +841,10 @@ mod tests {
             .path()
             .join(".local/share/plan-reviewer/claude-plugin/commands");
         std::fs::remove_dir_all(&commands_dir).unwrap();
-        assert!(!commands_dir.exists(), "commands dir removed for test setup");
+        assert!(
+            !commands_dir.exists(),
+            "commands dir removed for test setup"
+        );
 
         // Second install — must recreate commands/annotate.md even though plugin_is_registered() returns true
         integration.install(&ctx).unwrap();
