@@ -55,8 +55,8 @@ completed: 2026-04-11
 - **Duration:** ~15 min
 - **Started:** 2026-04-11T14:10:00Z
 - **Completed:** 2026-04-11T14:25:00Z
-- **Tasks:** 1 (Task 2 is a human-verify checkpoint — not yet cleared)
-- **Files modified:** 3
+- **Tasks:** 2/2 (Task 2 human-verify checkpoint cleared — user approved)
+- **Files modified:** 3 (+ 2 post-checkpoint fixes)
 
 ## Accomplishments
 
@@ -68,6 +68,9 @@ completed: 2026-04-11
 ## Task Commits
 
 1. **Task 1: Add flash-free theme script, light theme CSS vars, and theme toggle button** - `3130d1b` (feat)
+2. **Task 2: Human-verify checkpoint** — user approved after two post-checkpoint fixes:
+   - `dfbc728` fix(08-01): move all quick-action chips to overflow dropdown (user feedback: too many inline)
+   - `ef1cf39` fix(08-02): fix invisible code text in light theme (add --color-code-text var)
 
 ## Files Created/Modified
 
@@ -95,17 +98,20 @@ None - no external service configuration required.
 
 ## Next Phase Readiness
 
-- Task 2 (human-verify checkpoint) is pending user visual verification
-- Both Phase 08 plans (quick-action chips and theme toggle) are built and ready for visual QA
-- Dev server can be started with `cd ui && npm run dev` for verification
+- All tasks complete including human-verify checkpoint (user approved)
+- Post-checkpoint fixes applied: chips moved fully to overflow dropdown, code text visible in light theme
+- Phase 09 can proceed — no blocking issues
 
 ---
 *Phase: 08-annotation-quick-actions-theme*
 *Completed: 2026-04-11*
 
-## Self-Check
+## Self-Check: PASSED
 
 - FOUND: ui/index.html (contains plan-reviewer-theme script)
-- FOUND: ui/src/index.css (contains [data-theme="light"] block)
+- FOUND: ui/src/index.css (contains [data-theme="light"] block, --color-code-text var)
 - FOUND: ui/src/App.tsx (contains handleThemeToggle, theme state, PageHeader toggle button)
-- FOUND: commit 3130d1b
+- FOUND: commit 3130d1b (theme implementation)
+- FOUND: commit dfbc728 (chips to overflow)
+- FOUND: commit ef1cf39 (code text fix)
+- Human-verify checkpoint: CLEARED (user approved 2026-04-11)
