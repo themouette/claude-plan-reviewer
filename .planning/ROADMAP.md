@@ -154,8 +154,8 @@ Plans:
   5. On first load with no saved preference, the UI matches the OS dark/light setting with no flash
 **Plans:** 2 plans
 Plans:
-- [ ] 08-01-PLAN.md — Quick-action chips + onAddAnnotation callback extension
-- [ ] 08-02-PLAN.md — Theme toggle, light CSS vars, flash-free init script
+- [x] 08-01-PLAN.md — Quick-action chips + onAddAnnotation callback extension
+- [x] 08-02-PLAN.md — Theme toggle, light CSS vars, flash-free init script
 **UI hint**: yes
 
 ### Phase 9: Documentation
