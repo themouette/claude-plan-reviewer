@@ -2,10 +2,17 @@ use std::net::TcpStream;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-/// Bind a TcpListener to port 0, let the OS assign a free port, then return it.
-fn find_free_port() -> u16 {
+/// Bind a TcpListener to port 0, let the OS assign a free port, and return both
+/// the port number and the listener.
+///
+/// The caller MUST keep the returned listener alive until the child process has
+/// been spawned, then drop it immediately before calling `wait_for_port`.  This
+/// eliminates the TOCTOU window where another process could claim the port
+/// between the discovery call and the child's bind.
+fn find_free_port() -> (u16, std::net::TcpListener) {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    listener.local_addr().unwrap().port()
+    let port = listener.local_addr().unwrap().port();
+    (port, listener)
 }
 
 /// Poll `TcpStream::connect` in a loop with 50 ms sleep.
@@ -94,8 +101,9 @@ fn review_approve() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# Test Plan\n\n1. Step one\n2. Step two").expect("write");
 
-    let port = find_free_port();
+    let (port, _port_guard) = find_free_port();
     let child = spawn_review_flow(tmp.path().to_str().unwrap(), port);
+    drop(_port_guard); // release the reserved port so the child can bind to it
 
     assert!(
         wait_for_port(port, Duration::from_secs(10)),
@@ -135,8 +143,9 @@ fn review_deny_with_message() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# Test Plan\n\n1. Step one\n2. Step two").expect("write");
 
-    let port = find_free_port();
+    let (port, _port_guard) = find_free_port();
     let child = spawn_review_flow(tmp.path().to_str().unwrap(), port);
+    drop(_port_guard); // release the reserved port so the child can bind to it
 
     assert!(
         wait_for_port(port, Duration::from_secs(10)),
@@ -186,8 +195,9 @@ fn review_serves_plan_content() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# My Review Content").expect("write");
 
-    let port = find_free_port();
+    let (port, _port_guard) = find_free_port();
     let child = spawn_review_flow(tmp.path().to_str().unwrap(), port);
+    drop(_port_guard); // release the reserved port so the child can bind to it
 
     assert!(
         wait_for_port(port, Duration::from_secs(10)),
@@ -222,8 +232,9 @@ fn review_config_default_labels() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# Test").expect("write");
 
-    let port = find_free_port();
+    let (port, _port_guard) = find_free_port();
     let child = spawn_review_flow(tmp.path().to_str().unwrap(), port);
+    drop(_port_guard); // release the reserved port so the child can bind to it
 
     assert!(
         wait_for_port(port, Duration::from_secs(10)),
@@ -251,13 +262,14 @@ fn review_config_custom_labels() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# Test").expect("write");
 
-    let port = find_free_port();
+    let (port, _port_guard) = find_free_port();
     let child = spawn_review_flow_with_labels(
         tmp.path().to_str().unwrap(),
         "No issues",
         "Leave feedback",
         port,
     );
+    drop(_port_guard); // release the reserved port so the child can bind to it
 
     assert!(
         wait_for_port(port, Duration::from_secs(10)),
