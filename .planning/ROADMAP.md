@@ -29,7 +29,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 - [x] **Phase 7: opencode Integration** - Wire opencode hook with bundled JS plugin install/uninstall (completed 2026-04-10)
 - [ ] **Phase 7.2: Integration Plugin/Extension Infrastructure** - Move Claude and Gemini integrations to plugin/extension model; add version-aware update refresh
 - [ ] **Phase 7.3: Hook Subcommand** - Add explicit `plan-reviewer review-hook` subcommand with backward-compat fallback
-- [ ] **Phase 7.4: Review File Subcommand** - Add `review <file>` subcommand for standalone markdown review with neutral JSON output
+- [x] **Phase 7.4: Review File Subcommand** - Add `review <file>` subcommand for standalone markdown review with neutral JSON output (completed 2026-04-11)
 - [ ] **Phase 8: Annotation Quick-Actions & Theme** - Add predefined annotation actions and persistent light/dark theme switcher
 - [ ] **Phase 9: Documentation** - Write README install/usage guide and per-integration wiring docs
 
@@ -132,7 +132,7 @@ Plans:
   4. The review subcommand never reads stdin — safe to invoke without piped input
 **Plans:** 1 plan
 Plans:
-- [ ] 07.4-01-PLAN.md — Add Review subcommand + integration tests
+- [x] 07.4-01-PLAN.md — Add Review subcommand + integration tests
 
 ### Phase 8: Annotation Quick-Actions & Theme
 **Goal**: Users have six predefined annotation quick-actions that pre-fill the comment field with one click; the browser UI supports toggling between light and dark mode, the preference persists across sessions, and the UI defaults to OS preference on first load
@@ -171,6 +171,6 @@ Plans:
 | 7. opencode Integration | v0.3.0 | 2/2 | Complete    | 2026-04-10 |
 | 7.2. Integration Plugin Infrastructure | v0.3.0 | 0/3 | Planned | - |
 | 7.3. Hook Subcommand | v0.3.0 | 2/2 | Complete | 2026-04-11 |
-| 7.4. Review File Subcommand | v0.3.0 | 0/1 | Planned | - |
+| 7.4. Review File Subcommand | v0.3.0 | 1/1 | Complete   | 2026-04-11 |
 | 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/? | Not started | - |
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |

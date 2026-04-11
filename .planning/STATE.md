@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: Integrations, Annotations & Polish
-status: executing
-stopped_at: Phase 07.3 complete — review-hook subcommand + Case 2 pre-plugin migration, 117 tests pass
-last_updated: "2026-04-11T00:30:00.000Z"
-last_activity: 2026-04-11 -- Phase 07.3 complete
+status: verifying
+stopped_at: Phase 07.4 complete — review subcommand implemented, 6 new tests pass (4 integration + 2 unit)
+last_updated: "2026-04-11T06:22:10.329Z"
+last_activity: 2026-04-11
 progress:
   total_phases: 9
-  completed_phases: 5
-  total_plans: 15
-  completed_plans: 11
-  percent: 73
+  completed_phases: 7
+  total_plans: 16
+  completed_plans: 16
+  percent: 100
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 7 — OpenCode Integration
+**Current focus:** Phase 07.4 — add-review-file-subcommand-so-any-markdown-file-can-be-revie
 
 ## Current Position
 
-Phase: 07.3 complete → 07.4 next (add review file subcommand so any markdown file can be revie)
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-04-11 -- Phase 07.3 complete
+Phase: 07.4 (add-review-file-subcommand-so-any-markdown-file-can-be-revie) — EXECUTING
+Plan: 1 of 1
+Status: Phase complete — ready for verification
+Last activity: 2026-04-11
 
 Progress: [████░░░░░░] 44% (v0.3.0)
 
@@ -49,6 +49,7 @@ Progress: [████░░░░░░] 44% (v0.3.0)
 | 7 | 2 | - | - |
 
 *v0.3.0 metrics will populate as plans complete*
+| Phase 07.4 P01 | 21 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -61,6 +62,8 @@ Recent decisions affecting current work:
 - Research: GitHub Copilot deferred — no plan-level hook; per-project config contradicts curl | sh UX
 - Research: Gemini CLI uses `plan_path` file read instead of inline plan JSON — adapter must read from disk
 - Architecture: Integration trait refactor (Phase 5) is prerequisite for Phases 6 and 7
+- [Phase 07.4]: Reuse build_opencode_output for neutral {behavior} JSON in review subcommand — same format as opencode, no new function needed
+- [Phase 07.4]: Debug asset guard added to run_review_flow (run_opencode_flow gap closed — RESEARCH.md Pitfall 4)
 
 ### Roadmap Evolution
 
@@ -87,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10
-Stopped at: Phase 6 complete — GeminiIntegration install/uninstall + hook flow routing implemented, 36 tests pass
+Last session: 2026-04-11T06:22:10.325Z
+Stopped at: Phase 07.4 complete — review subcommand implemented, 6 new tests pass (4 integration + 2 unit)
 Resume file: None
