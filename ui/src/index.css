@@ -18,6 +18,7 @@
   --color-annotation-replace: #f59e0b;
   --color-tab-active: #f1f5f9;
   --color-tab-inactive: #94a3b8;
+  --color-link: #60a5fa;
 }
 
 [data-theme="light"] {
@@ -38,6 +39,7 @@
   --color-annotation-replace: #d97706;
   --color-tab-active: #0f172a;
   --color-tab-inactive: #64748b;
+  --color-link: #1d4ed8; /* blue-700, ~6.5:1 on #f8fafc */
 }
 
 body {
@@ -168,7 +170,7 @@ body {
 }
 
 .plan-prose a {
-  color: #60a5fa;
+  color: var(--color-link);
   text-decoration: none;
 }
 
