@@ -170,6 +170,15 @@ const overflowChips = QUICK_ACTIONS.slice(0)
 
 function FloatingAnnotationAffordance({ top, left, selectedText, onAddAnnotation }: FloatingAnnotationAffordanceProps) {
   const detailsRef = useRef<HTMLDetailsElement>(null)
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (detailsRef.current && !detailsRef.current.contains(e.target as Node)) {
+        detailsRef.current.open = false
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
   const pills: { type: AnnotationType; label: string; bg: string; color: string }[] = [
     { type: 'comment', label: 'Comment', bg: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6' },
     { type: 'delete',  label: 'Delete',  bg: 'rgba(239, 68, 68, 0.2)',  color: '#ef4444' },
