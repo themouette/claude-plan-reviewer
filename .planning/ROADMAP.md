@@ -121,7 +121,7 @@ Plans:
 - [x] 07.3-01-PLAN.md — Add Commands::ReviewHook subcommand + update all hook command strings
 - [x] 07.3-02-PLAN.md — Case 2 pre-plugin migration in update.rs
 
-### Phase 07.4: Add review <file> subcommand
+### Phase 07.4: Add review <file> subcommand ✓
 **Goal**: Users can run `plan-reviewer review <file.md>` to open any markdown file in the browser review UI and receive a neutral `{"behavior":"allow"|"deny"}` JSON decision on stdout — no hook JSON construction needed, enabling scripts and agent workflows to use plan-reviewer as a standalone review tool
 **Depends on:** Phase 07.3
 **Requirements**: REVIEW-01, REVIEW-02, REVIEW-03
@@ -130,7 +130,7 @@ Plans:
   2. Approving or denying in the browser outputs neutral `{"behavior":"allow"|"deny"}` JSON to stdout
   3. Running `plan-reviewer review <nonexistent>` exits with code 1 and a descriptive error on stderr
   4. The review subcommand never reads stdin — safe to invoke without piped input
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [x] 07.4-01-PLAN.md — Add Review subcommand + integration tests
 
