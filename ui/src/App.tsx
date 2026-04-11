@@ -547,6 +547,8 @@ export default function App() {
   const [decision, setDecision] = useState<Decision | null>(null)
   const [denyOpen, setDenyOpen] = useState(false)
   const [denyMessage, setDenyMessage] = useState('')
+  const [approveLabel, setApproveLabel] = useState('Approve')
+  const [denyLabel, setDenyLabel] = useState('Deny')
   const denyTextareaRef = useRef<HTMLTextAreaElement>(null)
   const denyButtonRef = useRef<HTMLButtonElement>(null)
 
@@ -644,6 +646,24 @@ export default function App() {
       })
       .then((data: { diff: string }) => setDiff(data.diff))
       .catch(() => setDiff(''))
+  }, [])
+
+  // Fetch config on mount — non-blocking, defaults remain if fetch fails
+  useEffect(() => {
+    fetch('/api/config')
+      .then((res) => {
+        if (!res.ok) return null
+        return res.json()
+      })
+      .then((data: { approve_label: string; deny_label: string } | null) => {
+        if (data) {
+          setApproveLabel(data.approve_label)
+          setDenyLabel(data.deny_label)
+        }
+      })
+      .catch(() => {
+        /* non-critical — defaults remain */
+      })
   }, [])
 
   // --- Decision handlers ---
@@ -1264,7 +1284,7 @@ export default function App() {
                 e.currentTarget.style.outline = 'none'
               }}
             >
-              Approve
+              {approveLabel}
               <span
                 style={{
                   fontSize: '14px',
@@ -1302,7 +1322,7 @@ export default function App() {
                 e.currentTarget.style.outline = 'none'
               }}
             >
-              Deny
+              {denyLabel}
             </button>
           </div>
 
