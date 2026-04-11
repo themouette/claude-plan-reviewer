@@ -40,7 +40,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 
 - [x] **Phase 10: Slash Command Install/Uninstall** - `plan-reviewer install claude` creates `commands/annotate.md` in the plugin directory; `uninstall claude` removes it; `/annotate` appears in Claude Code's slash command menu (completed 2026-04-11)
 - [x] **Phase 11: Slash Command Prompt** - The `annotate.md` prompt implements input resolution (explicit path → last `.md` → temp file), background execution via `plan-reviewer review`, and feedback-framed result handling (prompt-only, zero binary changes) (completed 2026-04-11)
-- [ ] **Phase 11.1: Configurable Review Actions** - Add `--approve-label`/`--deny-label` CLI flags to `plan-reviewer review`; pass labels to frontend for dynamic rendering; update `annotate.md` to use "No issues"/"Leave feedback" labels
+- [x] **Phase 11.1: Configurable Review Actions** - Add `--approve-label`/`--deny-label` CLI flags to `plan-reviewer review`; pass labels to frontend for dynamic rendering; update `annotate.md` to use "No issues"/"Leave feedback" labels (completed 2026-04-11)
 
 ## Phase Details
 
@@ -215,10 +215,10 @@ Plans:
   2. Omitting the flags falls back to current default "Approve" / "Deny" labels
   3. The `annotate.md` slash command invokes `plan-reviewer review` with the custom labels
   4. Existing tests remain green; new tests cover flag parsing and label rendering
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 11.1-01-PLAN.md — CLI flags + server /api/config endpoint + integration tests
-- [ ] 11.1-02-PLAN.md — Frontend dynamic labels + annotate.md custom label flags
+- [x] 11.1-01-PLAN.md — CLI flags + server /api/config endpoint + integration tests
+- [x] 11.1-02-PLAN.md — Frontend dynamic labels + annotate.md custom label flags
 
 ## Progress
 
@@ -239,4 +239,4 @@ Plans:
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |
 | 10. Slash Command Install/Uninstall | v0.4.0 | 1/1 | Complete   | 2026-04-11 |
 | 11. Slash Command Prompt | v0.4.0 | 1/1 | Complete   | 2026-04-11 |
-| 11.1. Configurable Review Actions | v0.4.0 | 0/2 | Planned | - |
+| 11.1. Configurable Review Actions | v0.4.0 | 2/2 | Complete   | 2026-04-11 |
