@@ -128,6 +128,100 @@ fn install_claude_is_idempotent() {
     drop(home);
 }
 
+/// Install claude creates commands/annotate.md with the D-03 content.
+///
+/// Phase 10: install() writes commands/annotate.md at the plugin root alongside
+/// the existing hook files. The file must contain the heading and $ARGUMENTS placeholder.
+#[test]
+fn install_claude_creates_commands_annotate_md() {
+    let home = tempfile::TempDir::new().unwrap();
+
+    Command::cargo_bin("plan-reviewer")
+        .unwrap()
+        .env("HOME", home.path())
+        .args(["install", "claude"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("annotate command written to"));
+
+    let annotate_path = home
+        .path()
+        .join(".local/share/plan-reviewer/claude-plugin/commands/annotate.md");
+    assert!(
+        annotate_path.exists(),
+        "commands/annotate.md should be created by install"
+    );
+
+    let content = std::fs::read_to_string(&annotate_path).unwrap();
+    assert!(content.contains("# Annotate"), "should contain heading");
+    assert!(
+        content.contains("$ARGUMENTS"),
+        "should contain $ARGUMENTS placeholder"
+    );
+
+    drop(home);
+}
+
+/// Re-install recreates commands/annotate.md even when plugin is already registered (D-01).
+///
+/// Phase 10: File writes are unconditional. The idempotency check only guards
+/// settings.json mutations — existing users re-running install get the new command file.
+#[test]
+fn install_claude_recreates_commands_on_reinstall() {
+    let home = tempfile::TempDir::new().unwrap();
+
+    // First install
+    Command::cargo_bin("plan-reviewer")
+        .unwrap()
+        .env("HOME", home.path())
+        .args(["install", "claude"])
+        .assert()
+        .success();
+
+    let commands_dir = home
+        .path()
+        .join(".local/share/plan-reviewer/claude-plugin/commands");
+    assert!(
+        commands_dir.exists(),
+        "commands dir should exist after first install"
+    );
+
+    // Manually remove commands/ to simulate upgrading from old version
+    std::fs::remove_dir_all(&commands_dir).unwrap();
+    assert!(
+        !commands_dir.exists(),
+        "commands dir removed for test setup"
+    );
+
+    // Second install -- must recreate commands/ even though plugin is already registered
+    Command::cargo_bin("plan-reviewer")
+        .unwrap()
+        .env("HOME", home.path())
+        .args(["install", "claude"])
+        .assert()
+        .success();
+
+    let annotate_path = commands_dir.join("annotate.md");
+    assert!(
+        annotate_path.exists(),
+        "commands/annotate.md should be recreated on re-install (D-01)"
+    );
+
+    // Settings should still have exactly one entry (no duplicates)
+    let settings_path = home.path().join(".claude/settings.json");
+    let content = std::fs::read_to_string(&settings_path).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let count = json["enabledPlugins"]
+        .as_object()
+        .unwrap()
+        .iter()
+        .filter(|(k, _)| k.as_str() == "plan-reviewer@plan-reviewer-local")
+        .count();
+    assert_eq!(count, 1, "re-install must not duplicate settings entries");
+
+    drop(home);
+}
+
 // ---------------------------------------------------------------------------
 // Gemini install tests
 // ---------------------------------------------------------------------------
@@ -307,6 +401,46 @@ fn uninstall_claude_after_install_removes_hook() {
     assert!(
         json["extraKnownMarketplaces"]["plan-reviewer-local"].is_null(),
         "extraKnownMarketplaces entry should be removed after uninstall"
+    );
+
+    drop(home);
+}
+
+/// Uninstall claude removes commands/ directory (whole plugin dir is removed, D-04).
+///
+/// Phase 10: uninstall() removes the entire plugin directory via remove_dir_all,
+/// which implicitly removes commands/ and commands/annotate.md.
+#[test]
+fn uninstall_claude_removes_commands_directory() {
+    let home = tempfile::TempDir::new().unwrap();
+
+    // Install first
+    Command::cargo_bin("plan-reviewer")
+        .unwrap()
+        .env("HOME", home.path())
+        .args(["install", "claude"])
+        .assert()
+        .success();
+
+    let commands_dir = home
+        .path()
+        .join(".local/share/plan-reviewer/claude-plugin/commands");
+    assert!(
+        commands_dir.exists(),
+        "commands dir should exist after install"
+    );
+
+    // Uninstall
+    Command::cargo_bin("plan-reviewer")
+        .unwrap()
+        .env("HOME", home.path())
+        .args(["uninstall", "claude"])
+        .assert()
+        .success();
+
+    assert!(
+        !commands_dir.exists(),
+        "commands/ should be removed (whole plugin dir removed by uninstall)"
     );
 
     drop(home);
