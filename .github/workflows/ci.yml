@@ -32,6 +32,9 @@ jobs:
       - name: clippy
         run: cargo clippy -- -D warnings
 
+      - name: test
+        run: cargo test
+
   lint-frontend:
     runs-on: ubuntu-22.04
     steps:
