@@ -173,14 +173,14 @@ impl Integration for ClaudeIntegration {
             "Before launching the browser, say:\n",
             "\n",
             "> I'll open **<resolved-file>** in the review UI.\n",
-            "> Use **Deny** to leave feedback with comments, **Approve** if you're satisfied.\n",
+            "> Use **Leave feedback** to add comments, **No issues** if you're satisfied.\n",
             "\n",
             "## Step 3 — Launch the review\n",
             "\n",
             "Run the following via the Bash tool with `run_in_background: true`:\n",
             "\n",
             "```bash\n",
-            "plan-reviewer review <resolved-file>\n",
+            "plan-reviewer review --approve-label \"No issues\" --deny-label \"Leave feedback\" <resolved-file>\n",
             "```\n",
             "\n",
             "The process opens a local browser tab. It exits when the user clicks Approve or Deny.\n",
@@ -893,6 +893,22 @@ mod tests {
         assert!(
             content.contains("plan-reviewer review"),
             "annotate.md must contain 'plan-reviewer review' execution command"
+        );
+        assert!(
+            content.contains("--approve-label"),
+            "annotate.md must contain --approve-label flag for custom button text"
+        );
+        assert!(
+            content.contains("--deny-label"),
+            "annotate.md must contain --deny-label flag for custom button text"
+        );
+        assert!(
+            content.contains("No issues"),
+            "annotate.md must use 'No issues' as the approve label"
+        );
+        assert!(
+            content.contains("Leave feedback"),
+            "annotate.md must use 'Leave feedback' as the deny label"
         );
         assert!(
             content.contains("run_in_background"),
