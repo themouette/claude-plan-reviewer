@@ -4,6 +4,7 @@
 
 - ✅ **v0.1.0 MVP** — Phases 1-4 (shipped 2026-04-10)
 - 🚧 **v0.3.0 Integrations, Annotations & Polish** — Phases 5-9 (in progress)
+- 🚧 **v0.4.0 Agent-Native Review** — Phases 10-11 (planned)
 
 ## Phases
 
@@ -32,6 +33,13 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 - [x] **Phase 7.4: Review File Subcommand** - Add `review <file>` subcommand for standalone markdown review with neutral JSON output (completed 2026-04-11)
 - [ ] **Phase 8: Annotation Quick-Actions & Theme** - Add predefined annotation actions and persistent light/dark theme switcher
 - [ ] **Phase 9: Documentation** - Write README install/usage guide and per-integration wiring docs
+
+### 🚧 v0.4.0 Agent-Native Review (Planned)
+
+**Milestone Goal:** A `/annotate` slash command in the Claude Code plugin lets users review any markdown document from within a Claude conversation, with the result returned to Claude via stdout so it can act on the feedback.
+
+- [ ] **Phase 10: Slash Command Install/Uninstall** - `plan-reviewer install claude` creates `commands/annotate.md` in the plugin directory; `uninstall claude` removes it; `/annotate` appears in Claude Code's slash command menu
+- [ ] **Phase 11: Slash Command Prompt** - The `annotate.md` prompt implements input resolution (explicit path → last `.md` → temp file), background execution via `plan-reviewer review`, and structured `allow`/`deny` result handling
 
 ## Phase Details
 
@@ -157,6 +165,32 @@ Plans:
   3. The README or linked integration guides show the exact `install` command and expected config change for each supported integration (Claude Code, Gemini CLI, opencode)
 **Plans**: TBD
 
+---
+
+## v0.4.0: Agent-Native Review
+
+### Phase 10: Slash Command Install/Uninstall
+**Goal**: `plan-reviewer install claude` creates `commands/annotate.md` in the plugin directory alongside the existing hook files; `plan-reviewer uninstall claude` removes the `commands/` directory; after install, `/annotate` is discoverable in Claude Code's slash command menu
+**Depends on**: Phase 07.2
+**Requirements**: PLGN-01, PLGN-02, PLGN-03
+**Success Criteria** (what must be TRUE):
+  1. After `plan-reviewer install claude`, a `commands/annotate.md` file exists at `~/.local/share/plan-reviewer/claude-plugin/commands/annotate.md`
+  2. `/annotate` appears in Claude Code's slash command autocomplete menu after install
+  3. After `plan-reviewer uninstall claude`, the `commands/` directory is removed; re-running uninstall exits 0 without error
+  4. Integration tests verify the file is created and removed in a tmpdir-isolated HOME
+**Plans**: TBD
+
+### Phase 11: Slash Command Prompt
+**Goal**: The `annotate.md` prompt file implements the full `/annotate` workflow: resolves the target file via explicit argument, last `.md` session file, or temp file fallback; invokes `plan-reviewer review <file>` via Bash with `run_in_background: true`; and surfaces the `allow`/`deny` result to Claude so it can proceed or revise
+**Depends on**: Phase 10, Phase 07.4
+**Requirements**: SLSH-01, SLSH-02, SLSH-03, SLSH-04, SLSH-05, SLSH-06, SLSH-07
+**Success Criteria** (what must be TRUE):
+  1. Running `/annotate path/to/file.md` opens the browser review UI for that specific file
+  2. Running `/annotate` with no argument and a `.md` file written earlier in the session opens that file in the review UI
+  3. Running `/annotate` when no `.md` file exists on disk writes the last Claude message to a temp file and reviews it
+  4. After the user approves in the browser, Claude proceeds with the next step; after denial, Claude revises based on the message returned
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -174,3 +208,5 @@ Plans:
 | 7.4. Review File Subcommand | v0.3.0 | 1/1 | Complete   | 2026-04-11 |
 | 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/? | Not started | - |
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |
+| 10. Slash Command Install/Uninstall | v0.4.0 | 0/? | Not started | - |
+| 11. Slash Command Prompt | v0.4.0 | 0/? | Not started | - |

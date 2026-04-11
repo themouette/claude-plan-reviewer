@@ -108,6 +108,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DOCS-01 | Phase 9 | Pending |
 | DOCS-02 | Phase 9 | Pending |
 | DOCS-03 | Phase 9 | Pending |
+| PLGN-01 | Phase 10 | Pending |
+| PLGN-02 | Phase 10 | Pending |
+| PLGN-03 | Phase 10 | Pending |
+| SLSH-01 | Phase 11 | Pending |
+| SLSH-02 | Phase 11 | Pending |
+| SLSH-03 | Phase 11 | Pending |
+| SLSH-04 | Phase 11 | Pending |
+| SLSH-05 | Phase 11 | Pending |
+| SLSH-06 | Phase 11 | Pending |
+| SLSH-07 | Phase 11 | Pending |
 
 **Coverage:**
 - v0.3.0 requirements: 20 total
@@ -116,9 +126,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 **v0.4.0 coverage:**
 - v0.4.0 requirements: 10 total
-- Mapped to phases: TBD (roadmap pending)
-- Unmapped: 10 ⚠
+- Mapped to phases: 10
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-10*
-*Last updated: 2026-04-11 — v0.4.0 requirements added (Agent-Native Review / /annotate slash command)*
+*Last updated: 2026-04-11 — v0.4.0 traceability mapped (Phase 10: PLGN-01–03, Phase 11: SLSH-01–07)*

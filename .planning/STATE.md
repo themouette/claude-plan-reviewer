@@ -1,36 +1,36 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.3.0
-milestone_name: Integrations, Annotations & Polish
-status: verifying
-stopped_at: Phase 07.4 complete — review subcommand implemented, 6 new tests pass (4 integration + 2 unit)
-last_updated: "2026-04-11T06:22:10.329Z"
+milestone: v0.4.0
+milestone_name: Agent-Native Review
+status: planning
+stopped_at: Roadmap created for v0.4.0 — Phase 10 and Phase 11 defined
+last_updated: "2026-04-11T00:00:00.000Z"
 last_activity: 2026-04-11
 progress:
-  total_phases: 9
-  completed_phases: 7
-  total_plans: 16
-  completed_plans: 16
-  percent: 100
+  total_phases: 2
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-10)
+See: .planning/PROJECT.md (updated 2026-04-11)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 07.4 — add-review-file-subcommand-so-any-markdown-file-can-be-revie
+**Current focus:** v0.4.0 Agent-Native Review — Phase 10 next
 
 ## Current Position
 
-Phase: 07.4 (add-review-file-subcommand-so-any-markdown-file-can-be-revie) — EXECUTING
-Plan: 1 of 1
-Status: Phase complete — ready for verification
+Phase: 10 (Slash Command Install/Uninstall) — NOT STARTED
+Plan: -
+Status: Roadmap created, ready to plan Phase 10
 Last activity: 2026-04-11
 
-Progress: [████░░░░░░] 44% (v0.3.0)
+Progress: [░░░░░░░░░░] 0% (v0.4.0)
 
 ## Performance Metrics
 
@@ -48,8 +48,7 @@ Progress: [████░░░░░░] 44% (v0.3.0)
 | 04 subcommands | 3 | - | - |
 | 7 | 2 | - | - |
 
-*v0.3.0 metrics will populate as plans complete*
-| Phase 07.4 P01 | 21 | 2 tasks | 3 files |
+*v0.4.0 metrics will populate as plans complete*
 
 ## Accumulated Context
 
@@ -64,6 +63,9 @@ Recent decisions affecting current work:
 - Architecture: Integration trait refactor (Phase 5) is prerequisite for Phases 6 and 7
 - [Phase 07.4]: Reuse build_opencode_output for neutral {behavior} JSON in review subcommand — same format as opencode, no new function needed
 - [Phase 07.4]: Debug asset guard added to run_review_flow (run_opencode_flow gap closed — RESEARCH.md Pitfall 4)
+- [v0.4.0]: Slash command implementation lives entirely in the `annotate.md` prompt file — no binary changes needed for SLSH-03/04 input resolution logic
+- [v0.4.0]: `plan-reviewer review <file>` (Phase 07.4) is the execution primitive the slash command invokes via Claude Code's Bash tool with `run_in_background: true`
+- [v0.4.0]: PLGN-01/02/03 require changes to `src/integrations/claude.rs` install/uninstall methods only
 
 ### Roadmap Evolution
 
@@ -71,6 +73,7 @@ Recent decisions affecting current work:
 - Phase 07.4 inserted after Phase 7: Add review <file> subcommand so any markdown file can be reviewed without constructing hook JSON — outputs neutral {behavior} decision for use in scripts and agent workflows (URGENT)
 - Phase 07.2 inserted after Phase 7: insert phase A from .planning/research/INTEGRATION-PLUGIN-REWORK.md (URGENT)
 - Phase 07.3 inserted after Phase 7: insert phase B from .planning/research/INTEGRATION-PLUGIN-REWORK.md (URGENT)
+- v0.4.0 milestone started: Phase 10 (Slash Command Install/Uninstall) and Phase 11 (Slash Command Prompt) added
 
 ### Quick Tasks Completed
 
@@ -90,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-11T06:22:10.325Z
-Stopped at: Phase 07.4 complete — review subcommand implemented, 6 new tests pass (4 integration + 2 unit)
+Last session: 2026-04-11
+Stopped at: v0.4.0 roadmap created — Phase 10 (PLGN-01–03) and Phase 11 (SLSH-01–07) defined
 Resume file: None
