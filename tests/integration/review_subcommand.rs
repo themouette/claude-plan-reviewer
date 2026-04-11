@@ -53,6 +53,38 @@ fn spawn_review_flow(file_path: &str, port: u16) -> std::process::Child {
         .expect("failed to spawn plan-reviewer review")
 }
 
+/// Spawn the binary with custom --approve-label and --deny-label flags.
+///
+/// The positional `file` argument comes AFTER the named flags because clap
+/// parses named args before positional ones.
+fn spawn_review_flow_with_labels(
+    file_path: &str,
+    approve_label: &str,
+    deny_label: &str,
+    port: u16,
+) -> std::process::Child {
+    let home = tempfile::TempDir::new().unwrap();
+    let home = Box::leak(Box::new(home));
+    Command::new(binary_path())
+        .env("HOME", home.path())
+        .args([
+            "--no-browser",
+            "--port",
+            &port.to_string(),
+            "review",
+            "--approve-label",
+            approve_label,
+            "--deny-label",
+            deny_label,
+            file_path,
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("failed to spawn plan-reviewer review with labels")
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -182,5 +214,68 @@ fn review_serves_plan_content() {
     let _ = ureq::post(&format!("http://127.0.0.1:{port}/api/decide"))
         .send_json(serde_json::json!({ "behavior": "allow" }));
 
+    let _ = child.wait_with_output();
+}
+
+#[test]
+fn review_config_default_labels() {
+    let tmp = tempfile::NamedTempFile::new().expect("create temp file");
+    std::fs::write(tmp.path(), "# Test").expect("write");
+
+    let port = find_free_port();
+    let child = spawn_review_flow(tmp.path().to_str().unwrap(), port);
+
+    assert!(
+        wait_for_port(port, Duration::from_secs(10)),
+        "server did not start within 10 seconds on port {port}"
+    );
+
+    let mut response = ureq::get(&format!("http://127.0.0.1:{port}/api/config"))
+        .call()
+        .expect("GET /api/config failed");
+    assert_eq!(response.status(), 200);
+
+    let body: serde_json::Value =
+        serde_json::from_str(&response.body_mut().read_to_string().unwrap()).unwrap();
+    assert_eq!(body["approve_label"].as_str(), Some("Approve"));
+    assert_eq!(body["deny_label"].as_str(), Some("Deny"));
+
+    // Clean up
+    let _ = ureq::post(&format!("http://127.0.0.1:{port}/api/decide"))
+        .send_json(serde_json::json!({ "behavior": "allow" }));
+    let _ = child.wait_with_output();
+}
+
+#[test]
+fn review_config_custom_labels() {
+    let tmp = tempfile::NamedTempFile::new().expect("create temp file");
+    std::fs::write(tmp.path(), "# Test").expect("write");
+
+    let port = find_free_port();
+    let child = spawn_review_flow_with_labels(
+        tmp.path().to_str().unwrap(),
+        "No issues",
+        "Leave feedback",
+        port,
+    );
+
+    assert!(
+        wait_for_port(port, Duration::from_secs(10)),
+        "server did not start within 10 seconds on port {port}"
+    );
+
+    let mut response = ureq::get(&format!("http://127.0.0.1:{port}/api/config"))
+        .call()
+        .expect("GET /api/config failed");
+    assert_eq!(response.status(), 200);
+
+    let body: serde_json::Value =
+        serde_json::from_str(&response.body_mut().read_to_string().unwrap()).unwrap();
+    assert_eq!(body["approve_label"].as_str(), Some("No issues"));
+    assert_eq!(body["deny_label"].as_str(), Some("Leave feedback"));
+
+    // Clean up
+    let _ = ureq::post(&format!("http://127.0.0.1:{port}/api/decide"))
+        .send_json(serde_json::json!({ "behavior": "allow" }));
     let _ = child.wait_with_output();
 }
