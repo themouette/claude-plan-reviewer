@@ -384,7 +384,8 @@ impl Integration for ClaudeIntegration {
             Ok(v) => v,
             Err(e) => {
                 eprintln!(
-                    "plan-reviewer uninstall: warning: {} contains invalid JSON: {} (no changes made)",
+                    "plan-reviewer uninstall: warning: {} contains invalid JSON: {} \
+                     (no changes made to settings — remove stale entries manually if needed)",
                     settings_path.display(),
                     e
                 );
