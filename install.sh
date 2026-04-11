@@ -85,10 +85,6 @@ case ":${PATH}:" in
     ;;
 esac
 
-# --- Wire Claude Code hook (D-09) ---
-echo "Wiring Claude Code ExitPlanMode hook..."
-"${INSTALL_DIR}/${BINARY}" install claude
-
 echo ""
 echo "plan-reviewer ${LATEST_TAG} installed successfully."
-echo "Run '${BINARY} --help' to get started."
+echo "Run '${BINARY} install' to wire your AI agent integration."
