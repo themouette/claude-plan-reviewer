@@ -28,7 +28,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 - [ ] **Phase 6.1: Integration Test Harness** - Add `--no-browser`/`--port` flags and `assert_cmd`-based integration tests covering hook flow, install/uninstall, and server approve/deny cycle without touching real system config
 - [x] **Phase 7: opencode Integration** - Wire opencode hook with bundled JS plugin install/uninstall (completed 2026-04-10)
 - [ ] **Phase 7.2: Integration Plugin/Extension Infrastructure** - Move Claude and Gemini integrations to plugin/extension model; add version-aware update refresh
-- [ ] **Phase 7.3: Hook Subcommand** - Add explicit `plan-reviewer hook` subcommand with backward-compat fallback
+- [ ] **Phase 7.3: Hook Subcommand** - Add explicit `plan-reviewer review-hook` subcommand with backward-compat fallback
 - [ ] **Phase 7.4: Review File Subcommand** - Add `review <file>` subcommand for standalone markdown review with neutral JSON output
 - [ ] **Phase 8: Annotation Quick-Actions & Theme** - Add predefined annotation actions and persistent light/dark theme switcher
 - [ ] **Phase 9: Documentation** - Write README install/usage guide and per-integration wiring docs
@@ -106,20 +106,20 @@ Plans:
 
 ### Phase 07.3: Hook Subcommand (INSERTED)
 
-**Goal:** The nameless default behaviour (`plan-reviewer` reads stdin JSON) becomes an explicit `plan-reviewer hook` subcommand. Existing installs migrate automatically on next `update`.
+**Goal:** The nameless default behaviour (`plan-reviewer` reads stdin JSON) becomes an explicit `plan-reviewer review-hook` subcommand. Existing installs migrate automatically on next `update`.
 **Requirements**: INTEG-05
 **Depends on:** Phase 07.2
 **Success Criteria** (what must be TRUE):
-  1. `plan-reviewer hook` reads stdin JSON and opens the browser review UI identically to the old bare invocation
+  1. `plan-reviewer review-hook` reads stdin JSON and opens the browser review UI identically to the old bare invocation
   2. Bare `plan-reviewer` (no subcommand, no --plan-file) still works but emits a deprecation warning on stderr
   3. `plan-reviewer --plan-file /path` (opencode) does NOT emit a deprecation warning
-  4. All hooks.json write locations (claude.rs install, gemini.rs install, update.rs write functions) use `"plan-reviewer hook"` as the command string
-  5. `plan-reviewer update` detects pre-plugin installs (old bare settings.json entry, no plugin manifest) and migrates to the plugin model with the new `hook` subcommand
-**Plans:** 2 plans
+  4. All hooks.json write locations (claude.rs install, gemini.rs install, update.rs write functions) use `"plan-reviewer review-hook"` as the command string
+  5. `plan-reviewer update` detects pre-plugin installs (old bare settings.json entry, no plugin manifest) and migrates to the plugin model with the new `review-hook` subcommand
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 07.3-01-PLAN.md — Add Commands::Hook subcommand + update all hook command strings
-- [ ] 07.3-02-PLAN.md — Case 2 pre-plugin migration in update.rs
+- [x] 07.3-01-PLAN.md — Add Commands::ReviewHook subcommand + update all hook command strings
+- [x] 07.3-02-PLAN.md — Case 2 pre-plugin migration in update.rs
 
 ### Phase 07.4: Add review <file> subcommand
 **Goal**: Users can run `plan-reviewer review <file.md>` to open any markdown file in the browser review UI and receive a neutral `{"behavior":"allow"|"deny"}` JSON decision on stdout — no hook JSON construction needed, enabling scripts and agent workflows to use plan-reviewer as a standalone review tool

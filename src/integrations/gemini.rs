@@ -310,7 +310,10 @@ mod tests {
         assert_eq!(hooks.len(), 1);
         assert_eq!(hooks[0]["name"].as_str(), Some("plan-reviewer"));
         assert_eq!(hooks[0]["type"].as_str(), Some("command"));
-        assert_eq!(hooks[0]["command"].as_str(), Some("plan-reviewer review-hook"));
+        assert_eq!(
+            hooks[0]["command"].as_str(),
+            Some("plan-reviewer review-hook")
+        );
         assert_eq!(hooks[0]["timeout"].as_i64(), Some(300000));
     }
 
