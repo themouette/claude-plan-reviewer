@@ -871,15 +871,55 @@ mod tests {
         );
 
         let content = std::fs::read_to_string(&annotate_path).unwrap();
-        assert!(content.contains("# Annotate"), "should contain heading");
+
+        // Frontmatter
+        assert!(
+            content.contains("description:"),
+            "annotate.md should contain frontmatter description field"
+        );
+        assert!(
+            content.contains("allowed-tools: Bash"),
+            "annotate.md should declare allowed-tools: Bash"
+        );
+
+        // Heading (per CONTEXT.md D-09: namespaced command name)
+        assert!(
+            content.contains("# /plan-reviewer:annotate"),
+            "annotate.md heading must be '# /plan-reviewer:annotate' (plugin-namespaced)"
+        );
+
+        // Argument substitution variable
         assert!(
             content.contains("$ARGUMENTS"),
-            "should contain $ARGUMENTS placeholder"
+            "annotate.md must contain $ARGUMENTS substitution variable"
         );
-        assert_eq!(
-            content,
-            "# Annotate\n\nOpens the plan-reviewer browser UI to review a file.\n\n$ARGUMENTS\n",
-            "content must match D-03 spec exactly"
+
+        // File resolution logic
+        assert!(
+            content.contains("plan-reviewer review"),
+            "annotate.md must contain 'plan-reviewer review' execution command"
+        );
+        assert!(
+            content.contains("run_in_background"),
+            "annotate.md must instruct Bash tool to use run_in_background: true"
+        );
+
+        // Result handling
+        assert!(
+            content.contains("allow"),
+            "annotate.md must describe handling of allow result"
+        );
+        assert!(
+            content.contains("deny"),
+            "annotate.md must describe handling of deny result"
+        );
+        assert!(
+            content.contains("Feedback received"),
+            "annotate.md must use 'Feedback received' phrasing for deny result (per CONTEXT.md D-06)"
+        );
+        assert!(
+            content.contains("Review complete"),
+            "annotate.md must use 'Review complete' phrasing for allow result (per CONTEXT.md D-05)"
         );
     }
 

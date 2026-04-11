@@ -153,10 +153,21 @@ fn install_claude_creates_commands_annotate_md() {
     );
 
     let content = std::fs::read_to_string(&annotate_path).unwrap();
-    assert!(content.contains("# Annotate"), "should contain heading");
+    assert!(
+        content.contains("# /plan-reviewer:annotate"),
+        "should contain plugin-namespaced heading"
+    );
     assert!(
         content.contains("$ARGUMENTS"),
         "should contain $ARGUMENTS placeholder"
+    );
+    assert!(
+        content.contains("allowed-tools: Bash"),
+        "should declare allowed-tools: Bash in frontmatter"
+    );
+    assert!(
+        content.contains("plan-reviewer review"),
+        "should contain plan-reviewer review execution command"
     );
 
     drop(home);
