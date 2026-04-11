@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.3.0
 milestone_name: Integrations, Annotations & Polish
-status: planning
-stopped_at: Phase 9 context gathered (discuss mode)
-last_updated: "2026-04-11T19:34:26.643Z"
-last_activity: 2026-04-11
+status: executing
+stopped_at: Phase 9 complete — documentation
+last_updated: "2026-04-11T20:45:00.000Z"
+last_activity: 2026-04-11 -- Phase 09 complete (README rewritten, install.sh auto-wire removed)
 progress:
-  total_phases: 9
-  completed_phases: 8
-  total_plans: 18
-  completed_plans: 18
-  percent: 100
+  total_phases: 10
+  completed_phases: 9
+  total_plans: 20
+  completed_plans: 19
+  percent: 95
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-11)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** v0.4.0 Agent-Native Review — Phase 10 next
+**Current focus:** Phase 09 — documentation
 
 ## Current Position
 
-Phase: 09 (or 10)
-Plan: Not started
-Status: Ready to plan — Phase 9 (Docs, v0.3.0) or Phase 10 (Slash Command, v0.4.0)
-Last activity: 2026-04-11
+Phase: 09 (documentation) — COMPLETE ✓
+Plan: 1 of 1
+Status: Phase 09 verified and complete
+Last activity: 2026-04-11 -- Phase 09 complete (README rewritten, install.sh auto-wire removed)
 
 Progress: [██░░░░░░░░] 18% (v0.4.0 — Phases 10-11 not started)
 
