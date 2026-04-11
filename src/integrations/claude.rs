@@ -37,11 +37,6 @@ impl Integration for ClaudeIntegration {
     /// Only the settings.json mutations (extraKnownMarketplaces and enabledPlugins)
     /// are skipped if enabledPlugins[PLUGIN_KEY] already exists.
     fn install(&self, ctx: &InstallContext) -> Result<(), String> {
-        let _binary_path = ctx
-            .binary_path
-            .as_deref()
-            .ok_or_else(|| "install requires a binary_path — none was provided".to_string())?;
-
         let plugin_dir = claude_plugin_dir(&ctx.home);
         let settings_path = claude_settings_path(&ctx.home);
 
