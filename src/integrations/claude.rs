@@ -495,7 +495,6 @@ fn plugin_is_registered(settings: &serde_json::Value) -> bool {
 /// versions. Used by Phase 07.3 migration logic to detect and clean up old installs.
 ///
 /// Kept for Phase 07.3 migration use. Do NOT use as the idempotency key for new installs.
-#[allow(dead_code)]
 pub(crate) fn claude_legacy_hook_installed(settings: &serde_json::Value) -> bool {
     settings["hooks"]["PermissionRequest"]
         .as_array()
