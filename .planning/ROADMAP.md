@@ -152,7 +152,10 @@ Plans:
   3. User can toggle between light and dark mode using a control in the browser UI
   4. The chosen theme persists after closing and reopening the browser tab
   5. On first load with no saved preference, the UI matches the OS dark/light setting with no flash
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 08-01-PLAN.md — Quick-action chips + onAddAnnotation callback extension
+- [ ] 08-02-PLAN.md — Theme toggle, light CSS vars, flash-free init script
 **UI hint**: yes
 
 ### Phase 9: Documentation
@@ -206,7 +209,7 @@ Plans:
 | 7.2. Integration Plugin Infrastructure | v0.3.0 | 0/3 | Planned | - |
 | 7.3. Hook Subcommand | v0.3.0 | 2/2 | Complete | 2026-04-11 |
 | 7.4. Review File Subcommand | v0.3.0 | 1/1 | Complete   | 2026-04-11 |
-| 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/? | Not started | - |
+| 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/2 | Planned | - |
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |
 | 10. Slash Command Install/Uninstall | v0.4.0 | 0/? | Not started | - |
 | 11. Slash Command Prompt | v0.4.0 | 0/? | Not started | - |
