@@ -202,7 +202,9 @@ Plans:
   3. Running `/plan-reviewer:annotate` when no `.md` was written in the session creates a temp file from the last Claude response via `mktemp` and reviews that
   4. On Approve, Claude proceeds with a "Review complete, no comments" acknowledgment
   5. On Deny (with message), Claude treats the message as feedback and proposes revisions
-**Plans:** 0 plans
+**Plans:** 1 plan
+Plans:
+- [ ] 11-01-PLAN.md — Replace annotate_content stub with full /plan-reviewer:annotate prompt + update unit test
 
 ### Phase 11.1: Configurable Review Actions
 **Goal**: Add `--approve-label` and `--deny-label` CLI flags to `plan-reviewer review`; pass labels through the server to the frontend for dynamic button rendering; update `annotate.md` to use "No issues" / "Leave feedback" labels so the UI itself frames review as feedback collection rather than gating
@@ -233,5 +235,5 @@ Plans:
 | 8. Annotation Quick-Actions & Theme | v0.3.0 | 0/2 | Planned | - |
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |
 | 10. Slash Command Install/Uninstall | v0.4.0 | 1/1 | Complete   | 2026-04-11 |
-| 11. Slash Command Prompt | v0.4.0 | 0/? | Not started | - |
+| 11. Slash Command Prompt | v0.4.0 | 0/1 | Planned | - |
 | 11.1. Configurable Review Actions | v0.4.0 | 0/? | Not started | - |
