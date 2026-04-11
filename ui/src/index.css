@@ -190,3 +190,11 @@ body {
   background: none;
   padding: 0;
 }
+
+/* Remove native disclosure triangle from details/summary elements */
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}

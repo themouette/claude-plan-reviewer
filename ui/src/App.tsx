@@ -121,10 +121,23 @@ interface FloatingAnnotationAffordanceProps {
   top: number
   left: number
   selectedText: string
-  onAddAnnotation: (type: AnnotationType, anchorText: string) => void
+  onAddAnnotation: (type: AnnotationType, anchorText: string, prefillComment?: string) => void
 }
 
+const QUICK_ACTIONS = [
+  'clarify this',
+  'needs test',
+  'give me an example',
+  'out of scope',
+  'search internet',
+  'search codebase',
+] as const
+
+const inlineChips = QUICK_ACTIONS.slice(0, 2)
+const overflowChips = QUICK_ACTIONS.slice(2)
+
 function FloatingAnnotationAffordance({ top, left, selectedText, onAddAnnotation }: FloatingAnnotationAffordanceProps) {
+  const detailsRef = useRef<HTMLDetailsElement>(null)
   const pills: { type: AnnotationType; label: string; bg: string; color: string }[] = [
     { type: 'comment', label: 'Comment', bg: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6' },
     { type: 'delete',  label: 'Delete',  bg: 'rgba(239, 68, 68, 0.2)',  color: '#ef4444' },
@@ -173,6 +186,105 @@ function FloatingAnnotationAffordance({ top, left, selectedText, onAddAnnotation
           {pill.label}
         </button>
       ))}
+      {inlineChips.map((label) => (
+        <button
+          key={label}
+          aria-label={label}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onAddAnnotation('comment', selectedText, label)}
+          style={{
+            fontSize: '14px',
+            fontWeight: 600,
+            height: '28px',
+            padding: '0 8px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            border: 'none',
+            background: 'rgba(148, 163, 184, 0.15)',
+            color: 'var(--color-text-secondary)',
+            outline: 'none',
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(148, 163, 184, 0.25)' }}
+          onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(148, 163, 184, 0.15)' }}
+          onFocus={(e) => { e.currentTarget.style.outline = '2px solid var(--color-focus)'; e.currentTarget.style.outlineOffset = '2px' }}
+          onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
+        >
+          {label}
+        </button>
+      ))}
+      <details ref={detailsRef} style={{ position: 'relative' }}>
+        <summary
+          onMouseDown={(e) => e.preventDefault()}
+          style={{
+            fontSize: '14px',
+            fontWeight: 600,
+            height: '28px',
+            padding: '0 8px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            border: 'none',
+            background: 'rgba(148, 163, 184, 0.15)',
+            color: 'var(--color-text-secondary)',
+            outline: 'none',
+            listStyle: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(148, 163, 184, 0.25)' }}
+          onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(148, 163, 184, 0.15)' }}
+          onFocus={(e) => { e.currentTarget.style.outline = '2px solid var(--color-focus)'; e.currentTarget.style.outlineOffset = '2px' }}
+          onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
+        >
+          &#9662; more
+        </summary>
+        <div style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          zIndex: 21,
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+          borderRadius: '6px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          padding: '4px',
+          marginTop: '4px',
+        }}>
+          {overflowChips.map((label) => (
+            <button
+              key={label}
+              role="menuitem"
+              aria-label={label}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onAddAnnotation('comment', selectedText, label)
+                if (detailsRef.current) detailsRef.current.open = false
+              }}
+              style={{
+                display: 'block',
+                width: '100%',
+                height: '32px',
+                padding: '0 12px',
+                textAlign: 'left' as const,
+                fontSize: '14px',
+                fontWeight: 400,
+                color: 'var(--color-text-primary)',
+                background: 'none',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                outline: 'none',
+                whiteSpace: 'nowrap' as const,
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(148, 163, 184, 0.1)' }}
+              onMouseOut={(e) => { e.currentTarget.style.background = 'none' }}
+              onFocus={(e) => { e.currentTarget.style.outline = '2px solid var(--color-focus)'; e.currentTarget.style.outlineOffset = '2px' }}
+              onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </details>
     </div>
   )
 }
@@ -798,7 +910,7 @@ export default function App() {
 
   // --- Annotation handlers ---
 
-  function handleAddAnnotation(type: AnnotationType, anchorText: string) {
+  function handleAddAnnotation(type: AnnotationType, anchorText: string, prefillComment?: string) {
     const id = crypto.randomUUID()
 
     // Capture character offsets before resetTextSelection clears them.
@@ -810,7 +922,7 @@ export default function App() {
       id,
       type,
       anchorText,
-      comment: '',
+      comment: prefillComment ?? '',
       replacement: '',
     }
     // Insert in positional order using the stored start offset.
