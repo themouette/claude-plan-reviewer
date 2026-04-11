@@ -51,7 +51,9 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
   1. Running `plan-reviewer install <any-integration>` a second time does not duplicate hook entries or corrupt config
   2. Running `plan-reviewer uninstall <any-integration>` on a clean system exits 0 without error
   3. Adding a new integration requires only implementing the `Integration` trait and registering it — no changes to the install/uninstall command dispatch logic
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 10-01-PLAN.md — Idempotency refactor + commands/annotate.md write + unit and integration tests
 
 ### Phase 6: Gemini CLI Integration
 **Goal**: Users can install and uninstall plan-reviewer as a Gemini CLI `BeforeTool exit_plan_mode` hook via `plan-reviewer install gemini` and `plan-reviewer uninstall gemini`; the hook reads the plan from `tool_input.plan_path` and runs the full browser review flow
@@ -62,7 +64,9 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
   2. Triggering Gemini CLI plan mode opens the plan-reviewer browser UI with the plan content rendered
   3. Approving or denying in the browser returns the correct JSON decision to Gemini CLI
   4. `plan-reviewer uninstall gemini` removes the hook entry from `~/.gemini/settings.json` and leaves all other settings intact
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 10-01-PLAN.md — Idempotency refactor + commands/annotate.md write + unit and integration tests
 
 ### Phase 6.1: Integration Test Harness
 **Goal**: The binary exposes `--no-browser` and `--port` flags enabling fully automated integration tests; `assert_cmd`-based tests cover the hook stdin→stdout flow, install/uninstall with HOME isolation, and the full server approve/deny cycle — all running without touching real system configuration
@@ -168,7 +172,7 @@ Plans:
   3. The README or linked integration guides show the exact `install` command and expected config change for each supported integration (Claude Code, Gemini CLI, opencode)
 **Plans:** 1 plan
 Plans:
-- [ ] 09-01-PLAN.md — Rewrite README.md with install, usage, integration guides, and subcommands reference
+- [x] 09-01-PLAN.md — Rewrite README.md with install, usage, integration guides, and subcommands reference
 
 ---
 
@@ -183,7 +187,9 @@ Plans:
   2. `/annotate` appears in Claude Code's slash command autocomplete menu after install
   3. After `plan-reviewer uninstall claude`, the `commands/` directory is removed; re-running uninstall exits 0 without error
   4. Integration tests verify the file is created and removed in a tmpdir-isolated HOME
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 10-01-PLAN.md — Idempotency refactor + commands/annotate.md write + unit and integration tests
 
 ### Phase 11: Slash Command Prompt
 **Goal**: The `annotate.md` prompt file implements the full `/annotate` workflow: resolves the target file via explicit argument, last `.md` session file, or temp file fallback; invokes `plan-reviewer review <file>` via Bash with `run_in_background: true`; and surfaces the `allow`/`deny` result to Claude so it can proceed or revise
@@ -194,7 +200,9 @@ Plans:
   2. Running `/annotate` with no argument and a `.md` file written earlier in the session opens that file in the review UI
   3. Running `/annotate` when no `.md` file exists on disk writes the last Claude message to a temp file and reviews it
   4. After the user approves in the browser, Claude proceeds with the next step; after denial, Claude revises based on the message returned
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 10-01-PLAN.md — Idempotency refactor + commands/annotate.md write + unit and integration tests
 
 ## Progress
 
