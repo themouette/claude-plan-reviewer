@@ -65,6 +65,13 @@ Requirements for the Agent-Native Review milestone.
 - [ ] **PLGN-02**: `plan-reviewer uninstall claude` removes the `commands/` directory
 - [ ] **PLGN-03**: `/annotate` is discoverable in Claude Code's slash command menu after install
 
+### Configurable Review Actions (Phase 11.1)
+
+- [ ] **ACT-01**: `plan-reviewer review` accepts `--approve-label <LABEL>` and `--deny-label <LABEL>` flags to customize button text in the browser UI
+- [ ] **ACT-02**: Custom labels are rendered in the browser review UI when set; UI falls back to "Approve" / "Deny" when flags are omitted
+- [ ] **ACT-03**: Existing behavior and tests are unaffected when flags are not provided
+- [ ] **ACT-04**: `annotate.md` (slash command) uses `--approve-label "No issues" --deny-label "Leave feedback"` so the UI itself frames review as feedback collection
+
 ## Future Requirements
 
 ### v0.5.0 candidates
@@ -118,6 +125,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SLSH-05 | Phase 11 | Pending |
 | SLSH-06 | Phase 11 | Pending |
 | SLSH-07 | Phase 11 | Pending |
+| ACT-01 | Phase 11.1 | Pending |
+| ACT-02 | Phase 11.1 | Pending |
+| ACT-03 | Phase 11.1 | Pending |
+| ACT-04 | Phase 11.1 | Pending |
 
 **Coverage:**
 - v0.3.0 requirements: 20 total

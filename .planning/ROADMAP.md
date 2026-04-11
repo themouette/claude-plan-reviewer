@@ -4,7 +4,7 @@
 
 - ✅ **v0.1.0 MVP** — Phases 1-4 (shipped 2026-04-10)
 - 🚧 **v0.3.0 Integrations, Annotations & Polish** — Phases 5-9 (in progress)
-- 🚧 **v0.4.0 Agent-Native Review** — Phases 10-11 (planned)
+- 🚧 **v0.4.0 Agent-Native Review** — Phases 10-11.1 (planned)
 
 ## Phases
 
@@ -39,7 +39,8 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 **Milestone Goal:** A `/annotate` slash command in the Claude Code plugin lets users review any markdown document from within a Claude conversation, with the result returned to Claude via stdout so it can act on the feedback.
 
 - [x] **Phase 10: Slash Command Install/Uninstall** - `plan-reviewer install claude` creates `commands/annotate.md` in the plugin directory; `uninstall claude` removes it; `/annotate` appears in Claude Code's slash command menu (completed 2026-04-11)
-- [ ] **Phase 11: Slash Command Prompt** - The `annotate.md` prompt implements input resolution (explicit path → last `.md` → temp file), background execution via `plan-reviewer review`, and structured `allow`/`deny` result handling
+- [ ] **Phase 11: Slash Command Prompt** - The `annotate.md` prompt implements input resolution (explicit path → last `.md` → temp file), background execution via `plan-reviewer review`, and feedback-framed result handling (prompt-only, zero binary changes)
+- [ ] **Phase 11.1: Configurable Review Actions** - Add `--approve-label`/`--deny-label` CLI flags to `plan-reviewer review`; pass labels to frontend for dynamic rendering; update `annotate.md` to use "No issues"/"Leave feedback" labels
 
 ## Phase Details
 
@@ -192,17 +193,27 @@ Plans:
 - [ ] 10-01-PLAN.md — Idempotency refactor + commands/annotate.md write + unit and integration tests
 
 ### Phase 11: Slash Command Prompt
-**Goal**: The `annotate.md` prompt file implements the full `/annotate` workflow: resolves the target file via explicit argument, last `.md` session file, or temp file fallback; invokes `plan-reviewer review <file>` via Bash with `run_in_background: true`; and surfaces the `allow`/`deny` result to Claude so it can proceed or revise
+**Goal**: The `annotate.md` prompt file implements the full `/plan-reviewer:annotate` workflow: resolves the target file via explicit argument, last `.md` session file (from conversation history), or temp file fallback; invokes `plan-reviewer review <file>` via Bash with `run_in_background: true`; and surfaces the result to Claude as feedback (framed as feedback collection, not an approval gate). Zero binary changes — all logic lives in the prompt content.
 **Depends on**: Phase 10, Phase 07.4
 **Requirements**: SLSH-01, SLSH-02, SLSH-03, SLSH-04, SLSH-05, SLSH-06, SLSH-07
 **Success Criteria** (what must be TRUE):
-  1. Running `/annotate path/to/file.md` opens the browser review UI for that specific file
-  2. Running `/annotate` with no argument and a `.md` file written earlier in the session opens that file in the review UI
-  3. Running `/annotate` when no `.md` file exists on disk writes the last Claude message to a temp file and reviews it
-  4. After the user approves in the browser, Claude proceeds with the next step; after denial, Claude revises based on the message returned
-**Plans:** 1 plan
-Plans:
-- [ ] 10-01-PLAN.md — Idempotency refactor + commands/annotate.md write + unit and integration tests
+  1. Running `/plan-reviewer:annotate path/to/file.md` opens the browser review UI for that specific file
+  2. Running `/plan-reviewer:annotate` with no argument finds the last `.md` file from conversation history and opens it
+  3. Running `/plan-reviewer:annotate` when no `.md` was written in the session creates a temp file from the last Claude response via `mktemp` and reviews that
+  4. On Approve, Claude proceeds with a "Review complete, no comments" acknowledgment
+  5. On Deny (with message), Claude treats the message as feedback and proposes revisions
+**Plans:** 0 plans
+
+### Phase 11.1: Configurable Review Actions
+**Goal**: Add `--approve-label` and `--deny-label` CLI flags to `plan-reviewer review`; pass labels through the server to the frontend for dynamic button rendering; update `annotate.md` to use "No issues" / "Leave feedback" labels so the UI itself frames review as feedback collection rather than gating
+**Depends on**: Phase 11
+**Requirements**: ACT-01, ACT-02, ACT-03, ACT-04
+**Success Criteria** (what must be TRUE):
+  1. `plan-reviewer review --approve-label "No issues" --deny-label "Leave feedback" file.md` renders those labels in the browser UI
+  2. Omitting the flags falls back to current default "Approve" / "Deny" labels
+  3. The `annotate.md` slash command invokes `plan-reviewer review` with the custom labels
+  4. Existing tests remain green; new tests cover flag parsing and label rendering
+**Plans:** 0 plans
 
 ## Progress
 
@@ -223,3 +234,4 @@ Plans:
 | 9. Documentation | v0.3.0 | 0/? | Not started | - |
 | 10. Slash Command Install/Uninstall | v0.4.0 | 1/1 | Complete   | 2026-04-11 |
 | 11. Slash Command Prompt | v0.4.0 | 0/? | Not started | - |
+| 11.1. Configurable Review Actions | v0.4.0 | 0/? | Not started | - |
