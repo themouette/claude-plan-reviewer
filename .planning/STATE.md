@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.3.0
+milestone: v0.4.0
 milestone_name: Integrations, Annotations & Polish
-status: verifying
-stopped_at: Phase 11 context gathered (discuss mode)
-last_updated: "2026-04-11T21:22:53.399Z"
-last_activity: 2026-04-11 -- Phase 09 complete (README rewritten, install.sh auto-wire removed)
+status: complete
+stopped_at: Phase 11 complete (slash-command-prompt verified)
+last_updated: "2026-04-11T00:00:00.000Z"
+last_activity: 2026-04-11 -- Phase 11 complete (full /plan-reviewer:annotate slash command prompt)
 progress:
   total_phases: 13
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 21
-  completed_plans: 20
-  percent: 95
+  completed_plans: 21
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-11)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 09 — documentation
+**Current focus:** Phase 11 — slash-command-prompt
 
 ## Current Position
 
-Phase: 09 (documentation) — COMPLETE ✓
+Phase: 11 (slash-command-prompt) — COMPLETE ✓
 Plan: 1 of 1
-Status: Phase 09 verified and complete
-Last activity: 2026-04-11 -- Phase 09 complete (README rewritten, install.sh auto-wire removed)
+Status: Phase 11 verified and complete
+Last activity: 2026-04-11 -- Phase 11 complete (full /plan-reviewer:annotate slash command prompt)
 
-Progress: [██░░░░░░░░] 18% (v0.4.0 — Phases 10-11 not started)
+Progress: [██████████] 100% (v0.4.0 — Phases 10 and 11 complete)
 
 ## Performance Metrics
 
