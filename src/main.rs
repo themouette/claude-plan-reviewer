@@ -277,7 +277,7 @@ mod tests {
         let cli =
             Cli::try_parse_from(["plan-reviewer", "review", "test.md"]).expect("parse failed");
         match cli.command {
-            Some(Commands::Review { file }) => assert_eq!(file, "test.md"),
+            Some(Commands::Review { file, .. }) => assert_eq!(file, "test.md"),
             other => panic!("expected Commands::Review, got {:?}", other),
         }
     }
