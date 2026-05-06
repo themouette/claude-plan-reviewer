@@ -72,11 +72,45 @@ Requirements for the Agent-Native Review milestone.
 - [ ] **ACT-03**: Existing behavior and tests are unaffected when flags are not provided
 - [ ] **ACT-04**: `annotate.md` (slash command) uses `--approve-label "No issues" --deny-label "Leave feedback"` so the UI itself frames review as feedback collection
 
+## v0.5.0 Requirements
+
+Requirements for the Offline Resilience milestone.
+
+### Heartbeat
+
+- [ ] **HB-01**: Server exposes `GET /api/ping` returning 200 OK
+- [ ] **HB-02**: Frontend polls `/api/ping` every 5s, requiring 3 consecutive failures before declaring server offline
+- [ ] **HB-03**: Polling pauses when the browser tab is hidden and resumes on visibility
+- [ ] **HB-04**: Each ping request uses `AbortSignal.timeout(3000)` to prevent hanging fetches
+
+### Offline UX
+
+- [ ] **OFX-01**: When offline is detected, a persistent non-dismissable banner appears
+- [ ] **OFX-02**: When offline, submit buttons are replaced with a single "Copy to clipboard" button
+
+### Clipboard Export
+
+- [ ] **CLB-01**: Clipboard export serializes annotation state as `{"behavior":"allow"}` or `{"behavior":"deny","message":"..."}` — same format the server returns
+- [ ] **CLB-02**: After clipboard copy, a distinct confirmation screen says "Copied to clipboard — paste into Claude"
+
+### Slash Command
+
+- [ ] **SLC-01**: `annotate.md` Step 4 updated — if no stdout result received, Claude asks user to paste the clipboard JSON into the conversation
+
 ## Future Requirements
 
-### v0.5.0 candidates
+### Ask from UI
 
 - **ASK-01**: User can select text in the plan/diff, type a question, and receive an AI response inline (integration-aware; each integration declares its ask command)
+
+### Slash Command Resilience
+
+- **SLC-02**: Double-result disambiguation — guidance on which result wins when both stdout and pasted JSON appear (deferred — iterate after v0.5.0)
+
+### Offline UX
+
+- **OFX-03**: Textarea fallback — show copyable JSON in a textarea if `navigator.clipboard` API is blocked (deferred)
+- **OFX-04**: Graceful online recovery — if server comes back, restore normal submit flow (deferred)
 
 ## Out of Scope
 
@@ -129,6 +163,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ACT-02 | Phase 11.1 | Pending |
 | ACT-03 | Phase 11.1 | Pending |
 | ACT-04 | Phase 11.1 | Pending |
+| HB-01 | Phase 12 | Pending |
+| HB-02 | Phase 13 | Pending |
+| HB-03 | Phase 13 | Pending |
+| HB-04 | Phase 13 | Pending |
+| OFX-01 | Phase 14 | Pending |
+| OFX-02 | Phase 14 | Pending |
+| CLB-01 | Phase 15 | Pending |
+| CLB-02 | Phase 15 | Pending |
+| SLC-01 | Phase 16 | Pending |
 
 **Coverage:**
 - v0.3.0 requirements: 20 total
@@ -140,6 +183,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 - Mapped to phases: 10
 - Unmapped: 0 ✓
 
+**v0.5.0 coverage:**
+- v0.5.0 requirements: 9 total
+- Mapped to phases: 9
+- Unmapped: 0 ✓
+
 ---
 *Requirements defined: 2026-04-10*
-*Last updated: 2026-04-11 — v0.4.0 traceability mapped (Phase 10: PLGN-01–03, Phase 11: SLSH-01–07)*
+*Last updated: 2026-05-06 — v0.5.0 requirements added (Phases 12–16)*
