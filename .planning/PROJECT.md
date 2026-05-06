@@ -8,17 +8,15 @@ A Rust binary that intercepts Claude Code's plan approval flow, renders plans an
 
 One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
 
-## Current Milestone: v0.4.0 Agent-Native Review
+## Current Milestone: v0.5.0 Offline Resilience
 
-**Goal:** A `/annotate` slash command in the Claude Code plugin lets users review any markdown document from within a Claude conversation, with the result returned to Claude via stdout so it can act on the feedback.
+**Goal:** Make the `/plan-reviewer:annotate` workflow survive backend timeouts — when Claude Code kills the background server process, the browser UI continues working and exports annotations via clipboard rather than dying.
 
 **Target features:**
-- `/annotate [file?]` slash command registered in the plugin's `commands/` directory
-- Input resolution: explicit file path → last `.md` file written by Claude → last Claude message (written to temp file)
-- Background execution — no timeout, user can take as long as needed in the browser
-- Result (`{"behavior":"allow"|"deny","message":"..."}`) returned to Claude via stdout on completion
-- Claude acts on approve (proceed) or deny (revise based on message)
-- `plan-reviewer install claude` / `uninstall claude` manages the slash command file alongside the hook
+- Heartbeat polling (`/api/ping`) — UI detects when the server has gone away
+- Offline annotation mode — user keeps annotating normally after server death; no error until submit
+- Clipboard fallback — "Submit" becomes "Copy to clipboard" when offline; exports the same JSON the server would have returned
+- Slash command update — `annotate.md` Step 4 handles pasted JSON as an alternative to stdout result
 
 ## Current State
 
@@ -44,14 +42,21 @@ v0.1.0 shipped 2026-04-10. Phase 08 complete 2026-04-11.
 - ✓ install/uninstall subcommands: binary manages its own Claude Code hook wiring/unwiring — v0.1.0
 - ✓ update subcommand: binary self-updates from GitHub releases — v0.1.0
 
-### Active (v0.4.0)
+### Validated (v0.4.0)
 
-- [ ] `/annotate` slash command: invoke from Claude Code conversation to open browser review UI on any markdown file
-- [ ] Input resolution: file path arg → last `.md` written by Claude → last Claude message as temp file
-- [ ] Background execution + stdout return: result flows back to Claude when user completes review
-- [ ] `plan-reviewer install claude` creates `commands/annotate.md`; uninstall removes it
+- ✓ `/annotate` slash command: invoke from Claude Code conversation to open browser review UI on any markdown file — v0.4.0
+- ✓ Input resolution: file path arg → last `.md` written by Claude → last Claude message as temp file — v0.4.0
+- ✓ Background execution + stdout return: result flows back to Claude when user completes review — v0.4.0
+- ✓ `plan-reviewer install claude` creates `commands/annotate.md`; uninstall removes it — v0.4.0
 
-### Future (v0.5.0 candidates)
+### Active (v0.5.0)
+
+- [ ] Heartbeat polling: browser UI polls `/api/ping` to detect server death
+- [ ] Offline annotation mode: after server death, user continues annotating with no blocking error
+- [ ] Clipboard fallback: when offline, submit exports annotation JSON to clipboard instead of POSTing to server
+- [ ] Slash command resilience: `annotate.md` Step 4 handles pasted clipboard JSON as fallback to stdout result
+
+### Future
 
 - [ ] Ask-from-UI: select text, type a question, stream AI response inline (integration-aware; each tool declares its ask command)
 
@@ -109,4 +114,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-11 after v0.4.0 milestone started (Agent-Native Review)*
+*Last updated: 2026-05-06 after v0.5.0 milestone started (Offline Resilience)*

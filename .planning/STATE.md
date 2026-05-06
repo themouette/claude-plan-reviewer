@@ -1,36 +1,36 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.4.0
-milestone_name: Integrations, Annotations & Polish
-status: complete
-stopped_at: Phase 11 complete (slash-command-prompt verified)
-last_updated: "2026-04-11T00:00:00.000Z"
-last_activity: 2026-04-11 -- Phase 11 complete (full /plan-reviewer:annotate slash command prompt)
+milestone: v0.5.0
+milestone_name: Offline Resilience
+status: in_progress
+stopped_at: Defining requirements
+last_updated: "2026-05-06T00:00:00.000Z"
+last_activity: 2026-05-06 -- Milestone v0.5.0 started (Offline Resilience)
 progress:
-  total_phases: 13
-  completed_phases: 11
-  total_plans: 21
-  completed_plans: 21
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-11)
+See: .planning/PROJECT.md (updated 2026-05-06)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 11 — slash-command-prompt
+**Current focus:** v0.5.0 — Offline Resilience
 
 ## Current Position
 
-Phase: 11 (slash-command-prompt) — COMPLETE ✓
-Plan: 1 of 1
-Status: Phase 11 verified and complete
-Last activity: 2026-04-11 -- Phase 11 complete (full /plan-reviewer:annotate slash command prompt)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-06 -- Milestone v0.5.0 started (Offline Resilience)
 
-Progress: [██████████] 100% (v0.4.0 — Phases 10 and 11 complete)
+Progress: [░░░░░░░░░░] 0% (v0.5.0)
 
 ## Performance Metrics
 
