@@ -1,318 +1,227 @@
 # Feature Landscape
 
-**Domain:** AI coding-agent plan reviewer — v0.3.0 milestone additions
-**Researched:** 2026-04-10
-**Confidence:** MEDIUM-HIGH overall
+**Domain:** AI coding-agent plan reviewer — v0.5.0 Offline Resilience milestone
+**Researched:** 2026-05-05
+**Confidence:** HIGH overall (all claims sourced to official docs or verified against multiple sources)
 
-> This document supersedes the v0.1.0 feature research. It focuses exclusively on
-> features targeted for v0.3.0. The v0.1.0 research is preserved in git history.
+> This document supersedes the v0.3.0 feature research. It focuses exclusively on
+> features targeted for v0.5.0. Earlier research is preserved in git history.
 
 ---
 
 ## Context: What Already Exists
 
-The following are already built (v0.1.0) and are NOT re-researched here:
+The following are built and NOT re-researched here:
 
-- Plan review with markdown rendering and code diff display in browser
-- Claude Code ExitPlanMode hook wiring (full install/uninstall, JSON protocol)
-- Annotation system: `comment`, `delete`, `replace` types with free-text inputs
-- `AnnotationSidebar`, `serializeAnnotations`, full annotation output pipeline
-- `install`, `uninstall`, `update` subcommands
-- React 19 + TypeScript + Tailwind v4 + Vite frontend (dark-only CSS custom properties)
+- Plan review with markdown rendering and code diff display in browser (v0.1.0)
+- Claude Code ExitPlanMode hook wiring (full install/uninstall, JSON protocol) (v0.1.0)
+- Annotation system: `comment`, `delete`, `replace` types with free-text inputs (v0.1.0)
+- `AnnotationSidebar`, `serializeAnnotations`, full annotation output pipeline (v0.1.0)
+- `install`, `uninstall`, `update` subcommands (v0.1.0)
+- React + TypeScript + Vite frontend with CSS custom properties (dark/light theme) (v0.3.0)
+- Annotation quick-action chips (6 predefined), persistent theme switcher (v0.4.0)
+- `/plan-reviewer:annotate` slash command, background execution mode (v0.4.0)
+
+**AppState in current codebase:** `'loading' | 'error' | 'reviewing' | 'confirmed'`
+
+**Current submit flow:** `POST /api/decide` → success → `appState = 'confirmed'`.
+On network error, `appState = 'error'` (shows generic "reload page" message).
+
+**Key constraint:** The binary is both server and hook. When Claude Code kills the hook
+process after the hook fires, the HTTP server goes down with it. The browser tab stays
+open but has no server to POST to. This is the exact problem v0.5.0 solves.
 
 ---
 
 ## Table Stakes (Users Expect These)
 
+Features in the offline-resilience domain that are accepted norms — missing them makes
+the tool feel broken.
+
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Opencode: `submit_plan` tool via plugin | De-facto opencode plan review pattern; both Plannotator and open-plan-annotator use it; users switching from those tools expect this exact mechanism | HIGH | Requires a JS/TS plugin file installed in `~/.config/opencode/plugins/` or `.opencode/plugins/`. Plugin registers a `submit_plan` tool via the opencode Plugin SDK. `plan-reviewer install opencode` writes the file and updates `~/.config/opencode/opencode.json`. This is the ONLY working approach — the `permission.asked` hook is defined in SDK types but never triggered (GitHub issue #7006, unresolved as of Jan 2026). |
-| Annotation quick-action labels (6 predefined) | Reviewers want one-click annotation without typing; Plannotator ships 10 default labels as chip buttons | LOW | Chips above the comment form pre-fill the comment text. No new AnnotationType needed — label text becomes the `comment` field value. Labels: "Clarify this", "Needs test", "Give me an example", "Out of scope", "Search internet", "Search codebase". Zero changes to hook output format or Rust code. |
-| Light/dark theme toggle, persisted | Dark-only UIs frustrate light-mode users; developer tool audience expects this control | MEDIUM | Current CSS: hardcoded dark values in `:root` as CSS custom properties. Tailwind v4 class-based dark mode via `@custom-variant dark (&:where(.dark, .dark *))` in `index.css`. Toggle class on `<html>`. Persist to `localStorage`. Fall back to `prefers-color-scheme` when no stored preference. Requires defining ~15 light-mode color values. |
-| User README (install, configure, review, annotate) | Without documentation, install friction is insurmountable for new users | LOW | Markdown in repo root. Covers: `curl \| sh` install, `plan-reviewer install <tool>`, how hook fires per integration, the review workflow, annotation types, `update` subcommand. One doc, not split. |
-| Integration guide per tool (Claude Code + opencode) | Users of each tool need a specific section with exact config steps | LOW | Can live within README as headed sections. Claude Code section: minimal (already stable). Opencode section: `opencode.json` snippet, plugin placement, what `submit_plan` does, how to verify it loaded. |
+| Offline status indicator — persistent banner | Users expect to know when the tool is in a degraded state; a toast alone is insufficient because it auto-dismisses and the condition persists | LOW | Banner (not toast) at top or bottom of viewport. Persistent while offline. Contains icon + plain-language message + optional action link. Must not occlude the main content area. Remove immediately when server is reachable again. |
+| Submit button changes label when offline | Users expect buttons to reflect what action they will actually perform; "Submit" that copies instead of posting is deceptive | LOW | When offline: button reads "Copy to clipboard" (or similar). When online: returns to "Submit". The visual affordance change is the primary signal that the flow has changed. |
+| Clear "copied" confirmation after clipboard copy | Users expect immediate feedback that the copy succeeded; silent clipboard writes feel broken | LOW | Button briefly changes to "Copied!" with a checkmark icon for 1.5–2 seconds, then returns to "Copy to clipboard". An `aria-live="polite"` region announces the copy for screen readers. |
+| Error on clipboard failure | Users need to know if the copy failed (permission denied, tab out of focus) so they can take action | LOW | If `navigator.clipboard.writeText` rejects, show a specific error message with the JSON in a `<textarea>` for manual copy. Do not silently fail. |
+| No data loss when server dies mid-annotation | Users expect that work-in-progress annotations survive the server dying; losing them during the 5-minute review window is a critical UX failure | LOW | In-memory React state is not at risk from server death — the server dying does not reset the browser tab. No localStorage persistence needed (the tab is ephemeral by design). The heartbeat only triggers a UI mode change, not a page reload. |
+| Reconnect detection (server comes back) | Users expect the offline banner to disappear and the normal submit flow to resume if the server somehow comes back (e.g., another invocation) | LOW | Heartbeat continues polling even when offline. When `/api/ping` succeeds after failure, clear the offline indicator and restore POST submit path. |
 
 ---
 
 ## Differentiators (Competitive Advantage)
 
+Features not expected in a tool of this type, but that meaningfully improve the experience.
+
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| `plan-reviewer install opencode` writes plugin file | Same zero-friction UX as Claude Code install — one command sets everything up | HIGH | The JS plugin file is embedded in the Rust binary at compile time (`include_str!` on the plugin `.mjs` source). Install writes it to disk + updates `opencode.json`. Uninstall removes the file + config entry. This is the key differentiator over tools that require manual `opencode.json` editing. |
-| Annotation label tip text (agent-facing instruction) | Labels can carry an invisible agent instruction beyond just the label name — "Search internet: verify this by searching before proceeding" — shaping how the agent responds | LOW | Extend `Annotation` interface with optional `label` (display name) and `tip` (agent instruction). `serializeAnnotations` emits the tip text in the feedback block. Plannotator implements this; it meaningfully improves agent behavior. |
-| Three-state theme picker (Light / Dark / System) | "System" respects OS setting without the user having to re-toggle on theme changes — better than binary light/dark | LOW | Upgrade from binary toggle. `ThemeMode = 'light' \| 'dark' \| 'system'`. `'system'` removes the `localStorage` key so `prefers-color-scheme` takes over. Minimal extra complexity once binary toggle is in place. |
+| Silent offline entry — no blocking error on server death | Competing tools fail loudly when the server dies (the tab goes to an error state, work is lost). Silently entering offline mode while keeping the UI fully usable is a step-change in resilience. | MEDIUM | On first heartbeat failure, set `isOffline = true` in React state. Annotations, overall comment, deny message are all still editable. Only the submit path changes. User notices the banner — not an error blocking their work. |
+| Clipboard JSON matches server POST exactly | Users who paste via the slash command need the clipboard JSON to be byte-for-byte identical to what the server would have emitted. Any divergence breaks the `annotate.md` parsing step. | LOW | `serializeAnnotations` already produces the correct output. The clipboard payload is `JSON.stringify({ behavior, message })` — the same body that `POST /api/decide` sends. No new serialization logic needed. |
+| Slash command handles paste fallback | Annotate workflow surviving backend death end-to-end: user copies JSON, pastes into Claude conversation, slash command parses it. This is a complete offline-resilient workflow with no broken links. | MEDIUM | `annotate.md` Step 4 needs to detect pasted JSON (starts with `{`) vs natural language. JSON branch: parse `behavior` and `message` fields, skip the stdout wait. Natural language branch: treat as denial message (current behavior). |
+| Visibility-aware polling (Page Visibility API) | Pausing the heartbeat when the tab is backgrounded avoids unnecessary network requests and battery drain on laptops. | LOW | `document.addEventListener('visibilitychange', ...)`. When `document.hidden`, pause the polling interval. Resume on `visibilitychange` to `visible`. Three lines of code on top of the interval logic. |
 
 ---
 
-## Anti-Features (Commonly Requested, Often Problematic)
+## Anti-Features (Explicitly Avoid)
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Codestral config-file hook integration | PROJECT.md lists "codestral integration" as a milestone target | Codestral is a Mistral AI language model, not a CLI coding agent. It has no settings file, no hook system, and no plan approval mechanism. Mistral's actual CLI coding agent is `mistral-vibe` (`~/.vibe/config.toml`) but it has no documented external plan-review hook — only MCP server support and per-tool permission levels. Writing a config entry for "codestral" would have no effect. | Treat the v0.3.0 milestone deliverable as a documentation and UX decision: (a) update the `Codestral` stub's `unsupported_reason` to accurately explain it is a model, (b) document this clearly in the README, (c) optionally rename or remove the stub. Do NOT ship fake hook wiring. |
-| Opencode `permission.asked` hook wiring (Claude Code-style config entry) | Appears to be the obvious parallel to Claude Code's `settings.json` hook | The `permission.asked` plugin hook is defined in opencode SDK types but is NEVER called by the opencode runtime (confirmed issue #7006, January 2026). Config-based hooks in `opencode.json` only support `file_edited` and `session_completed` (experimental). There is no config-file equivalent of Claude's `PermissionRequest` entry for plan interception. | Use the `submit_plan` plugin tool pattern — the only working approach. |
-| opencode plugin using stdin/stdout subprocess | Seems natural for IPC between the JS plugin and the Rust binary | Documented issues: `child_process.spawn()` with piped stdio in opencode plugins does not reliably deliver data to the child process stdin (GitHub issue #21293). | Plugin communicates with the already-running Rust HTTP server via HTTP fetch — reliable, tested by Plannotator and open-plan-annotator. |
-| Custom annotation label editor in v0.3.0 | Plannotator supports up to 12 customizable labels with color pickers | High implementation cost (settings UI, persistence, validation) with low marginal value before the feature is validated. Ship 6 hardcoded labels first. | Defer label customization to v0.4.0+ after confirming users use the predefined ones. |
-| Annotation quick-action as a new AnnotationType | Could model quick-action labels as first-class types (`clarify`, `needs-test`, etc.) | Creates 6+ new type variants in the Rust `HookOutput` and serializer. Breaks existing output format. Adds a combinatoric maintenance surface (type × has-comment × has-replacement). | Labels are metadata on the existing `comment` type — the label text becomes the comment content. Zero Rust changes needed. |
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Modal dialog on server death | A modal blocks the entire UI — the user cannot continue annotating, which is the core resilience goal. Modals are for irreversible or blocking decisions. | Persistent banner (non-modal, non-blocking). |
+| Toast-only offline notification | Toasts auto-dismiss after 2–4 seconds. The offline condition is persistent, not momentary. A dismissed toast with no other indicator leaves users confused about submit failure later. | Non-dismissable banner that stays until the condition clears. |
+| Page reload on server death | A reload destroys all in-progress annotation state. This is the worst possible outcome — the exact failure mode we are solving. | Never reload the page. Switch UI mode in place. |
+| Polling at 500ms or faster | Sub-second polling adds no meaningful detection latency improvement but doubles/quadruples network noise and can interfere with the browser's idle/background throttling. | Poll every 3–5 seconds. The human review window is 30s–5min; 5-second detection lag is imperceptible. |
+| Exponential backoff on ping failure | Exponential backoff makes sense for reconnection retries when the server may recover and you don't want to hammer it. But once the server is dead (process killed), it will never recover in this session. Backoff would silently delay reconnection detection if the server does come back. | Keep polling at a fixed interval. The server is a local process, not a remote API — no rate-limit concern. |
+| IndexedDB / localStorage annotation persistence | Annotation state is ephemeral by design: it exists for one review session, then the tab is closed. Persisting to storage adds complexity, sync problems, and a stale-data risk on the next review opening. | Keep state in React memory only. |
+| SSE or WebSocket for heartbeat | SSE/WebSocket would give push-based death detection. But SSE dies silently (the connection drops), requiring the same client-side polling to detect loss. WebSocket adds framing overhead. For a single-user local tool, HTTP polling to `/api/ping` is simpler, more debuggable, and requires no server-side streaming code. | Poll `GET /api/ping` via `fetch`. |
+| Permissions API check before clipboard write | `navigator.permissions.query({ name: 'clipboard-write' })` is not needed for `writeText` on localhost. Chrome auto-grants clipboard-write on active-tab localhost. Firefox does not implement clipboard permissions at all (falls through). Checking permissions adds code that behaves differently per browser. | Call `navigator.clipboard.writeText()` directly, catch the rejection, and show the fallback textarea on failure. |
+| User-initiated "go offline" button | There is no use case for the user manually switching to offline mode. Offline mode is an automatic response to server death, not a preference. | Offline mode is only triggered by heartbeat failure. |
 
 ---
 
 ## Feature Dependencies
 
 ```
-Opencode JS plugin file (embedded in Rust binary at compile time)
-    └──required by──> plan-reviewer install opencode (writes plugin to disk)
-                          └──required by──> plan-reviewer uninstall opencode (removes plugin + config entry)
+Heartbeat polling (setInterval + GET /api/ping)
+    └──drives──> isOffline React state
+                    └──controls──> Offline status banner (rendered when isOffline)
+                    └──controls──> Submit button label/handler (POST vs clipboard)
+                    └──controls──> ConfirmationView skip condition (offline path skips HTTP)
+                    └──resets when──> /api/ping succeeds after failure
 
-Opencode plugin (submit_plan tool) calls Rust HTTP server
-    └──depends on──> plan-reviewer binary running as HTTP server before plugin fires
-                      [Note: current arch starts server only when hook fires — opencode
-                       integration may require a different startup trigger]
+Clipboard export
+    └──depends on──> isOffline === true (only active in offline mode)
+    └──depends on──> serializeAnnotations (existing — produces JSON payload)
+    └──depends on──> navigator.clipboard.writeText (Baseline Newly Available, March 2025)
+    └──fallback──> textarea with manual copy if writeText rejects
+    └──produces──> Same JSON body as POST /api/decide (behavior + message fields)
 
-Annotation quick-action labels
-    └──builds on──> Existing comment AnnotationType (no new type)
-    └──feeds into──> serializeAnnotations (emits label tip text if present)
-    └──optional enhancement──> label tip text (agent-facing instruction per label)
+Slash command annotate.md paste handling
+    └──depends on──> Clipboard export producing valid JSON
+    └──depends on──> User pasting clipboard content into Claude conversation
+    └──new branch──> JSON detection: if input starts with '{', parse as result JSON
+    └──existing branch──> Natural language: treat as denial message (current behavior)
 
-Theme CSS light-mode tokens (~15 new --color-* values)
-    └──required by──> Theme toggle button (React component in PageHeader)
-    └──required by──> localStorage persistence (useTheme hook)
-    └──requires──> Tailwind v4 @custom-variant dark declaration added to index.css
-
-User README
-    └──requires──> All v0.3.0 features stable
-    └──depends on──> Opencode integration working to document it accurately
+Visibility-aware polling (optional but recommended)
+    └──depends on──> Page Visibility API (document.visibilityState)
+    └──enhances──> Heartbeat polling (pauses when tab hidden)
 ```
 
 ### Dependency Notes
 
-- **Opencode plugin startup**: The current architecture starts the HTTP server when Claude Code fires the hook (binary is the hook command). For opencode, the binary is NOT the hook — it's a plugin-registered tool. The plugin needs to either (a) launch the binary as a subprocess that runs the server then returns JSON, or (b) call a pre-running binary via HTTP. This startup model needs design work in Phase 1.
-- **Labels do not touch Rust**: The quick-action label feature is entirely in the React frontend. `serializeAnnotations.ts` may need a small update to emit tip text if a `tip` field is added to `Annotation`, but the Rust `HookOutput` struct is unchanged.
-- **Theme FOUC prevention**: A small inline `<script>` in `index.html` `<head>` (before React loads) must apply the stored theme class before the browser renders. Without it, users see a flash of dark/light on page load.
+- **No Rust changes for heartbeat**: `GET /api/ping` is a trivial route returning `200 OK`
+  with `{}`. The existing axum server can add this in under 10 lines.
+- **No new AnnotationType**: Offline mode does not change what annotations look like.
+  `serializeAnnotations` output is identical whether submitted online or copied offline.
+- **clipboard.writeText on localhost**: `navigator.clipboard` requires a secure context.
+  localhost is treated as a secure context by all modern browsers (Chrome, Safari, Firefox).
+  No HTTPS setup needed. Confirmed: MDN Clipboard API docs.
+- **Slash command change is Markdown only**: `annotate.md` is a Markdown file installed
+  by `plan-reviewer install claude`. Updating Step 4 requires only editing that embedded
+  Markdown — no Rust logic change (the slash command mechanism is Claude Code's own).
+- **AppState extension**: `AppState` may need a new value, or `isOffline` can be
+  a separate boolean that overlays on top of the existing `'reviewing'` state. The latter
+  is simpler and avoids rewriting all the existing state machine guards.
 
 ---
 
-## MVP Definition for v0.3.0
+## UX Patterns (What Users Expect)
 
-### Launch With (v0.3.0)
+### Offline Detection Timing
 
-- [ ] Opencode plugin file authored (JS, registers `submit_plan` tool, calls plan-reviewer HTTP server)
-- [ ] `plan-reviewer install opencode` — writes plugin to `~/.config/opencode/plugins/` + updates `opencode.json`
-- [ ] `plan-reviewer uninstall opencode` — removes plugin file + config entry
-- [ ] Annotation quick-action labels — 6 predefined chips: "Clarify this", "Needs test", "Give me an example", "Out of scope", "Search internet", "Search codebase"
-- [ ] Light/dark theme toggle in `PageHeader`, persisted to `localStorage`, falls back to `prefers-color-scheme`
-- [ ] FOUC-prevention inline script in `index.html`
-- [ ] Codestral stub updated: `unsupported_reason` accurately says "model, not agent; no hook infrastructure"
-- [ ] README: install guide, Claude Code integration steps, opencode integration steps, review workflow, annotation types
+From research: detect within one polling interval (3–5 seconds). The server is killed
+instantly when Claude Code's hook timeout fires — there is no graceful shutdown.
+`fetch('/api/ping')` will reject immediately with a network error (not a timeout).
+Detection lag is effectively one polling interval.
 
-### Add After Validation (v0.4.0)
+**Recommendation:** Poll every 5 seconds. First failure sets `isOffline = true`.
+No retry confirmation needed — a rejected fetch to localhost is definitive.
 
-- [ ] Annotation label tip text (agent-facing instruction per label) — add once users confirm they use predefined labels
-- [ ] Three-state theme picker (Light / Dark / System) — upgrade from binary toggle
-- [ ] Mistral-vibe integration research — only if users report using mistral-vibe
-- [ ] Ask-from-UI (select text, stream AI response inline) — already v0.4.0 candidate in PROJECT.md
+### Offline Banner Placement
 
-### Future Consideration (v0.5.0+)
+From web.dev offline UX guidelines and LogRocket toast/banner research:
 
-- [ ] Custom annotation label editor (add/remove/reorder/color labels in settings UI)
-- [ ] Annotation "insert" type (new content at a position) — high implementation cost vs replace
+- **Banner, not toast** — the condition is persistent, not momentary
+- **Top of viewport** — more visible than bottom; does not compete with the sticky action bar
+  at the bottom of this UI (where the submit button lives)
+- **Non-dismissable** — banner clears automatically when server is reachable again
+- **Language:** Avoid "offline" (technical jargon). Prefer: "Server stopped — your work
+  is saved. Use 'Copy to clipboard' to export your review."
+- **Color:** Amber/warning (not error red) — the user's work is safe, the situation is
+  recoverable
 
----
+### Clipboard Copy UX
 
-## Feature Prioritization Matrix
+From ShadCN, Shoelace, and Firefox DevTools UX research (2025 standards):
 
-| Feature | User Value | Implementation Cost | Priority |
-|---------|------------|---------------------|----------|
-| Opencode install/uninstall | HIGH — unlocks opencode user segment | HIGH — JS plugin file + embed + config R/W | P1 |
-| Annotation quick-action labels | HIGH — speeds up most common workflow | LOW — chips UI + pre-fill logic | P1 |
-| Light/dark theme toggle | MEDIUM — quality-of-life; dark-only frustrates light users | MEDIUM — new CSS tokens + toggle component + hook | P1 |
-| User README + integration guide | HIGH — without docs, new users are blocked | LOW — writing only | P1 |
-| Codestral stub update | LOW user impact but prevents confusion | LOW — text change + test update | P2 |
-| Label tip text | MEDIUM — shapes agent behavior meaningfully | LOW — small Annotation type extension | P2 |
-| Three-state theme picker | LOW — binary toggle covers 90% of need | LOW (once binary toggle exists) | P3 |
+1. User clicks "Copy to clipboard" button
+2. `navigator.clipboard.writeText(payload)` is called
+3. On success: button text changes to "Copied!" + checkmark icon for 1.5 seconds,
+   then reverts. `aria-live="polite"` region announces "Copied to clipboard."
+4. On failure: show a modal or expanded section containing the JSON in a `<textarea>`
+   with a "Select all" button. Message: "Could not copy automatically — copy the text
+   below manually."
 
----
+Do NOT transition to `appState = 'confirmed'` on clipboard copy. The user has not
+submitted their review — they have only copied it. The tab should stay open so they
+can paste into Claude and verify. The confirmed state (with auto-close timer) is only
+for successful POST to `/api/decide`.
 
-## Opencode Integration: Technical Detail
+### Slash Command Paste Fallback
 
-**Architecture (HIGH confidence — verified via Plannotator opencode README, open-plan-annotator source, opencode plugin docs):**
+The `annotate.md` slash command currently waits for the plan-reviewer binary to write
+JSON to stdout, then captures it and feeds it back to Claude. When the server dies before
+the user submits, this stdout never arrives.
 
-1. Plugin file in `~/.config/opencode/plugins/plan-reviewer.mjs` (global) or `.opencode/plugins/plan-reviewer.mjs` (project).
-2. `opencode.json` references it: `"plugin": ["/absolute/path/to/plan-reviewer.mjs"]` or `"plugin": ["@plan-reviewer/opencode@latest"]` if published to npm.
-3. Plugin exports a function returning an object with a `tool` property defining `submit_plan`.
-4. When LLM calls `submit_plan`, plugin makes an HTTP call to the plan-reviewer server.
-5. Server blocks, browser opens, user reviews, decision returns as HTTP response to plugin.
-6. Plugin returns structured feedback to the LLM as the tool result.
+Fallback UX flow:
+1. User copies JSON via "Copy to clipboard" button
+2. User pastes the JSON directly into the Claude conversation (step 4 of annotate.md)
+3. `annotate.md` Step 4 must handle this: detect pasted JSON vs natural language input
 
-**Config file paths:**
-- Global opencode config: `~/.config/opencode/opencode.json`
-- Global plugin directory: `~/.config/opencode/plugins/`
-- Project config: `<project>/opencode.json`
-- Project plugin directory: `<project>/.opencode/plugins/`
+Detection heuristic: if the pasted value starts with `{` and parses as valid JSON
+containing a `behavior` key, treat it as a result. Otherwise treat as free-text denial.
 
-**Config entry format:**
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": ["/path/to/plan-reviewer-opencode.mjs"]
-}
-```
-
-**Minimal plugin structure (JS, not TS — avoids transpilation requirement):**
-```javascript
-// plan-reviewer-opencode.mjs
-export const PlanReviewerPlugin = async (ctx) => {
-  return {
-    tool: {
-      submit_plan: {
-        description: "Submit a plan for human review before implementation.",
-        parameters: {
-          type: "object",
-          properties: {
-            plan: { type: "string", description: "The plan to review" }
-          },
-          required: ["plan"]
-        },
-        execute: async ({ plan }) => {
-          // POST to plan-reviewer local HTTP server
-          const resp = await fetch("http://localhost:<PORT>/review", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ plan })
-          });
-          return await resp.json(); // returns { decision, message }
-        }
-      }
-    }
-  };
-};
-```
-
-**What does NOT work for opencode:**
-- `permission.asked` hook — defined in SDK types but never triggered (issue #7006, Jan 2026)
-- Config-based hooks in `opencode.json` — only `file_edited` and `session_completed` (experimental)
-- `child_process.spawn()` with piped stdin/stdout — unreliable in opencode plugin context (issue #21293)
+**Important:** The slash command change is in the Markdown template, not Rust.
+The template explains the fallback in its own instructions so Claude knows what to do.
 
 ---
 
-## Codestral Integration: Technical Detail
+## MVP Definition for v0.5.0
 
-**Conclusion (HIGH confidence from multiple sources):**
+### Launch With
 
-"Codestral" is a Mistral AI language model. It is not a coding agent and has no settings file, hook system, or plan approval mechanism. There is nothing to wire.
+- [ ] `GET /api/ping` route in Rust (returns `200 {"ok":true}`, <10 lines)
+- [ ] `useHeartbeat` hook in React: polls `/api/ping` every 5 seconds, sets `isOffline` state
+- [ ] Visibility-aware pause: heartbeat pauses when `document.hidden`, resumes on show
+- [ ] Offline banner: persistent, amber, non-blocking, appears when `isOffline === true`
+- [ ] Submit button: shows "Copy to clipboard" when `isOffline`, "Submit" when online
+- [ ] Clipboard copy handler: calls `navigator.clipboard.writeText(JSON.stringify(payload))`
+- [ ] Copy success feedback: "Copied!" button state for 1.5s + aria-live announcement
+- [ ] Copy failure fallback: expand textarea with JSON for manual copy
+- [ ] No `appState = 'confirmed'` on clipboard copy (tab stays open)
+- [ ] `annotate.md` Step 4: updated to explain pasted-JSON fallback path
 
-Mistral's CLI coding agent is `mistral-vibe`, using `~/.vibe/config.toml`. As of research date, mistral-vibe has no documented external plan-review hook or `submit_plan`-equivalent mechanism.
+### Defer to Later
 
-**v0.3.0 deliverables for this item:**
-1. Update `get_integration(IntegrationSlug::Codestral).unsupported_reason` to say: "Codestral is a Mistral AI language model, not a coding agent. It has no hook infrastructure. For Mistral's coding agent (mistral-vibe), no plan review hook is currently available."
-2. Update the test `opencode_and_codestral_unsupported` to match the new reason string.
-3. Document in the README under "Supported integrations" table.
-
----
-
-## Annotation Quick-Action Labels: Technical Detail
-
-**Reference:** Plannotator "Quick Labels" — chip buttons that auto-populate the comment field. Clicking a chip: creates or updates a `comment` annotation with the label text pre-filled.
-
-**Implementation (no new types, no Rust changes):**
-
-- Add optional `label?: string` to `Annotation` interface in `types.ts` (metadata only)
-- Render chip buttons in the selection popup (shown when text is selected in the plan)
-- Clicking a chip: `addAnnotation({ type: 'comment', comment: label.text, label: label.name })`
-- `serializeAnnotations.ts`: if `a.label` is set, render as `[COMMENT: ${a.label}]` header — no breaking change to existing output
-- Optional: add `tip?: string` per label; `serializeAnnotations` appends tip to the comment block
-
-**6 predefined labels (PROJECT.md spec):**
-
-| Label | Pre-filled Comment Text |
-|-------|------------------------|
-| Clarify this | "Clarify this section before proceeding — the intent is ambiguous." |
-| Needs test | "Add a test for this. Do not proceed without test coverage for this path." |
-| Give me an example | "Provide a concrete example of how this will work in practice." |
-| Out of scope | "This is out of scope for the current task. Skip this step." |
-| Search internet | "Search the internet to verify this claim before proceeding." |
-| Search codebase | "Search the codebase for existing implementations before writing new code." |
+- [ ] IndexedDB annotation persistence — out of scope per PROJECT.md
+- [ ] Custom polling interval UI — single hardcoded 5s is sufficient
+- [ ] WebSocket-based death detection — over-engineered for a local server
 
 ---
 
-## Theme Switching: Technical Detail
+## Complexity Assessment
 
-**Stack:** React 19 + Tailwind v4 (`@tailwindcss/vite ^4.2.2`) + Vite. CSS uses `@import "tailwindcss"` and CSS custom properties in `:root` (dark values only, 15 variables).
+| Feature | Estimated Effort | Confidence |
+|---------|-----------------|------------|
+| `GET /api/ping` Rust route | XS (< 1 hour) | HIGH |
+| `useHeartbeat` React hook with visibility awareness | S (2–3 hours) | HIGH |
+| Offline banner component | S (2–3 hours) | HIGH |
+| Submit button conditional label + handler | S (1–2 hours) | HIGH |
+| Clipboard copy with success/failure feedback | S (2–3 hours) | HIGH — `navigator.clipboard.writeText` is Baseline 2025; localhost is a secure context |
+| `annotate.md` paste-fallback update | XS (< 1 hour) | HIGH |
+| **Total** | **~2 days** | HIGH |
 
-**Tailwind v4 class-based dark mode:**
-```css
-/* index.css — add this line */
-@custom-variant dark (&:where(.dark, .dark *));
-```
-
-**Current architecture:** All styling uses CSS custom properties on component inline styles. Tailwind `dark:` utilities are NOT used. This means theming is controlled by redefining the CSS variables, not by adding `dark:` classes to every element.
-
-**Option A (recommended — minimal refactor):**
-
-Define light-mode values as defaults in `:root`, override with dark values in `:root.dark`:
-```css
-:root {
-  --color-bg: #ffffff;
-  --color-surface: #f8fafc;
-  --color-border: #e2e8f0;
-  --color-text-primary: #0f172a;
-  /* ... all ~15 variables with light values */
-}
-
-:root.dark {
-  --color-bg: #0f1117;
-  --color-surface: #1a1d27;
-  /* ... existing dark values */
-}
-```
-
-Toggle: `document.documentElement.classList.toggle('dark', isDark)`.
-
-**Persistence pattern (Tailwind official recommendation):**
-```html
-<!-- index.html <head> — prevents FOUC -->
-<script>
-  (function() {
-    var theme = localStorage.getItem('theme');
-    var dark = theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    document.documentElement.classList.toggle('dark', dark);
-  })();
-</script>
-```
-
-**React `useTheme` hook:**
-```typescript
-function useTheme() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const stored = localStorage.getItem('theme');
-    if (stored === 'light' || stored === 'dark') return stored;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  });
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  return { theme, toggle: () => setTheme(t => t === 'dark' ? 'light' : 'dark') };
-}
-```
-
-Toggle button placed in `PageHeader` (already the top-level header component).
-
----
-
-## Competitor Feature Analysis
-
-| Feature | Plannotator | open-plan-annotator | plan-reviewer (v0.3.0) |
-|---------|-------------|---------------------|------------------------|
-| Claude Code integration | Plugin marketplace | Plugin | Config hook (v0.1.0) |
-| Opencode integration | `@plannotator/opencode` plugin | `open-plan-annotator@latest` plugin | Plugin (v0.3.0) |
-| Codestral | Not mentioned | Not mentioned | Documented as N/A (model) |
-| Annotation types | Delete, Replace, Comment, Insert | Same | Comment, Delete, Replace |
-| Quick-action labels | 10 default + customizable up to 12 | Not documented | 6 predefined (v0.3.0) |
-| Light/dark mode | Not documented | Not documented | Toggle + persist (v0.3.0) |
-| Distribution | Bun runtime + npm | npm | Single static binary, `curl \| sh` |
-| Install command | Manual `opencode.json` edit | Manual | `plan-reviewer install opencode` |
+No fundamentally new technology is needed. All pieces use existing React patterns
+(hooks, state) and existing browser APIs (Clipboard API, Page Visibility API).
 
 ---
 
@@ -320,19 +229,18 @@ Toggle button placed in `PageHeader` (already the top-level header component).
 
 | Source | Confidence | Used For |
 |--------|------------|----------|
-| https://opencode.ai/docs/plugins/ | HIGH | Opencode plugin format, hook events |
-| https://opencode.ai/docs/config/ | HIGH | Config file path, plugin array format |
-| https://github.com/anomalyco/opencode/issues/7006 | HIGH | `permission.asked` unimplemented — confirmed |
-| https://github.com/anomalyco/opencode/issues/21293 | HIGH | stdin/stdout spawn unreliable — confirmed |
-| https://github.com/backnotprop/plannotator/blob/main/apps/opencode-plugin/README.md | HIGH | Working opencode plugin pattern |
-| https://github.com/ndom91/open-plan-annotator | HIGH | Second working opencode plugin reference |
-| https://github.com/backnotprop/plannotator | HIGH | Quick Labels UX pattern, annotation types |
-| https://tailwindcss.com/docs/dark-mode | HIGH | Tailwind v4 dark mode class strategy |
-| https://github.com/mistralai/mistral-vibe | MEDIUM | Mistral's actual CLI coding agent — no plan hooks |
-| https://docs.mistral.ai/mistral-vibe/introduction | MEDIUM | mistral-vibe config.toml, no external hooks |
-| https://dev.to/jacobandrewsky/better-feedback-in-code-reviews-with-conventional-comments-2c3k | LOW | Annotation label design patterns |
+| https://web.dev/articles/offline-ux-design-guidelines | HIGH | Banner vs toast, language guidance, graceful degradation |
+| https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API | HIGH | `navigator.clipboard.writeText` behavior, secure context requirement |
+| https://caniuse.com/mdn-api_clipboard_writetext | HIGH | Clipboard API browser support (Baseline Newly Available 2025) |
+| https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API | HIGH | `document.hidden`, `visibilitychange` event |
+| https://blog.logrocket.com/ux-design/toast-notifications/ | MEDIUM | Toast vs banner distinction; persistent status indicator pattern |
+| https://github.com/firefox-devtools/ux/issues/51 | HIGH | "Copied!" feedback pattern — standard 1–2s button state change |
+| https://shoelace.style/components/copy-button | MEDIUM | `feedback-duration` attribute, "Copied!" confirmation UX |
+| https://overreacted.io/making-setinterval-declarative-with-react-hooks/ | HIGH | `useInterval` / `useHeartbeat` React hook implementation pattern |
+| https://medium.com/tech-pulse-by-collatzinc/modern-javascript-polling-adaptive-strategies | MEDIUM | Polling interval strategy; fixed vs adaptive; visibility awareness |
+| https://medium.com/@seeranjeeviramavel/the-pitfall-of-using-navigator-clipboard-in-non-https-web-apps | HIGH | Localhost = secure context confirmation; `window.isSecureContext` |
 
 ---
 
-*Feature research for: AI coding-agent plan reviewer (v0.3.0 — opencode/codestral integrations, annotation quick-actions, theme switching, user docs)*
-*Researched: 2026-04-10*
+*Feature research for: AI coding-agent plan reviewer (v0.5.0 — Offline Resilience)*
+*Researched: 2026-05-05*

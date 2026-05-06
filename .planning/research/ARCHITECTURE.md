@@ -1,7 +1,7 @@
 # Architecture Patterns
 
 **Domain:** Rust CLI tool — stdin JSON in, browser UI review, stdout JSON out
-**Researched:** 2026-04-10 (updated for v0.3.0)
+**Researched:** 2026-04-10 (updated for v0.3.0, extended for v0.5.0 Offline Resilience 2026-05-05)
 **Confidence:** HIGH for existing code; LOW for opencode/codestral hook protocols (see caveats)
 
 ---
@@ -546,3 +546,334 @@ The relevant concerns are binary size and startup latency — unchanged from v0.
 - [Tokio oneshot channel docs](https://docs.rs/tokio/latest/tokio/sync/oneshot/index.html)
 - [axum-embed crate](https://crates.io/crates/axum-embed)
 - [rust-embed](https://github.com/pyros2097/rust-embed)
+
+---
+
+---
+
+# v0.5.0 Offline Resilience — Integration Architecture
+
+**Added:** 2026-05-05
+**Confidence:** HIGH — based on direct codebase inspection
+
+---
+
+## Existing System (Confirmed from Code)
+
+### API Surface (src/server.rs — as-built)
+
+| Route | Method | Handler | Purpose |
+|-------|--------|---------|---------|
+| `/api/plan` | GET | `get_plan` | Returns `{plan_md: string}` |
+| `/api/diff` | GET | `get_diff` | Returns `{diff: string}` |
+| `/api/config` | GET | `get_config` | Returns `{approve_label, deny_label}` |
+| `/api/decide` | POST | `post_decide` | Accepts `{behavior, message?}`; fires `oneshot::Sender<Decision>`; 409 if already decided |
+| `/*` (fallback) | GET | `ServeEmbed<Assets>` | SPA static files via rust-embed |
+
+### Critical property of `post_decide`
+
+The `decision_tx` `oneshot::Sender` is `.take()`n from a `Mutex<Option<Sender>>`. It fires exactly once. After firing, `/api/decide` returns 409 on all subsequent calls. This is important for the offline path: if the user submits offline (clipboard) and then the server somehow comes back, a subsequent POST to `/api/decide` would 409 — which is fine because the oneshot already fired.
+
+### Decision timeline
+
+```
+binary spawns → server starts → browser opens → user reviews
+                                                      |
+                                  (server exits 3s after decision)
+                                                      |
+                              binary exits → browser tab orphaned
+```
+
+The 3-second watchdog (`tokio::spawn` sleeping 3s then `process::exit(0)`) means the browser tab is alive but the server is dead within seconds of the user's decision. In the `/annotate` flow (background execution), the binary can be killed even before the decision fires — that is the core failure mode this milestone addresses.
+
+---
+
+## New Components for v0.5.0
+
+### 1. Rust: `GET /api/ping` endpoint (src/server.rs)
+
+**What changes:** One new handler function + one new route line.
+
+```rust
+// New handler — no AppState needed
+async fn get_ping() -> impl IntoResponse {
+    StatusCode::OK
+}
+
+// In start_server, add to router:
+.route("/api/ping", get(get_ping))
+```
+
+No changes to `AppState`, `Decision`, `start_server` signature, or any other Rust file. This is the entire backend change.
+
+### 2. Frontend: `ConnectivityStatus` type (ui/src/types.ts)
+
+Add one export:
+
+```typescript
+export type ConnectivityStatus = 'online' | 'degraded' | 'offline'
+```
+
+### 3. Frontend: `useHeartbeat` hook (ui/src/hooks/useHeartbeat.ts — new file)
+
+**Responsibility:** Poll `/api/ping` at a fixed interval. Return connectivity status.
+
+**State machine:**
+
+```
+              ping success          ping success
+  online ──────────────► online ◄──────────────── degraded
+     │                                                  │
+     │ 1st failure                                      │ N consecutive failures
+     ▼                                                  ▼
+  degraded ──────────────────────────────────────► offline
+                    N consecutive failures
+```
+
+- `intervalMs` default: 5000 (5 seconds)
+- Degraded → offline threshold: 3 consecutive failures (15 seconds total)
+- Each fetch: `AbortController` with 2000ms timeout
+- Cleanup: `clearInterval` on unmount
+- Does not start polling until called (caller gates it to `appState === 'reviewing'`)
+
+**Interface:**
+
+```typescript
+function useHeartbeat(
+  intervalMs?: number,           // default 5000
+  offlineThreshold?: number      // default 3 consecutive failures
+): ConnectivityStatus
+```
+
+### 4. Frontend: Connectivity banner (inline in App.tsx)
+
+Rendered between `PageHeader` and the two-column layout when `connectivity !== 'online'`.
+
+- Amber/yellow background, informational (not blocking)
+- Text: "Server connection lost. Your annotations are safe — submit will copy to clipboard."
+- No separate component file needed (10-15 lines of JSX inline in App)
+
+### 5. Frontend: Clipboard submit path (App.tsx — modify existing handlers)
+
+`approve()` and `deny()` branch on `connectivity`:
+
+**Online path (unchanged):**
+```
+fetch POST /api/decide → transition to 'confirmed'
+```
+
+**Offline path (new):**
+```
+build payload JSON
+navigator.clipboard.writeText(JSON.stringify(payload))
+setClipboardMode(true)
+transition to 'confirmed'
+```
+
+The payload mirrors exactly what the server returns on stdout:
+
+- Approve offline: `{behavior: "allow"}`
+- Deny offline: `{behavior: "deny", message: serializeAnnotations(denyMessage, overallComment, annotations)}`
+
+**Critical constraint:** `navigator.clipboard.writeText` must be called inside the click event handler synchronously (before any `await`). Do not await any fetch before calling it — that removes the user gesture context and Chrome will reject the clipboard write silently.
+
+**Button label mutation (when `connectivity !== 'online'`):**
+- Approve button: relabel to "Copy to clipboard" (or keep label, add note "→ clipboard")
+- Submit Denial button: relabel to "Copy feedback"
+
+### 6. Frontend: `ConfirmationView` update (App.tsx)
+
+Add `clipboardMode?: boolean` prop. When true:
+
+> "Copied to clipboard. Paste it into the conversation to submit your review."
+
+instead of the normal "You can close this tab." / "Your feedback has been sent."
+
+### 7. Rust: `annotate.md` Step 4 update (src/integrations/claude.rs)
+
+The `annotate_content` `concat!` string constant — Step 4 section only.
+
+**Current Step 4** instructs Claude to parse stdout JSON only.
+
+**New Step 4** adds a fallback path:
+
+```markdown
+## Step 4 — Handle the result
+
+**Primary path — stdout JSON:** If the command produced output on stdout, parse it:
+
+**On `{"behavior":"allow"}`:**
+Say: "Review complete, no comments." Then proceed with your next step.
+
+**On `{"behavior":"deny","message":"<feedback>"}`:**
+Say: "Feedback received: <feedback>" Then treat the message as revision
+instructions for the reviewed content and propose how you will address it.
+
+**Fallback path — clipboard paste:** If stdout is empty or the background process
+was killed before it could write output, ask the user:
+
+> "The review server was interrupted. If you copied feedback to the clipboard,
+> please paste it here — or let me know if you closed the tab without submitting."
+
+If the user pastes JSON matching `{"behavior":"..."}`, parse it the same way as
+the stdout result above. If the user indicates no feedback or pastes nothing,
+treat it as: "Review complete, no comments."
+```
+
+The test in `claude.rs` (`install_creates_annotate_md_with_expected_content`) asserts specific content strings. Those assertions must be updated to match the new Step 4 text. The test for "Review complete" and "Feedback received" phrasing remains valid — those strings survive in the new text.
+
+---
+
+## Integration Points Summary
+
+| Point | File | Change Type | Notes |
+|-------|------|-------------|-------|
+| Backend ping route | `src/server.rs` | ADD — 5 lines | One handler + one route entry |
+| ConnectivityStatus type | `ui/src/types.ts` | ADD — 1 line | Export new type |
+| useHeartbeat hook | `ui/src/hooks/useHeartbeat.ts` | NEW FILE | ~50 lines |
+| Connectivity state in App | `ui/src/App.tsx` | MODIFY — call hook | Add `const connectivity = useHeartbeat(5000)` |
+| Connectivity banner | `ui/src/App.tsx` | MODIFY — add JSX | 10-15 lines between header and columns |
+| approve() handler | `ui/src/App.tsx` | MODIFY — branch | Online: POST; offline: clipboard |
+| deny() handler | `ui/src/App.tsx` | MODIFY — branch | Online: POST; offline: clipboard |
+| Button labels | `ui/src/App.tsx` | MODIFY — conditional render | Relabel when offline |
+| ConfirmationView | `ui/src/App.tsx` | MODIFY — add prop | `clipboardMode?: boolean` |
+| annotate.md Step 4 | `src/integrations/claude.rs` | MODIFY — string content | New fallback path instructions |
+| annotate.md test | `src/integrations/claude.rs` | MODIFY — update assertions | Match new Step 4 text |
+| AnnotationSidebar | `ui/src/components/AnnotationSidebar.tsx` | NO CHANGE | |
+| DiffView, TabBar, PlanOutline | `ui/src/components/*.tsx` | NO CHANGE | |
+| serializeAnnotations | `ui/src/utils/serializeAnnotations.ts` | NO CHANGE | Already produces the right message string |
+| hook.rs, main.rs, install.rs, uninstall.rs, update.rs | `src/*.rs` | NO CHANGE | |
+
+---
+
+## Data Flow Changes
+
+### Online path (no behavioral change)
+
+```
+User clicks Submit
+  App.tsx approve() or deny()
+  → connectivity === 'online'
+  → fetch POST /api/decide {behavior, message}
+  → server post_decide fires oneshot::Sender<Decision>
+  → main.rs: decision_rx fires, stdout JSON written, 3s watchdog starts
+  → App.tsx: ConfirmationView (normal mode)
+  → browser tab remains open; binary exits in 3s
+```
+
+### Offline path (new)
+
+```
+useHeartbeat detects consecutive ping failures
+  → connectivity: 'online' → 'degraded' → 'offline'
+  → App.tsx re-renders: banner shown, button labels change
+
+User clicks Submit (offline)
+  App.tsx approve() or deny()
+  → connectivity !== 'online'
+  → skip fetch entirely
+  → build payload: {behavior: "allow"} or {behavior: "deny", message: <serialized>}
+  → navigator.clipboard.writeText(JSON.stringify(payload))   ← must be synchronous, inside click handler
+  → setClipboardMode(true)
+  → setDecision(...); setAppState('confirmed')
+  → App.tsx: ConfirmationView (clipboardMode=true)
+  → user pastes clipboard content into Claude Code conversation
+
+annotate.md Step 4 (fallback)
+  → Claude detects empty stdout or killed process
+  → asks user to paste clipboard content
+  → user pastes JSON
+  → Claude parses {behavior, message} same as stdout
+```
+
+### Heartbeat loop
+
+```
+useHeartbeat (every 5s after 'reviewing' state)
+  → fetch GET /api/ping (AbortController, 2s timeout)
+  → success:
+      consecutiveFailures = 0
+      connectivity = 'online'
+  → failure or timeout:
+      consecutiveFailures++
+      if consecutiveFailures === 1: connectivity = 'degraded'
+      if consecutiveFailures >= 3:  connectivity = 'offline'
+```
+
+---
+
+## Suggested Build Order
+
+Dependencies drive the ordering. Each step is independently testable before moving to the next.
+
+### Step 1: `GET /api/ping` (Rust — server.rs)
+
+The frontend heartbeat has nothing to poll without this. Smallest possible change (one handler + one route line). Makes the backend complete for this milestone.
+
+Files: `src/server.rs` only.
+Test: `cargo test` passes; `curl http://127.0.0.1:{port}/api/ping` returns 200.
+
+### Step 2: `ConnectivityStatus` + `useHeartbeat` hook (Frontend)
+
+Can be developed and manually tested in isolation against the real `/api/ping`. Does not require any UI changes. Build and verify the state machine before touching App.tsx.
+
+Files: `ui/src/types.ts` (one line), `ui/src/hooks/useHeartbeat.ts` (new file).
+Test: Unit-test with mocked `fetch`; verify online→degraded→offline transitions and recovery.
+
+### Step 3: Connectivity banner (App.tsx)
+
+Pure rendering — reads `connectivity`, shows/hides. No logic. Visually verifiable before changing submit behavior.
+
+Files: `ui/src/App.tsx` (call hook + add banner JSX).
+Test: Temporarily hardcode `connectivity = 'offline'`; verify banner renders correctly.
+
+### Step 4: Clipboard submit path (App.tsx)
+
+Depends on Steps 2 and 3 (connectivity state must exist). Modifies the existing `approve()` and `deny()` functions — the most impactful frontend change. Do this after the banner is verified so the full offline experience can be tested end-to-end.
+
+Files: `ui/src/App.tsx` (branch in approve/deny, button label mutation, ConfirmationView clipboardMode prop).
+Test: Mock `navigator.clipboard.writeText`; assert called with correct JSON payload when `connectivity === 'offline'`. Verify online path unchanged.
+
+### Step 5: `annotate.md` Step 4 update (Rust — claude.rs)
+
+No code dependencies on the frontend steps. Pure string constant edit. Last because it is a slash command instruction with no runtime effect — tested only via content-assertion unit tests.
+
+Files: `src/integrations/claude.rs` (update `annotate_content` string + update test assertions).
+Test: `cargo test` — the existing `install_creates_annotate_md_with_expected_content` test catches regressions.
+
+---
+
+## Anti-Patterns to Avoid (v0.5.0 specific)
+
+### Making connectivity a blocking UI error
+
+Showing an error dialog or blocking annotation when the server first goes offline interrupts the user's flow mid-review. Connectivity is informational. The user annotates normally; the only behavioral change is at submit time.
+
+### WebSocket instead of polling
+
+A WebSocket connection stays alive only while the server is running. The server's 3-second exit watchdog makes it unreliable as a liveness signal. A missed ping from `setInterval` polling is simpler, more obvious, and requires no persistent connection.
+
+### Adding 'offline' to AppState
+
+`AppState = 'loading' | 'error' | 'reviewing' | 'confirmed'` encodes navigation state. Offline is connectivity state — orthogonal. Mixing them forces every existing `if (appState === 'reviewing')` check to account for offline, creating widespread logic changes.
+
+### Async before clipboard write
+
+`navigator.clipboard.writeText` requires a user gesture context. Any `await` before the call (including `await fetch(...)`) can cause Chrome to reject the write silently. The clipboard write must be the first action in the click handler when offline, before any async work.
+
+### Allowing annotate.md to silently skip empty stdout
+
+If the background process is killed before stdout is written, empty stdout looks identical to "no result." Without an explicit fallback instruction, Claude would infer "no feedback" and proceed. The new Step 4 must explicitly ask the user to paste.
+
+---
+
+## Sources (v0.5.0 section)
+
+- `src/server.rs` — existing route handlers, AppState, oneshot channel (direct inspection, HIGH confidence)
+- `src/main.rs` — 3-second exit watchdog, `async_main` flow (direct inspection, HIGH confidence)
+- `src/integrations/claude.rs` — `annotate_content` string, test assertions (direct inspection, HIGH confidence)
+- `ui/src/App.tsx` — `approve()`, `deny()`, `AppState` type, component layout (direct inspection, HIGH confidence)
+- `ui/src/types.ts` — existing type exports (direct inspection, HIGH confidence)
+- `ui/src/utils/serializeAnnotations.ts` — serialization output format (direct inspection, HIGH confidence)
+- MDN Clipboard API: https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/writeText
+- MDN AbortController: https://developer.mozilla.org/en-US/docs/Web/API/AbortController
