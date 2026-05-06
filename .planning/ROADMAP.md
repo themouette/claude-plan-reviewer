@@ -5,6 +5,7 @@
 - ✅ **v0.1.0 MVP** — Phases 1-4 (shipped 2026-04-10)
 - 🚧 **v0.3.0 Integrations, Annotations & Polish** — Phases 5-9 (in progress)
 - 🚧 **v0.4.0 Agent-Native Review** — Phases 10-11.1 (planned)
+- 🚧 **v0.5.0 Offline Resilience** — Phases 12-16 (planned)
 
 ## Phases
 
@@ -41,6 +42,16 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 - [x] **Phase 10: Slash Command Install/Uninstall** - `plan-reviewer install claude` creates `commands/annotate.md` in the plugin directory; `uninstall claude` removes it; `/annotate` appears in Claude Code's slash command menu (completed 2026-04-11)
 - [x] **Phase 11: Slash Command Prompt** - The `annotate.md` prompt implements input resolution (explicit path → last `.md` → temp file), background execution via `plan-reviewer review`, and feedback-framed result handling (prompt-only, zero binary changes) (completed 2026-04-11)
 - [x] **Phase 11.1: Configurable Review Actions** - Add `--approve-label`/`--deny-label` CLI flags to `plan-reviewer review`; pass labels to frontend for dynamic rendering; update `annotate.md` to use "No issues"/"Leave feedback" labels (completed 2026-04-11)
+
+### 🚧 v0.5.0 Offline Resilience (Planned)
+
+**Milestone Goal:** When Claude Code kills the background server process, the browser UI detects the loss, keeps the user working offline, and exports annotations via clipboard with a fallback path in the `annotate.md` slash command.
+
+- [ ] **Phase 12: Backend Heartbeat Endpoint** - Add `GET /api/ping` route returning 200 OK; the smallest possible change that unblocks all frontend heartbeat work
+- [ ] **Phase 13: Connectivity State & Heartbeat Hook** - Add `ConnectivityStatus` type and `useHeartbeat` hook with 3-failure threshold, `AbortSignal.timeout`, and visibility-aware pause/resume
+- [ ] **Phase 14: Offline Banner & Button Relabeling** - Render persistent amber banner when offline; replace submit buttons with "Copy to clipboard" label; banner clears on reconnect
+- [ ] **Phase 15: Clipboard Submit Path** - Wire clipboard export into approve/deny handlers; lock JSON format to server response shape; show distinct confirmation screen after copy
+- [ ] **Phase 16: Slash Command Fallback** - Update `annotate.md` Step 4 to ask user to paste clipboard JSON when no stdout result is received
 
 ## Phase Details
 
@@ -220,6 +231,71 @@ Plans:
 - [x] 11.1-01-PLAN.md — CLI flags + server /api/config endpoint + integration tests
 - [x] 11.1-02-PLAN.md — Frontend dynamic labels + annotate.md custom label flags
 
+---
+
+## v0.5.0: Offline Resilience
+
+### Phase 12: Backend Heartbeat Endpoint
+**Goal**: The server exposes `GET /api/ping` returning 200 OK — the minimal Rust change that unblocks all frontend heartbeat development and lets every subsequent phase be tested against a real server
+**Depends on**: Phase 11.1
+**Requirements**: HB-01
+**Success Criteria** (what must be TRUE):
+  1. `curl http://127.0.0.1:{port}/api/ping` returns HTTP 200 with an empty or minimal body
+  2. `cargo test` passes with no regressions
+  3. The new route appears alongside existing routes in `src/server.rs` with no changes to existing handlers
+  4. The endpoint is stateless — no server-side data is read or written
+**Plans**: TBD
+
+### Phase 13: Connectivity State & Heartbeat Hook
+**Goal**: A `ConnectivityStatus` type and a `useHeartbeat` hook give the frontend a reliable, tested signal for server reachability — requiring 3 consecutive failures to declare offline, aborting each fetch after 3 seconds, and pausing polling when the browser tab is hidden
+**Depends on**: Phase 12
+**Requirements**: HB-02, HB-03, HB-04
+**Success Criteria** (what must be TRUE):
+  1. A single failed ping does not change connectivity status — three consecutive failures are required to transition to `offline`
+  2. Each ping request is cancelled after 3 seconds via `AbortSignal.timeout(3000)` so a hung server cannot block the next interval tick
+  3. Polling pauses immediately when `document.visibilityState === 'hidden'` and resumes on the next `visibilitychange` event
+  4. When the server recovers after being offline, connectivity status returns to `online` after a single successful ping
+  5. Vitest tests cover the online→degraded→offline→online transition sequence in isolation
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 14: Offline Banner & Button Relabeling
+**Goal**: When connectivity is offline, users see a persistent amber banner and submit buttons are relabeled to "Copy to clipboard" — these are pure rendering changes with no submit-path logic; the banner clears automatically when the server recovers
+**Depends on**: Phase 13
+**Requirements**: OFX-01, OFX-02
+**Success Criteria** (what must be TRUE):
+  1. An amber non-dismissable banner reading "Server connection lost — working offline" (or equivalent) appears between the page header and the review columns when connectivity is offline
+  2. The banner is not shown and cannot be triggered while the server is reachable
+  3. Submit buttons are relabeled to "Copy to clipboard" when offline and return to their normal labels when the server recovers
+  4. The banner disappears when a successful ping restores connectivity
+  5. The offline state is never represented as a blocking error — the annotation UI remains fully interactive
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 15: Clipboard Submit Path
+**Goal**: When offline, clicking "Copy to clipboard" serializes the current annotation state as `{"behavior":"allow"}` or `{"behavior":"deny","message":"..."}` — the identical format the server returns — writes it to the clipboard synchronously, and shows a distinct confirmation screen with "Copied to clipboard — paste into Claude"
+**Depends on**: Phase 14
+**Requirements**: CLB-01, CLB-02
+**Success Criteria** (what must be TRUE):
+  1. Clicking "Copy to clipboard" in offline mode places `{"behavior":"allow"}` or `{"behavior":"deny","message":"<text>"}` on the clipboard — format byte-for-byte identical to the server POST response
+  2. After a successful clipboard write, a confirmation screen distinct from the normal approve/deny confirmation appears with the instruction "Copied to clipboard — paste into Claude"
+  3. The clipboard write is called synchronously inside the click handler with no `await` before it — no transient activation errors in Safari or Firefox
+  4. Vitest tests assert the clipboard payload matches the expected JSON shape for both approve and deny cases
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 16: Slash Command Fallback
+**Goal**: `annotate.md` Step 4 is updated so that when no stdout result arrives (because the server was killed before the user submitted), Claude asks the user to paste the clipboard JSON into the conversation — completing the offline workflow end-to-end
+**Depends on**: Phase 15
+**Requirements**: SLC-01
+**Success Criteria** (what must be TRUE):
+  1. The updated `annotate.md` Step 4 instructs Claude to ask for a pasted clipboard JSON if stdout is empty when the background process exits
+  2. When a user pastes `{"behavior":"allow"}`, Claude proceeds as it would for a normal approve result
+  3. When a user pastes `{"behavior":"deny","message":"..."}`, Claude treats the message as feedback and proposes revisions
+  4. The existing stdout path (server alive, result arrives normally) is unchanged — the fallback triggers only on empty stdout
+  5. The `install_creates_annotate_md_with_expected_content` unit test is updated to assert the new Step 4 text
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -240,3 +316,8 @@ Plans:
 | 10. Slash Command Install/Uninstall | v0.4.0 | 1/1 | Complete   | 2026-04-11 |
 | 11. Slash Command Prompt | v0.4.0 | 1/1 | Complete   | 2026-04-11 |
 | 11.1. Configurable Review Actions | v0.4.0 | 2/2 | Complete   | 2026-04-11 |
+| 12. Backend Heartbeat Endpoint | v0.5.0 | 0/? | Not started | - |
+| 13. Connectivity State & Heartbeat Hook | v0.5.0 | 0/? | Not started | - |
+| 14. Offline Banner & Button Relabeling | v0.5.0 | 0/? | Not started | - |
+| 15. Clipboard Submit Path | v0.5.0 | 0/? | Not started | - |
+| 16. Slash Command Fallback | v0.5.0 | 0/? | Not started | - |

@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v0.5.0
 milestone_name: Offline Resilience
 status: in_progress
-stopped_at: Defining requirements
+stopped_at: Roadmap created — ready for phase planning
 last_updated: "2026-05-06T00:00:00.000Z"
-last_activity: 2026-05-06 -- Milestone v0.5.0 started (Offline Resilience)
+last_activity: 2026-05-06 -- v0.5.0 roadmap created (5 phases, 9 requirements)
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-05-06)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 12 (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-06 -- Milestone v0.5.0 started (Offline Resilience)
+Status: Roadmap created — ready for phase planning
+Last activity: 2026-05-06 -- v0.5.0 roadmap created (5 phases, 9 requirements)
 
 Progress: [░░░░░░░░░░] 0% (v0.5.0)
 
@@ -49,7 +49,7 @@ Progress: [░░░░░░░░░░] 0% (v0.5.0)
 | 7 | 2 | - | - |
 | 08 | 2 | - | - |
 
-*v0.4.0 metrics will populate as plans complete*
+*v0.5.0 metrics will populate as plans complete*
 
 ## Accumulated Context
 
@@ -67,6 +67,10 @@ Recent decisions affecting current work:
 - [v0.4.0]: Slash command implementation lives entirely in the `annotate.md` prompt file — no binary changes needed for SLSH-03/04 input resolution logic
 - [v0.4.0]: `plan-reviewer review <file>` (Phase 07.4) is the execution primitive the slash command invokes via Claude Code's Bash tool with `run_in_background: true`
 - [v0.4.0]: PLGN-01/02/03 require changes to `src/integrations/claude.rs` install/uninstall methods only
+- [v0.5.0]: ConnectivityStatus is a parallel type to AppState — do NOT add offline as an AppState variant; merging these concerns is the primary anti-pattern to avoid
+- [v0.5.0]: navigator.clipboard.writeText() must be called synchronously in the click handler — no await before it; async gap voids transient activation in Safari and Firefox
+- [v0.5.0]: 3 consecutive failures required before declaring offline (not 1) to prevent false alarms from transient loopback hiccups
+- [v0.5.0]: Clipboard JSON format is {"behavior":"allow"} or {"behavior":"deny","message":"..."} — identical to build_opencode_output; must not drift
 
 ### Roadmap Evolution
 
@@ -75,6 +79,7 @@ Recent decisions affecting current work:
 - Phase 07.2 inserted after Phase 7: insert phase A from .planning/research/INTEGRATION-PLUGIN-REWORK.md (URGENT)
 - Phase 07.3 inserted after Phase 7: insert phase B from .planning/research/INTEGRATION-PLUGIN-REWORK.md (URGENT)
 - v0.4.0 milestone started: Phase 10 (Slash Command Install/Uninstall) and Phase 11 (Slash Command Prompt) added
+- v0.5.0 milestone started: Phases 12-16 added (Offline Resilience — heartbeat, connectivity state, offline banner, clipboard submit, slash command fallback)
 
 ### Quick Tasks Completed
 
@@ -91,9 +96,10 @@ None yet.
 - [Phase 6] Gemini CLI denial retry behavior unconfirmed — agent may loop on repeated `exit_plan_mode` denial; needs integration test
 - [Phase 6] Full `tool_input` schema for Gemini `exit_plan_mode` partially documented — `plan_path` confirmed, other fields unknown
 - [Phase 7] opencode JS plugin bundling strategy not yet designed — needs a plan
+- [Phase 15] Manual smoke test required after Phase 15: paste clipboard JSON into Claude and confirm Claude parses it correctly — no automated proxy for prompt quality
 
 ## Session Continuity
 
-Last session: 2026-04-11T21:22:53.395Z
-Stopped at: Phase 11 context gathered (discuss mode)
-Resume file: .planning/phases/11-slash-command-prompt/11-CONTEXT.md
+Last session: 2026-05-06T00:00:00.000Z
+Stopped at: v0.5.0 roadmap created
+Resume file: .planning/ROADMAP.md (Phase 12 is next)
