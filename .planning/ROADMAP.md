@@ -48,7 +48,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 **Milestone Goal:** When Claude Code kills the background server process, the browser UI detects the loss, keeps the user working offline, and exports annotations via clipboard with a fallback path in the `annotate.md` slash command.
 
 - [x] **Phase 12: Backend Heartbeat Endpoint** - Add `GET /api/ping` route returning 200 OK; the smallest possible change that unblocks all frontend heartbeat work (completed 2026-05-07)
-- [ ] **Phase 13: Connectivity State & Heartbeat Hook** - Add `ConnectivityStatus` type and `useHeartbeat` hook with 3-failure threshold, `AbortSignal.timeout`, and visibility-aware pause/resume
+- [x] **Phase 13: Connectivity State & Heartbeat Hook** - Add `ConnectivityStatus` type and `useHeartbeat` hook with 3-failure threshold, `AbortSignal.timeout`, and visibility-aware pause/resume (completed 2026-05-07)
 - [ ] **Phase 14: Offline Banner & Button Relabeling** - Render persistent amber banner when offline; replace submit buttons with "Copy to clipboard" label; banner clears on reconnect
 - [ ] **Phase 15: Clipboard Submit Path** - Wire clipboard export into approve/deny handlers; lock JSON format to server response shape; show distinct confirmation screen after copy
 - [ ] **Phase 16: Slash Command Fallback** - Update `annotate.md` Step 4 to ask user to paste clipboard JSON when no stdout result is received
@@ -258,13 +258,13 @@ Plans:
   3. Polling pauses immediately when `document.visibilityState === 'hidden'` and resumes on the next `visibilitychange` event
   4. When the server recovers after being offline, connectivity status returns to `online` after a single successful ping
   5. Vitest tests cover the online→degraded→offline→online transition sequence in isolation
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
 **Wave 1**
-- [ ] 13-01-PLAN.md — Connectivity reducer + Vitest tests covering online → degraded → offline → online sequence
+- [x] 13-01-PLAN.md — Connectivity reducer + Vitest tests covering online → degraded → offline → online sequence
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 13-02-PLAN.md — useHeartbeat React hook with 5s polling, AbortSignal.timeout(3000), and visibility-aware pause/resume
+- [x] 13-02-PLAN.md — useHeartbeat React hook with 5s polling, AbortSignal.timeout(3000), and visibility-aware pause/resume
 **UI hint**: yes
 
 ### Phase 14: Offline Banner & Button Relabeling
@@ -325,7 +325,7 @@ Plans:
 | 11. Slash Command Prompt | v0.4.0 | 1/1 | Complete   | 2026-04-11 |
 | 11.1. Configurable Review Actions | v0.4.0 | 2/2 | Complete   | 2026-04-11 |
 | 12. Backend Heartbeat Endpoint | v0.5.0 | 0/1 | Planned | - |
-| 13. Connectivity State & Heartbeat Hook | v0.5.0 | 0/2 | Planned | - |
+| 13. Connectivity State & Heartbeat Hook | v0.5.0 | 2/2 | Complete   | 2026-05-07 |
 | 14. Offline Banner & Button Relabeling | v0.5.0 | 0/? | Not started | - |
 | 15. Clipboard Submit Path | v0.5.0 | 0/? | Not started | - |
 | 16. Slash Command Fallback | v0.5.0 | 0/? | Not started | - |
