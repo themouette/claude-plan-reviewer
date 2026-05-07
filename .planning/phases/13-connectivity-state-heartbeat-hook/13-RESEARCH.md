@@ -616,22 +616,24 @@ describe('useHeartbeat (integration)', () => {
 | A4 | A 5 s polling cadence is correct (REQUIREMENTS.md HB-02 line 82).                                                                                  | User Constraints / Phase Requirements | Verified literal; no risk.                                                                                                          |
 | A5 | The first tick should fire immediately on mount (not after the first 5 s delay), to surface real reachability promptly without a banner flash.    | Pitfall 7                          | If the planner chooses to delay the first tick, the offline-detection time at startup grows by 5 s — a UX preference, not a defect. |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+All three questions are advisory — the planner internalized each outcome into Plans 13-01 and 13-02. Q3's recommendation was not adopted; rationale is recorded inline below.
 
 1. **Should the hook also expose a manual `recheck()` function?**
    - What we know: Phase 14 only renders based on the status; nothing else triggers a recheck today.
    - What's unclear: A future "Reconnect now" button (OFX-04, deferred) would need this.
-   - Recommendation: Do not add `recheck()` in Phase 13. Add it when OFX-04 lands.
+   - RESOLVED: Do not add `recheck()` in Phase 13. Add it when OFX-04 lands. (Plan 13-02 returns `ConnectivityStatus` only.)
 
 2. **Should `ConnectivityStatus` include a third `'checking'` state?**
    - What we know: Success criteria use only `online`/`offline`. STATE.md uses "degraded" only as descriptive prose, not a discrete external state.
    - What's unclear: Phase 14 may want to render an "checking..." indicator while degraded (1-2 failures so far).
-   - Recommendation: Two states only (`online` | `offline`). The degraded period is internally tracked via `failCount` but not exposed. If Phase 14 wants more granularity, expose it then — adding now is YAGNI.
+   - RESOLVED: Two states only (`online` | `offline`). The degraded period is internally tracked via `failCount` but not exposed. If Phase 14 wants more granularity, expose it then — adding now is YAGNI. (Plan 13-01 codifies the two-state union and forbids `'checking'`/`'degraded'` as public variants.)
 
 3. **Should the hook log failures via `console.warn`?**
    - What we know: No requirement either way.
    - What's unclear: A user reporting "the offline banner came on" might want the dev console to show why.
-   - Recommendation: Add `console.warn('[useHeartbeat] ping failed', err)` inside the catch — cheap, no test impact, helpful for debugging. The existing codebase uses bare `console` calls sparingly (none in the UI today), so this is a small new convention.
+   - RESOLVED: **Recommendation NOT adopted.** Plan 13-02 explicitly chose to omit `console.warn` to keep the hook surface minimal — no requirement mandates it, and the existing UI codebase uses bare `console` calls sparingly. Reintroduce when OFX-04 / banner-debug work surfaces a real need.
 
 ## Sources
 
