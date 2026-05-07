@@ -199,7 +199,6 @@ const QUICK_ACTIONS = [
   'search codebase',
 ] as const
 
-const inlineChips = QUICK_ACTIONS.slice(0, 0)
 const overflowChips = QUICK_ACTIONS.slice(0)
 
 function FloatingAnnotationAffordance({ top, left, selectedText, onAddAnnotation }: FloatingAnnotationAffordanceProps) {
@@ -259,32 +258,6 @@ function FloatingAnnotationAffordance({ top, left, selectedText, onAddAnnotation
           onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
         >
           {pill.label}
-        </button>
-      ))}
-      {inlineChips.map((label) => (
-        <button
-          key={label}
-          aria-label={label}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => onAddAnnotation('comment', selectedText, label)}
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            height: '28px',
-            padding: '0 8px',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            border: 'none',
-            background: 'rgba(148, 163, 184, 0.15)',
-            color: 'var(--color-text-secondary)',
-            outline: 'none',
-          }}
-          onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(148, 163, 184, 0.25)' }}
-          onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(148, 163, 184, 0.15)' }}
-          onFocus={(e) => { e.currentTarget.style.outline = '2px solid var(--color-focus)'; e.currentTarget.style.outlineOffset = '2px' }}
-          onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
-        >
-          {label}
         </button>
       ))}
       <details ref={detailsRef} style={{ position: 'relative' }}>
