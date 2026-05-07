@@ -648,6 +648,10 @@ export default function App() {
   }
 
   const connectivity = useHeartbeat()
+  // Ref so approve() always reads the latest connectivity value even when
+  // the memoised callback has not been recreated yet (stale closure risk).
+  const connectivityRef = useRef(connectivity)
+  useEffect(() => { connectivityRef.current = connectivity }, [connectivity])
 
   const [appState, setAppState] = useState<AppState>('loading')
   const [clipboardFallbackJson, setClipboardFallbackJson] = useState<string>('')
@@ -780,7 +784,9 @@ export default function App() {
 
   const approve = useCallback(async () => {
     if (appState !== 'reviewing') return
-    if (shouldUseClipboard(connectivity)) {
+    // Read from ref so we always see the latest connectivity value even if the
+    // callback was memoised before the most recent heartbeat transition.
+    if (shouldUseClipboard(connectivityRef.current)) {
       const json = buildClipboardPayload('allow', '', overallComment, annotations)
       navigator.clipboard.writeText(json).then(() => {
         setAppState('clipboard_confirmed')
@@ -805,7 +811,7 @@ export default function App() {
     } catch {
       setAppState('error')
     }
-  }, [appState, connectivity, overallComment, annotations])
+  }, [appState, overallComment, annotations])
 
   // Global Enter key handler for approve shortcut
   useEffect(() => {
