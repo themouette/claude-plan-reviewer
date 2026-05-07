@@ -244,7 +244,9 @@ Plans:
   2. `cargo test` passes with no regressions
   3. The new route appears alongside existing routes in `src/server.rs` with no changes to existing handlers
   4. The endpoint is stateless — no server-side data is read or written
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 12-01-PLAN.md — Stateless GET /api/ping route in src/server.rs + integration test in tests/integration/server_cycle.rs
 
 ### Phase 13: Connectivity State & Heartbeat Hook
 **Goal**: A `ConnectivityStatus` type and a `useHeartbeat` hook give the frontend a reliable, tested signal for server reachability — requiring 3 consecutive failures to declare offline, aborting each fetch after 3 seconds, and pausing polling when the browser tab is hidden
@@ -316,7 +318,7 @@ Plans:
 | 10. Slash Command Install/Uninstall | v0.4.0 | 1/1 | Complete   | 2026-04-11 |
 | 11. Slash Command Prompt | v0.4.0 | 1/1 | Complete   | 2026-04-11 |
 | 11.1. Configurable Review Actions | v0.4.0 | 2/2 | Complete   | 2026-04-11 |
-| 12. Backend Heartbeat Endpoint | v0.5.0 | 0/? | Not started | - |
+| 12. Backend Heartbeat Endpoint | v0.5.0 | 0/1 | Planned | - |
 | 13. Connectivity State & Heartbeat Hook | v0.5.0 | 0/? | Not started | - |
 | 14. Offline Banner & Button Relabeling | v0.5.0 | 0/? | Not started | - |
 | 15. Clipboard Submit Path | v0.5.0 | 0/? | Not started | - |
