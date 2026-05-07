@@ -1163,8 +1163,8 @@ export default function App() {
 
   async function deny() {
     if (appState !== 'reviewing') return
-    const message = serializeAnnotations(denyMessage, overallComment, annotations)
-    if (!message.trim()) return
+    // Clipboard path runs regardless of empty input so offline users always
+    // get a confirmable payload (even if it contains no message).
     if (shouldUseClipboard(connectivity)) {
       const json = buildClipboardPayload('deny', denyMessage, overallComment, annotations)
       navigator.clipboard.writeText(json).then(() => {
@@ -1175,6 +1175,9 @@ export default function App() {
       })
       return
     }
+    // Online path: guard against submitting with no feedback at all.
+    const message = serializeAnnotations(denyMessage, overallComment, annotations)
+    if (!message.trim()) return
     try {
       const res = await fetch('/api/decide', {
         method: 'POST',

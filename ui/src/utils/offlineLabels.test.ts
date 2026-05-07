@@ -128,6 +128,10 @@ describe('buildClipboardPayload', () => {
   })
 
   it('Test 20: deny with all empty inputs returns valid JSON with empty string message', () => {
+    // Note: the App-level deny() empty-message guard only applies to the
+    // online path. The clipboard path (offline) calls buildClipboardPayload
+    // unconditionally so that offline users always receive a confirmable
+    // payload even if they submitted with no text.
     const result = buildClipboardPayload('deny', '', '', [])
     const parsed = JSON.parse(result) as { behavior: string; message: string }
     expect(parsed.behavior).toBe('deny')
