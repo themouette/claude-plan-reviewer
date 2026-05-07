@@ -100,7 +100,7 @@ describe('buildClipboardPayload', () => {
     expect(parsed.message.length).toBeGreaterThan(0)
   })
 
-  it('Test 18: allow ignores all annotation state and returns allow JSON', () => {
+  it('Test 18: allow with annotations includes reviewer notes in payload', () => {
     const mockAnnotation: Annotation = {
       id: 'a1',
       type: 'comment',
@@ -108,9 +108,12 @@ describe('buildClipboardPayload', () => {
       comment: 'some comment',
       replacement: '',
     }
-    expect(buildClipboardPayload('allow', 'some text', 'overall', [mockAnnotation])).toBe(
-      '{"behavior":"allow"}',
-    )
+    const result = buildClipboardPayload('allow', 'some text', 'overall', [mockAnnotation])
+    const parsed = JSON.parse(result) as { behavior: string; notes?: string }
+    expect(parsed.behavior).toBe('allow')
+    // Reviewer notes are preserved so the recipient has full context.
+    expect(typeof parsed.notes).toBe('string')
+    expect(parsed.notes!.length).toBeGreaterThan(0)
   })
 
   it('Test 19: deny with feedback returns JSON.parse-able object with message containing feedback', () => {

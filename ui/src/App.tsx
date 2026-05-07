@@ -751,7 +751,7 @@ export default function App() {
   const approve = useCallback(async () => {
     if (appState !== 'reviewing') return
     if (shouldUseClipboard(connectivity)) {
-      const json = buildClipboardPayload('allow', '', '', [])
+      const json = buildClipboardPayload('allow', '', overallComment, annotations)
       navigator.clipboard.writeText(json).catch(() => {
         // Clipboard write failed silently — user can copy manually
       })
@@ -773,7 +773,7 @@ export default function App() {
     } catch {
       setAppState('error')
     }
-  }, [appState, connectivity])
+  }, [appState, connectivity, overallComment, annotations])
 
   // Global Enter key handler for approve shortcut
   useEffect(() => {

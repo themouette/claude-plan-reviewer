@@ -37,6 +37,11 @@ export function buildClipboardPayload(
   annotations: Annotation[],
 ): string {
   if (decision === 'allow') {
+    // Include reviewer notes even for approval so the recipient has full context.
+    const notes = serializeAnnotations('', overallComment, annotations)
+    if (notes.trim()) {
+      return JSON.stringify({ behavior: 'allow', notes })
+    }
     return JSON.stringify({ behavior: 'allow' })
   }
   const message = serializeAnnotations(denyText, overallComment, annotations)
