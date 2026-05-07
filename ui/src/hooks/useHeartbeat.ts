@@ -19,14 +19,25 @@ export function useHeartbeat(): ConnectivityStatus {
 
   useEffect(() => {
     let cancelled = false
+    // Generation token: each tick takes a fresh number; a tick whose generation
+    // is no longer current must NOT touch state. This prevents a phantom failure
+    // increment when an interval-driven tick is superseded mid-flight by a
+    // visibilitychange-driven tick (which calls `abortRef.current?.abort()`,
+    // causing the older tick's fetch to reject — that rejection is NOT a real
+    // network failure and must be ignored). Code review WR-01.
+    let generation = 0
 
     async function tick() {
       // Pitfall 5: pause for ANY non-visible state ('hidden', 'prerender', 'unloaded').
       if (document.visibilityState !== 'visible') return
 
+      const myGen = ++generation
+
       // Defense-in-depth: cancel any prior in-flight request.
       // AbortSignal.timeout(3000) < 5000ms interval makes overlap structurally
-      // impossible, but explicit abort is cheap and StrictMode-safe.
+      // impossible for the setInterval axis alone, but the visibilitychange
+      // listener can still fire a fresh tick mid-flight. The generation guard
+      // below prevents the superseded tick from poisoning failCount.
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
@@ -40,13 +51,15 @@ export function useHeartbeat(): ConnectivityStatus {
       let event: HeartbeatEvent
       try {
         const res = await fetch('/api/ping', { signal })
-        if (cancelled) return
+        if (cancelled || myGen !== generation) return
         event = res.ok ? { type: 'success' } : { type: 'failure' }
       } catch {
         // Pitfall 1: do NOT inspect the thrown error — Chromium reports an
         // AbortError, Firefox/Safari report a TimeoutError. Branching on the
         // error type is non-portable. Treat ANY exception as a failure.
-        if (cancelled) return
+        // WR-01: a superseded tick's fetch rejection is NOT a real failure;
+        // skip the state update via the generation guard.
+        if (cancelled || myGen !== generation) return
         event = { type: 'failure' }
       }
 
