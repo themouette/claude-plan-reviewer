@@ -325,7 +325,7 @@ Plans:
 | 11. Slash Command Prompt | v0.4.0 | 1/1 | Complete   | 2026-04-11 |
 | 11.1. Configurable Review Actions | v0.4.0 | 2/2 | Complete   | 2026-04-11 |
 | 12. Backend Heartbeat Endpoint | v0.5.0 | 0/1 | Planned | - |
-| 13. Connectivity State & Heartbeat Hook | v0.5.0 | 2/2 | Complete   | 2026-05-07 |
+| 13. Connectivity State & Heartbeat Hook | v0.5.0 | 2/2 | Complete    | 2026-05-07 |
 | 14. Offline Banner & Button Relabeling | v0.5.0 | 0/? | Not started | - |
 | 15. Clipboard Submit Path | v0.5.0 | 0/? | Not started | - |
 | 16. Slash Command Fallback | v0.5.0 | 0/? | Not started | - |
