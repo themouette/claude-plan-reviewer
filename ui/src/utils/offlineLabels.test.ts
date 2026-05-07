@@ -10,7 +10,9 @@ import {
   approveButtonLabel,
   denyButtonLabel,
   submitDenialButtonLabel,
+  buildClipboardPayload,
 } from './offlineLabels'
+import type { Annotation } from '../types'
 
 describe('offlineLabels constants', () => {
   it('Test 1: banner line 1 ships byte-for-byte', () => {
@@ -81,5 +83,50 @@ describe('submitDenialButtonLabel', () => {
 
   it('Test 15: returns offline label when offline', () => {
     expect(submitDenialButtonLabel('offline')).toBe(OFFLINE_SUBMIT_DENIAL_LABEL)
+  })
+})
+
+describe('buildClipboardPayload', () => {
+  it('Test 16: allow with no annotations returns compact allow JSON', () => {
+    expect(buildClipboardPayload('allow', '', '', [])).toBe('{"behavior":"allow"}')
+  })
+
+  it('Test 17: deny with denyText returns JSON with behavior=deny and message key', () => {
+    const result = buildClipboardPayload('deny', 'needs work', '', [])
+    const parsed = JSON.parse(result) as { behavior: string; message: string }
+    expect(parsed.behavior).toBe('deny')
+    expect(typeof parsed.message).toBe('string')
+    expect(parsed.message.length).toBeGreaterThan(0)
+  })
+
+  it('Test 18: allow ignores all annotation state and returns allow JSON', () => {
+    const mockAnnotation: Annotation = {
+      id: 'a1',
+      type: 'comment',
+      anchorText: 'some text',
+      comment: 'some comment',
+      replacement: '',
+    }
+    expect(buildClipboardPayload('allow', 'some text', 'overall', [mockAnnotation])).toBe(
+      '{"behavior":"allow"}',
+    )
+  })
+
+  it('Test 19: deny with feedback returns JSON.parse-able object with message containing feedback', () => {
+    const result = buildClipboardPayload('deny', 'my feedback', '', [])
+    const parsed = JSON.parse(result) as { behavior: string; message: string }
+    expect(parsed).toEqual(
+      expect.objectContaining({
+        behavior: 'deny',
+        message: expect.stringContaining('my feedback') as string,
+      }),
+    )
+  })
+
+  it('Test 20: deny with all empty inputs returns valid JSON with empty string message', () => {
+    const result = buildClipboardPayload('deny', '', '', [])
+    const parsed = JSON.parse(result) as { behavior: string; message: string }
+    expect(parsed.behavior).toBe('deny')
+    expect(parsed.message).toBe('')
   })
 })
