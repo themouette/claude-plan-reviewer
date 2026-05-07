@@ -188,14 +188,35 @@ impl Integration for ClaudeIntegration {
             "\n",
             "## Step 4 — Handle the result\n",
             "\n",
-            "Parse the JSON output from stdout:\n",
+            "The background process exits when the user clicks a button in the review UI,\n",
+            "OR when the local server is killed (e.g. by Claude Code's process cleanup).\n",
             "\n",
-            "**On `{\"behavior\":\"allow\"}`:**\n",
-            "Say: \"Review complete, no comments.\" Then proceed with your next step.\n",
+            "**If stdout contains JSON:**\n",
             "\n",
-            "**On `{\"behavior\":\"deny\",\"message\":\"<feedback>\"}`:**\n",
-            "Say: \"Feedback received: <feedback>\" Then treat the message as revision\n",
-            "instructions for the reviewed content and propose how you will address it.\n",
+            "- **On `{\"behavior\":\"allow\"}`:**\n",
+            "  Say: \"Review complete, no comments.\" Then proceed with your next step.\n",
+            "\n",
+            "- **On `{\"behavior\":\"deny\",\"message\":\"<feedback>\"}`:**\n",
+            "  Say: \"Feedback received: <feedback>\" Then treat the message as revision\n",
+            "  instructions for the reviewed content and propose how you will address it.\n",
+            "\n",
+            "**If no output is received (empty stdout):**\n",
+            "\n",
+            "The server was likely stopped before the user submitted. The user may have\n",
+            "already copied their decision to the clipboard using the offline \"Copy to\n",
+            "clipboard\" button.\n",
+            "\n",
+            "Ask the user:\n",
+            "\n",
+            "> The review process exited without a result. If you used \"Copy to clipboard\"\n",
+            "> in the review UI, please paste the JSON here so I can continue.\n",
+            "\n",
+            "When the user pastes `{\"behavior\":\"allow\"}`:\n",
+            "Proceed as if the server returned allow: say \"Review complete, no comments.\"\n",
+            "\n",
+            "When the user pastes `{\"behavior\":\"deny\",\"message\":\"<feedback>\"}`:\n",
+            "Proceed as if the server returned deny: say \"Feedback received: <feedback>\"\n",
+            "then treat the message as revision instructions.\n",
         );
         let annotate_path = commands_dir.join("annotate.md");
         if let Err(e) = std::fs::write(&annotate_path, annotate_content) {
@@ -931,6 +952,15 @@ mod tests {
         assert!(
             content.contains("Review complete"),
             "annotate.md must use 'Review complete' phrasing for allow result (per CONTEXT.md D-05)"
+        );
+        // Clipboard fallback (Phase 16: SLC-01)
+        assert!(
+            content.contains("If no output is received"),
+            "annotate.md Step 4 must contain clipboard fallback instruction for empty stdout"
+        );
+        assert!(
+            content.contains("please paste the JSON"),
+            "annotate.md Step 4 must ask user to paste clipboard JSON"
         );
     }
 
