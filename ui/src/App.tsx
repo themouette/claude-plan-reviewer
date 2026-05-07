@@ -33,7 +33,7 @@ marked.use({ gfm: true })
 
 // --- Types ---
 
-type AppState = 'loading' | 'error' | 'reviewing' | 'confirmed' | 'clipboard_confirmed'
+type AppState = 'loading' | 'error' | 'reviewing' | 'confirmed' | 'clipboard_confirmed' | 'clipboard_error'
 
 type Decision = 'allow' | 'deny'
 
@@ -547,6 +547,62 @@ function ClipboardConfirmationView() {
   )
 }
 
+function ClipboardErrorView({ json }: { json: string }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexGrow: 1,
+        padding: '32px',
+        textAlign: 'center',
+        gap: '16px',
+      }}
+    >
+      <h2
+        style={{
+          fontSize: '24px',
+          fontWeight: 600,
+          color: 'var(--color-accent-deny)',
+          marginBottom: '4px',
+        }}
+      >
+        Clipboard write failed
+      </h2>
+      <p
+        style={{
+          fontSize: '14px',
+          color: 'var(--color-text-secondary)',
+          maxWidth: '480px',
+        }}
+      >
+        Your browser denied clipboard access. Copy the payload below manually and paste it into your Claude conversation.
+      </p>
+      <textarea
+        readOnly
+        value={json}
+        onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+        style={{
+          width: '100%',
+          maxWidth: '600px',
+          height: '160px',
+          fontFamily: 'monospace',
+          fontSize: '13px',
+          padding: '12px',
+          borderRadius: '6px',
+          border: '1px solid var(--color-border)',
+          background: 'var(--color-bg)',
+          color: 'var(--color-text-primary)',
+          resize: 'vertical',
+          cursor: 'text',
+        }}
+      />
+    </div>
+  )
+}
+
 // --- PlanViewToggle ---
 
 function PlanViewToggle({ viewMode, onViewModeChange }: { viewMode: ViewMode; onViewModeChange: (m: ViewMode) => void }) {
@@ -621,6 +677,7 @@ export default function App() {
   const connectivity = useHeartbeat()
 
   const [appState, setAppState] = useState<AppState>('loading')
+  const [clipboardFallbackJson, setClipboardFallbackJson] = useState<string>('')
   const [planMd, setPlanMd] = useState<string>('')
   const [planHtml, setPlanHtml] = useState<string>('')
   const [viewMode, setViewMode] = useState<ViewMode>('preview')
@@ -752,10 +809,12 @@ export default function App() {
     if (appState !== 'reviewing') return
     if (shouldUseClipboard(connectivity)) {
       const json = buildClipboardPayload('allow', '', overallComment, annotations)
-      navigator.clipboard.writeText(json).catch(() => {
-        // Clipboard write failed silently — user can copy manually
+      navigator.clipboard.writeText(json).then(() => {
+        setAppState('clipboard_confirmed')
+      }).catch(() => {
+        setClipboardFallbackJson(json)
+        setAppState('clipboard_error')
       })
-      setAppState('clipboard_confirmed')
       return
     }
     try {
@@ -1135,10 +1194,12 @@ export default function App() {
     if (!message.trim()) return
     if (shouldUseClipboard(connectivity)) {
       const json = buildClipboardPayload('deny', denyMessage, overallComment, annotations)
-      navigator.clipboard.writeText(json).catch(() => {
-        // Clipboard write failed silently
+      navigator.clipboard.writeText(json).then(() => {
+        setAppState('clipboard_confirmed')
+      }).catch(() => {
+        setClipboardFallbackJson(json)
+        setAppState('clipboard_error')
       })
-      setAppState('clipboard_confirmed')
       return
     }
     try {
@@ -1181,6 +1242,7 @@ export default function App() {
             <ConfirmationView decision={decision} approveLabel={approveLabel} denyLabel={denyLabel} />
           )}
           {appState === 'clipboard_confirmed' && <ClipboardConfirmationView />}
+          {appState === 'clipboard_error' && <ClipboardErrorView json={clipboardFallbackJson} />}
         </div>
       )}
 
