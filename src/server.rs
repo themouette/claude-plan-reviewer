@@ -68,6 +68,12 @@ async fn post_decide(
     }
 }
 
+// Stateless reachability probe used by the frontend heartbeat (HB-01).
+// MUST NOT take State<Arc<AppState>> — endpoint is required to be stateless.
+async fn get_ping() -> impl IntoResponse {
+    StatusCode::OK
+}
+
 // --- Server entry point ---
 
 /// Bind to the specified port on 127.0.0.1 (0 = OS-assigned), spawn the axum server,
@@ -110,6 +116,7 @@ pub async fn start_server(
         .route("/api/diff", get(get_diff))
         .route("/api/config", get(get_config))
         .route("/api/decide", post(post_decide))
+        .route("/api/ping", get(get_ping))
         .fallback_service(spa)
         .with_state(state);
 
