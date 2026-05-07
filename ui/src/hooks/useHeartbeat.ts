@@ -42,11 +42,15 @@ export function useHeartbeat(): ConnectivityStatus {
       const controller = new AbortController()
       abortRef.current = controller
 
-      const timeoutSignal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
-      const signal =
-        typeof AbortSignal.any === 'function'
-          ? AbortSignal.any([controller.signal, timeoutSignal])
-          : timeoutSignal
+      // WR-02: AbortSignal.any and AbortSignal.timeout shipped in the same
+      // browser-version cohort (Chrome 116+, Safari 17.4+, Firefox 124+,
+      // Baseline 2024); accepting one and feature-checking the other buys
+      // nothing, and the previous fallback silently disabled cleanup-time
+      // cancellation by dropping `controller.signal` from the fetch.
+      const signal = AbortSignal.any([
+        controller.signal,
+        AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      ])
 
       let event: HeartbeatEvent
       try {
