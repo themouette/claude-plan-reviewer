@@ -19,6 +19,8 @@
   --color-tab-active: #f1f5f9;
   --color-tab-inactive: #94a3b8;
   --color-link: #60a5fa;
+  --color-banner-bg: #f59e0b;
+  --color-banner-text: #0f1117;
 }
 
 [data-theme="light"] {
@@ -40,6 +42,8 @@
   --color-tab-active: #0f172a;
   --color-tab-inactive: #64748b;
   --color-link: #1d4ed8; /* blue-700, ~6.5:1 on #f8fafc */
+  --color-banner-bg: #d97706;
+  --color-banner-text: #0f172a; /* dark on amber, 5.60:1 — UI-SPEC override of D-08 literal */
 }
 
 body {
