@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.5.0
 milestone_name: Offline Resilience
 status: executing
-stopped_at: Phase 12 complete — ready for Phase 13
-last_updated: "2026-05-07T05:59:28.365Z"
+stopped_at: Phase 14 context gathered
+last_updated: "2026-05-07T06:57:19.894Z"
 last_activity: 2026-05-07
 progress:
   total_phases: 9
@@ -108,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-07T12:00:00.000Z
-Stopped at: Phase 12 complete — ready for Phase 13
-Resume file: .planning/ROADMAP.md (Phase 13: Connectivity State & Heartbeat Hook is next)
+Last session: 2026-05-07T06:57:19.887Z
+Stopped at: Phase 14 context gathered
+Resume file: .planning/phases/14-offline-banner-button-relabeling/14-CONTEXT.md
