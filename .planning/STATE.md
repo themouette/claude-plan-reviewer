@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.5.0
 milestone_name: Offline Resilience
-status: executing
-stopped_at: Phase 14 UAT passed — ready to plan Phase 15 (Clipboard Submit Path)
-last_updated: "2026-05-07T16:49:19.256Z"
-last_activity: 2026-05-07 -- Phase 16 planning complete
+status: complete
+stopped_at: Phase 16 complete — all v0.5.0 Offline Resilience phases done
+last_updated: "2026-05-07T20:30:00.000Z"
+last_activity: 2026-05-07 -- Phase 16 complete (Slash Command Fallback)
 progress:
   total_phases: 9
-  completed_phases: 8
-  total_plans: 18
-  completed_plans: 19
+  completed_phases: 9
+  total_plans: 19
+  completed_plans: 20
   percent: 100
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-06)
 ## Current Position
 
 Phase: 16
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-05-07 -- Phase 16 planning complete
+Plan: 16-01 (complete)
+Status: All phases complete — v0.5.0 Offline Resilience milestone done
+Last activity: 2026-05-07 -- Phase 16 complete (Slash Command Fallback)
 
-Progress: [████░░░░░░] 40% (v0.5.0 — 2 of 5 phases complete)
+Progress: [██████████] 100% (v0.5.0 — 5 of 5 phases complete)
 
 ## Performance Metrics
 

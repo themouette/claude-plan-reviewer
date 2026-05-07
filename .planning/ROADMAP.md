@@ -51,7 +51,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 - [x] **Phase 13: Connectivity State & Heartbeat Hook** - Add `ConnectivityStatus` type and `useHeartbeat` hook with 3-failure threshold, `AbortSignal.timeout`, and visibility-aware pause/resume (completed 2026-05-07)
 - [x] **Phase 14: Offline Banner & Button Relabeling** - Render persistent amber banner when offline; replace submit buttons with "Copy to clipboard" label; banner clears on reconnect (completed 2026-05-07)
 - [x] **Phase 15: Clipboard Submit Path** - Wire clipboard export into approve/deny handlers; lock JSON format to server response shape; show distinct confirmation screen after copy (completed 2026-05-07)
-- [ ] **Phase 16: Slash Command Fallback** - Update `annotate.md` Step 4 to ask user to paste clipboard JSON when no stdout result is received
+- [x] **Phase 16: Slash Command Fallback** - Update `annotate.md` Step 4 to ask user to paste clipboard JSON when no stdout result is received (completed 2026-05-07)
 
 ## Phase Details
 
@@ -340,4 +340,4 @@ Plans:
 | 13. Connectivity State & Heartbeat Hook | v0.5.0 | 2/2 | Complete    | 2026-05-07 |
 | 14. Offline Banner & Button Relabeling | v0.5.0 | 0/2 | Planned | - |
 | 15. Clipboard Submit Path | v0.5.0 | 0/2 | Planned | - |
-| 16. Slash Command Fallback | v0.5.0 | 0/? | Not started | - |
+| 16. Slash Command Fallback | v0.5.0 | 1/1 | Complete    | 2026-05-07 |
