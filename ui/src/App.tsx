@@ -2,6 +2,14 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Annotation, AnnotationType, OutlineItem, Tab, ViewMode } from './types'
 import { serializeAnnotations } from './utils/serializeAnnotations'
 import { useTextSelection, rangeFromOffsets } from './hooks/useTextSelection'
+import { useHeartbeat } from './hooks/useHeartbeat'
+import {
+  OFFLINE_BANNER_LINE_1,
+  OFFLINE_BANNER_LINE_2,
+  approveButtonLabel,
+  denyButtonLabel,
+  submitDenialButtonLabel,
+} from './utils/offlineLabels'
 import { TabBar } from './components/TabBar'
 import { DiffView } from './components/DiffView'
 import { AnnotationSidebar } from './components/AnnotationSidebar'
@@ -145,6 +153,30 @@ function ErrorView() {
         The plan reviewer failed to connect to the local server. Check that the binary is still
         running, then reload this page.
       </p>
+    </div>
+  )
+}
+
+function OfflineBanner() {
+  return (
+    <div
+      role="status"
+      style={{
+        background: 'var(--color-banner-bg)',
+        color: 'var(--color-banner-text)',
+        padding: '16px 32px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        alignItems: 'flex-start',
+        fontSize: '14px',
+        fontWeight: 400,
+        lineHeight: 1.5,
+        flexShrink: 0,
+      }}
+    >
+      <div>{OFFLINE_BANNER_LINE_1}</div>
+      <div>{OFFLINE_BANNER_LINE_2}</div>
     </div>
   )
 }
@@ -547,6 +579,8 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', next)
     localStorage.setItem('plan-reviewer-theme', next)
   }
+
+  const connectivity = useHeartbeat()
 
   const [appState, setAppState] = useState<AppState>('loading')
   const [planMd, setPlanMd] = useState<string>('')
@@ -1073,6 +1107,7 @@ export default function App() {
       }}
     >
       <PageHeader activeTab={activeTab} onTabChange={setActiveTab} theme={theme} onThemeToggle={handleThemeToggle} />
+      {connectivity === 'offline' && <OfflineBanner />}
 
       {/* Non-reviewing states: loading, error, confirmed */}
       {appState !== 'reviewing' && (
@@ -1294,7 +1329,7 @@ export default function App() {
                 e.currentTarget.style.outline = 'none'
               }}
             >
-              {approveLabel}
+              {approveButtonLabel(connectivity, approveLabel)}
               <span
                 style={{
                   fontSize: '14px',
@@ -1332,7 +1367,7 @@ export default function App() {
                 e.currentTarget.style.outline = 'none'
               }}
             >
-              {denyLabel}
+              {denyButtonLabel(connectivity, denyLabel)}
             </button>
           </div>
 
@@ -1415,7 +1450,7 @@ export default function App() {
                   e.currentTarget.style.outline = 'none'
                 }}
               >
-                Submit Denial
+                {submitDenialButtonLabel(connectivity)}
               </button>
             </div>
           )}
