@@ -42,3 +42,12 @@ export function buildClipboardPayload(
   const message = serializeAnnotations(denyText, overallComment, annotations)
   return JSON.stringify({ behavior: 'deny', message })
 }
+
+/**
+ * Returns true when the submit action should write to the clipboard instead of
+ * POSTing to /api/decide. This is a pure function so it can be tested without
+ * any React context.
+ */
+export function shouldUseClipboard(status: ConnectivityStatus): boolean {
+  return status === 'offline'
+}

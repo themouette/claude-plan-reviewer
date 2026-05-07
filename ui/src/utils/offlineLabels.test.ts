@@ -11,6 +11,7 @@ import {
   denyButtonLabel,
   submitDenialButtonLabel,
   buildClipboardPayload,
+  shouldUseClipboard,
 } from './offlineLabels'
 import type { Annotation } from '../types'
 
@@ -128,5 +129,14 @@ describe('buildClipboardPayload', () => {
     const parsed = JSON.parse(result) as { behavior: string; message: string }
     expect(parsed.behavior).toBe('deny')
     expect(parsed.message).toBe('')
+  })
+})
+
+describe('shouldUseClipboard', () => {
+  it('Test 21: returns true when status is offline', () => {
+    expect(shouldUseClipboard('offline')).toBe(true)
+  })
+  it('Test 22: returns false when status is online', () => {
+    expect(shouldUseClipboard('online')).toBe(false)
   })
 })
