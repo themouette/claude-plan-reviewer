@@ -78,7 +78,7 @@ Requirements for the Offline Resilience milestone.
 
 ### Heartbeat
 
-- [ ] **HB-01**: Server exposes `GET /api/ping` returning 200 OK
+- [x] **HB-01**: Server exposes `GET /api/ping` returning 200 OK (verified Phase 12, 2026-05-07)
 - [ ] **HB-02**: Frontend polls `/api/ping` every 5s, requiring 3 consecutive failures before declaring server offline
 - [ ] **HB-03**: Polling pauses when the browser tab is hidden and resumes on visibility
 - [ ] **HB-04**: Each ping request uses `AbortSignal.timeout(3000)` to prevent hanging fetches
@@ -163,7 +163,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ACT-02 | Phase 11.1 | Pending |
 | ACT-03 | Phase 11.1 | Pending |
 | ACT-04 | Phase 11.1 | Pending |
-| HB-01 | Phase 12 | Pending |
+| HB-01 | Phase 12 | Verified 2026-05-07 |
 | HB-02 | Phase 13 | Pending |
 | HB-03 | Phase 13 | Pending |
 | HB-04 | Phase 13 | Pending |

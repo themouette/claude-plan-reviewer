@@ -47,7 +47,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 
 **Milestone Goal:** When Claude Code kills the background server process, the browser UI detects the loss, keeps the user working offline, and exports annotations via clipboard with a fallback path in the `annotate.md` slash command.
 
-- [ ] **Phase 12: Backend Heartbeat Endpoint** - Add `GET /api/ping` route returning 200 OK; the smallest possible change that unblocks all frontend heartbeat work
+- [x] **Phase 12: Backend Heartbeat Endpoint** - Add `GET /api/ping` route returning 200 OK; the smallest possible change that unblocks all frontend heartbeat work (completed 2026-05-07)
 - [ ] **Phase 13: Connectivity State & Heartbeat Hook** - Add `ConnectivityStatus` type and `useHeartbeat` hook with 3-failure threshold, `AbortSignal.timeout`, and visibility-aware pause/resume
 - [ ] **Phase 14: Offline Banner & Button Relabeling** - Render persistent amber banner when offline; replace submit buttons with "Copy to clipboard" label; banner clears on reconnect
 - [ ] **Phase 15: Clipboard Submit Path** - Wire clipboard export into approve/deny handlers; lock JSON format to server response shape; show distinct confirmation screen after copy
@@ -246,7 +246,7 @@ Plans:
   4. The endpoint is stateless — no server-side data is read or written
 **Plans:** 1 plan
 Plans:
-- [ ] 12-01-PLAN.md — Stateless GET /api/ping route in src/server.rs + integration test in tests/integration/server_cycle.rs
+- [x] 12-01-PLAN.md — Stateless GET /api/ping route in src/server.rs + integration test in tests/integration/server_cycle.rs (completed 2026-05-07)
 
 ### Phase 13: Connectivity State & Heartbeat Hook
 **Goal**: A `ConnectivityStatus` type and a `useHeartbeat` hook give the frontend a reliable, tested signal for server reachability — requiring 3 consecutive failures to declare offline, aborting each fetch after 3 seconds, and pausing polling when the browser tab is hidden

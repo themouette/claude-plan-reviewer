@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.5.0
 milestone_name: Offline Resilience
 status: executing
-stopped_at: v0.5.0 roadmap created
-last_updated: "2026-05-07T04:45:54.611Z"
-last_activity: 2026-05-07 -- Phase 12 planning complete
+stopped_at: Phase 12 complete — ready for Phase 13
+last_updated: "2026-05-07T12:00:00.000Z"
+last_activity: 2026-05-07 -- Phase 12 verified — GET /api/ping returns 200 OK
 progress:
-  total_phases: 9
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 5
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 20
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-05-06)
 
 ## Current Position
 
-Phase: 12 (not started)
+Phase: 13 (not started — next up)
 Plan: —
-Status: Ready to execute
-Last activity: 2026-05-07 -- Phase 12 planning complete
+Status: Phase 12 complete (1/1 plans), verification passed
+Last activity: 2026-05-07 -- Phase 12 verified: GET /api/ping returns 200 OK; HB-01 satisfied
 
-Progress: [░░░░░░░░░░] 0% (v0.5.0)
+Progress: [██░░░░░░░░] 20% (v0.5.0 — 1 of 5 phases complete)
 
 ## Performance Metrics
 
@@ -71,6 +71,8 @@ Recent decisions affecting current work:
 - [v0.5.0]: navigator.clipboard.writeText() must be called synchronously in the click handler — no await before it; async gap voids transient activation in Safari and Firefox
 - [v0.5.0]: 3 consecutive failures required before declaring offline (not 1) to prevent false alarms from transient loopback hiccups
 - [v0.5.0]: Clipboard JSON format is {"behavior":"allow"} or {"behavior":"deny","message":"..."} — identical to build_opencode_output; must not drift
+- [Phase 12]: get_ping is parameter-less (no State extractor) to enforce statelessness at the type level — pattern for future stateless probes
+- [Phase 12]: SPA-fallback guard in route tests asserts non-text/html Content-Type — defends against axum FallbackBehavior::Ok masking missing routes with index.html
 
 ### Roadmap Evolution
 
@@ -98,8 +100,13 @@ None yet.
 - [Phase 7] opencode JS plugin bundling strategy not yet designed — needs a plan
 - [Phase 15] Manual smoke test required after Phase 15: paste clipboard JSON into Claude and confirm Claude parses it correctly — no automated proxy for prompt quality
 
+### Pre-existing Issues (not caused by recent work)
+
+- Unit test `integrations::claude::tests::install_returns_err_when_binary_path_is_none` fails on `main` BEFORE phase 12; pre-dates this milestone. File `src/integrations/claude.rs` was not touched in phase 12. Track separately.
+- `tests/integration/review_subcommand` occasionally hits `Connection refused` under parallel `cargo test` due to `find_free_port` TOCTOU; flake on first run, passes on re-run.
+
 ## Session Continuity
 
-Last session: 2026-05-06T00:00:00.000Z
-Stopped at: v0.5.0 roadmap created
-Resume file: .planning/ROADMAP.md (Phase 12 is next)
+Last session: 2026-05-07T12:00:00.000Z
+Stopped at: Phase 12 complete — ready for Phase 13
+Resume file: .planning/ROADMAP.md (Phase 13: Connectivity State & Heartbeat Hook is next)
