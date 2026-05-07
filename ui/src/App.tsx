@@ -865,9 +865,11 @@ export default function App() {
     }
   }, [focusAnnotationId, annotations])
 
-  // Rebuild CSS annotation highlights after every render using fresh Ranges from
-  // stored offsets. useLayoutEffect (no deps) ensures the highlights are valid
-  // even after React reconciliation touches plan-prose and collapses stored Ranges.
+  // Rebuild CSS annotation highlights when annotations or plan content changes.
+  // Ranges are rebuilt from stored character offsets (not stored Range objects), so
+  // they survive React reconciliation. planHtml in deps ensures we rebuild after the
+  // plan DOM is replaced (which invalidates any live Range object pointing into it).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     if (!planRef.current || typeof CSS === 'undefined' || !CSS.highlights) return
     const comment: Range[] = []
@@ -897,7 +899,7 @@ export default function App() {
     } else {
       CSS.highlights.delete('annotation-replace')
     }
-  })
+  }, [annotations, planHtml])
 
   // --- Aligned card layout ---
 
@@ -988,8 +990,15 @@ export default function App() {
     if (cardsScroll) cardsScroll.scrollTop = planScrollTop
   }
 
-  // Recompute after every render (catches annotation add/remove and initial mount).
-  useLayoutEffect(() => { computeAndApplyLayout() })
+  // Recompute card layout when annotations, plan content, or structural UI state changes.
+  // appState/activeTab/viewMode are structural triggers (plan area width changes), not read
+  // inside the function. Sync annotationsRef before the call because the passive useEffect
+  // that normally keeps it current runs after paint — too late for this layout-phase work.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    annotationsRef.current = annotations
+    computeAndApplyLayout()
+  }, [annotations, planHtml, appState, activeTab, viewMode])
 
   // Recompute on plan scroll — attach after plan tab mounts (appState → 'reviewing').
   useEffect(() => {
