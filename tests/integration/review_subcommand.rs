@@ -1,83 +1,54 @@
-use std::net::TcpStream;
-use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
-
-/// Bind a TcpListener to port 0, let the OS assign a free port, and return both
-/// the port number and the listener.
-///
-/// The caller MUST keep the returned listener alive until the child process has
-/// been spawned, then drop it immediately before calling `wait_for_port`.  This
-/// eliminates the TOCTOU window where another process could claim the port
-/// between the discovery call and the child's bind.
-fn find_free_port() -> (u16, std::net::TcpListener) {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = listener.local_addr().unwrap().port();
-    (port, listener)
-}
-
-/// Poll `TcpStream::connect` in a loop with 50 ms sleep.
-/// Returns `true` if the connection succeeds before `timeout`, `false` otherwise.
-fn wait_for_port(port: u16, timeout: Duration) -> bool {
-    let deadline = Instant::now() + timeout;
-    while Instant::now() < deadline {
-        if TcpStream::connect(format!("127.0.0.1:{port}")).is_ok() {
-            return true;
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-    false
-}
+use std::io::BufRead;
+use std::process::{Child, Command, Stdio};
+use std::sync::mpsc;
+use std::time::Duration;
 
 /// Return the path to the compiled `plan-reviewer` binary.
 fn binary_path() -> std::path::PathBuf {
     assert_cmd::cargo::cargo_bin("plan-reviewer")
 }
 
-/// Spawn the binary with `--no-browser --port <port> review <file_path>`.
+/// Spawn the binary with `--no-browser --port 0 review <file_path>`.
+///
+/// Uses OS-assigned port (--port 0) and extracts the actual port from the
+/// "Review UI: http://127.0.0.1:{port}" stderr line the server prints when ready.
+/// This eliminates all TOCTOU port-reservation races.
 ///
 /// CRITICAL: stdin is set to Stdio::null() — the review subcommand must NOT
 /// read stdin. This also avoids any deadlock from an unclosed stdin pipe.
 ///
-/// Returns the `Child` handle. The caller must call `wait_with_output()` after
-/// posting a decision.
-fn spawn_review_flow(file_path: &str, port: u16) -> std::process::Child {
+/// Returns (child, port). The server is guaranteed to be listening on port
+/// by the time this function returns.
+fn spawn_review_flow(file_path: &str) -> (Child, u16) {
     let home = tempfile::TempDir::new().unwrap();
-    // Leak the TempDir so it outlives the child process.
     let home = Box::leak(Box::new(home));
-    Command::new(binary_path())
+    let mut child = Command::new(binary_path())
         .env("HOME", home.path())
-        .args([
-            "--no-browser",
-            "--port",
-            &port.to_string(),
-            "review",
-            file_path,
-        ])
-        .stdin(Stdio::null()) // CRITICAL: review does NOT read stdin
+        .args(["--no-browser", "--port", "0", "review", file_path])
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("failed to spawn plan-reviewer review")
+        .expect("failed to spawn plan-reviewer review");
+
+    let port = read_server_port(&mut child);
+    (child, port)
 }
 
 /// Spawn the binary with custom --approve-label and --deny-label flags.
-///
-/// The positional `file` argument comes AFTER the named flags because clap
-/// parses named args before positional ones.
 fn spawn_review_flow_with_labels(
     file_path: &str,
     approve_label: &str,
     deny_label: &str,
-    port: u16,
-) -> std::process::Child {
+) -> (Child, u16) {
     let home = tempfile::TempDir::new().unwrap();
     let home = Box::leak(Box::new(home));
-    Command::new(binary_path())
+    let mut child = Command::new(binary_path())
         .env("HOME", home.path())
         .args([
             "--no-browser",
             "--port",
-            &port.to_string(),
+            "0",
             "review",
             "--approve-label",
             approve_label,
@@ -89,7 +60,34 @@ fn spawn_review_flow_with_labels(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("failed to spawn plan-reviewer review with labels")
+        .expect("failed to spawn plan-reviewer review with labels");
+
+    let port = read_server_port(&mut child);
+    (child, port)
+}
+
+/// Read the "Review UI: http://127.0.0.1:{port}" line from child stderr.
+///
+/// Spawns a background thread that drains stderr (preventing SIGPIPE if the
+/// child writes more after we've read the port). Returns the port via a
+/// channel with a 10-second timeout.
+fn read_server_port(child: &mut Child) -> u16 {
+    let stderr = child.stderr.take().expect("stderr not piped");
+    let (tx, rx) = mpsc::channel();
+
+    std::thread::spawn(move || {
+        let reader = std::io::BufReader::new(stderr);
+        for line in reader.lines().flatten() {
+            if let Some(port_str) = line.strip_prefix("Review UI: http://127.0.0.1:") {
+                if let Ok(port) = port_str.trim().parse::<u16>() {
+                    let _ = tx.send(port);
+                }
+            }
+        }
+    });
+
+    rx.recv_timeout(Duration::from_secs(10))
+        .expect("server did not print 'Review UI:' line within 10 seconds")
 }
 
 // ---------------------------------------------------------------------------
@@ -101,14 +99,7 @@ fn review_approve() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# Test Plan\n\n1. Step one\n2. Step two").expect("write");
 
-    let (port, _port_guard) = find_free_port();
-    let child = spawn_review_flow(tmp.path().to_str().unwrap(), port);
-    drop(_port_guard); // release the reserved port so the child can bind to it
-
-    assert!(
-        wait_for_port(port, Duration::from_secs(10)),
-        "server did not start within 10 seconds on port {port}"
-    );
+    let (child, port) = spawn_review_flow(tmp.path().to_str().unwrap());
 
     // POST allow decision
     let response = ureq::post(&format!("http://127.0.0.1:{port}/api/decide"))
@@ -143,14 +134,7 @@ fn review_deny_with_message() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# Test Plan\n\n1. Step one\n2. Step two").expect("write");
 
-    let (port, _port_guard) = find_free_port();
-    let child = spawn_review_flow(tmp.path().to_str().unwrap(), port);
-    drop(_port_guard); // release the reserved port so the child can bind to it
-
-    assert!(
-        wait_for_port(port, Duration::from_secs(10)),
-        "server did not start within 10 seconds on port {port}"
-    );
+    let (child, port) = spawn_review_flow(tmp.path().to_str().unwrap());
 
     // POST deny decision with message
     let response = ureq::post(&format!("http://127.0.0.1:{port}/api/decide"))
@@ -195,14 +179,7 @@ fn review_serves_plan_content() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# My Review Content").expect("write");
 
-    let (port, _port_guard) = find_free_port();
-    let child = spawn_review_flow(tmp.path().to_str().unwrap(), port);
-    drop(_port_guard); // release the reserved port so the child can bind to it
-
-    assert!(
-        wait_for_port(port, Duration::from_secs(10)),
-        "server did not start within 10 seconds on port {port}"
-    );
+    let (child, port) = spawn_review_flow(tmp.path().to_str().unwrap());
 
     // GET /api/plan — should return rendered HTML containing plan content
     let mut response = ureq::get(&format!("http://127.0.0.1:{port}/api/plan"))
@@ -232,14 +209,7 @@ fn review_config_default_labels() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# Test").expect("write");
 
-    let (port, _port_guard) = find_free_port();
-    let child = spawn_review_flow(tmp.path().to_str().unwrap(), port);
-    drop(_port_guard); // release the reserved port so the child can bind to it
-
-    assert!(
-        wait_for_port(port, Duration::from_secs(10)),
-        "server did not start within 10 seconds on port {port}"
-    );
+    let (child, port) = spawn_review_flow(tmp.path().to_str().unwrap());
 
     let mut response = ureq::get(&format!("http://127.0.0.1:{port}/api/config"))
         .call()
@@ -262,19 +232,8 @@ fn review_config_custom_labels() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# Test").expect("write");
 
-    let (port, _port_guard) = find_free_port();
-    let child = spawn_review_flow_with_labels(
-        tmp.path().to_str().unwrap(),
-        "No issues",
-        "Leave feedback",
-        port,
-    );
-    drop(_port_guard); // release the reserved port so the child can bind to it
-
-    assert!(
-        wait_for_port(port, Duration::from_secs(10)),
-        "server did not start within 10 seconds on port {port}"
-    );
+    let (child, port) =
+        spawn_review_flow_with_labels(tmp.path().to_str().unwrap(), "No issues", "Leave feedback");
 
     let mut response = ureq::get(&format!("http://127.0.0.1:{port}/api/config"))
         .call()
