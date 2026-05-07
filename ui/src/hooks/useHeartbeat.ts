@@ -77,9 +77,16 @@ export async function runHeartbeatTick(ctx: HeartbeatTickContext): Promise<void>
     event = { type: 'failure' }
   }
 
-  const next = nextHeartbeatState(ctx.getState(), event)
+  const prev = ctx.getState()
+  const next = nextHeartbeatState(prev, event)
   ctx.setState(next)
-  ctx.onStatus(next.status)
+  // Only notify on actual status transitions (online→offline, offline→online).
+  // Calling onStatus every successful tick would schedule a React state update
+  // on each 5-second heartbeat even when status is unchanged, triggering renders
+  // and layout effects for zero UI change.
+  if (next.status !== prev.status) {
+    ctx.onStatus(next.status)
+  }
 }
 
 export function useHeartbeat(): ConnectivityStatus {

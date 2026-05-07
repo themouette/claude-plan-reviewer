@@ -95,7 +95,8 @@ describe('runHeartbeatTick', () => {
 
     expect(h.state.value.status).toBe('online')
     expect(h.state.value.failCount).toBe(0)
-    expect(h.statuses).toEqual(['online'])
+    // onStatus is NOT fired when the status did not change (already online).
+    expect(h.statuses).toHaveLength(0)
   })
 
   it('records a failure event when fetch returns non-ok', async () => {
