@@ -213,3 +213,49 @@ fn server_cycle_deny_gemini() {
         "Gemini deny: systemMessage should contain \"Plan denied\""
     );
 }
+
+#[test]
+fn server_cycle_ping_returns_200() {
+    let port = find_free_port();
+    let child = spawn_hook_flow(HOOK_INPUT_CLAUDE, port);
+
+    assert!(
+        wait_for_port(port, Duration::from_secs(10)),
+        "server did not start within 10 seconds on port {port}"
+    );
+
+    // Hit the new heartbeat endpoint. Statelessness check: GET only, no body.
+    let response = ureq::get(&format!("http://127.0.0.1:{port}/api/ping"))
+        .call()
+        .expect("GET /api/ping failed");
+    assert_eq!(response.status(), 200, "GET /api/ping must return 200 OK");
+
+    // Defend against SPA fallback masking a missing route: the SPA fallback
+    // serves index.html (text/html) for any unknown path. A real /api/ping
+    // route returns no body and no Content-Type: text/html. We assert the
+    // response is NOT HTML — if the route were removed, the fallback would
+    // serve index.html and this assertion would fail.
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    assert!(
+        !content_type.contains("text/html"),
+        "GET /api/ping returned text/html — route is missing and SPA fallback served index.html (content-type: {content_type:?})"
+    );
+
+    // Clean up: post a decision so the binary exits cleanly. Without this,
+    // the spawned child blocks on the decision channel and the test would
+    // hang on wait_with_output.
+    let decide = ureq::post(&format!("http://127.0.0.1:{port}/api/decide"))
+        .send_json(serde_json::json!({ "behavior": "allow" }))
+        .expect("POST /api/decide failed");
+    assert_eq!(decide.status(), 200);
+
+    let output = child.wait_with_output().expect("failed to wait for child");
+    assert!(
+        output.status.success(),
+        "binary exited non-zero after ping + decide cycle"
+    );
+}
