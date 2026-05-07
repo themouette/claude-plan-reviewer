@@ -20,3 +20,19 @@
 - One-liner:
 
 ---
+
+## v0.5.0 Offline Resilience (Shipped: 2026-05-07)
+
+**Phases completed:** 5 phases (12–16), 8 plans
+
+**Key accomplishments:**
+
+- Stateless `GET /api/ping` endpoint in Rust server — minimal surface for browser reachability detection, with SPA-fallback-aware integration test
+- `ConnectivityStatus` pure reducer with 3-failure hysteresis + `useHeartbeat` React hook (5s polling, `AbortSignal.timeout(3000)`, visibility-aware pause/resume)
+- `offlineLabels.ts` helper module + `OfflineBanner` component — amber banner and button relabeling to "Copy to clipboard" when offline, with 15 Vitest tests
+- `buildClipboardPayload` pure function (TDD RED/GREEN/REFACTOR) + clipboard submit path in `App.tsx` — identical JSON to server response; `ClipboardConfirmationView` confirmation screen after copy
+- `annotate.md` Step 4 updated with empty-stdout clipboard paste fallback — closes the full offline loop end-to-end so Claude can act on pasted JSON as if it came from the server
+
+**Archive:** `.planning/milestones/v0.5.0-ROADMAP.md`
+
+---

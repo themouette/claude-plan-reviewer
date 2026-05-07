@@ -79,23 +79,23 @@ Requirements for the Offline Resilience milestone.
 ### Heartbeat
 
 - [x] **HB-01**: Server exposes `GET /api/ping` returning 200 OK (verified Phase 12, 2026-05-07)
-- [ ] **HB-02**: Frontend polls `/api/ping` every 5s, requiring 3 consecutive failures before declaring server offline
-- [ ] **HB-03**: Polling pauses when the browser tab is hidden and resumes on visibility
-- [ ] **HB-04**: Each ping request uses `AbortSignal.timeout(3000)` to prevent hanging fetches
+- [x] **HB-02**: Frontend polls `/api/ping` every 5s, requiring 3 consecutive failures before declaring server offline (verified Phase 13, 2026-05-07)
+- [x] **HB-03**: Polling pauses when the browser tab is hidden and resumes on visibility (verified Phase 13, 2026-05-07)
+- [x] **HB-04**: Each ping request uses `AbortSignal.timeout(3000)` to prevent hanging fetches (verified Phase 13, 2026-05-07)
 
 ### Offline UX
 
-- [ ] **OFX-01**: When offline is detected, a persistent non-dismissable banner appears
-- [ ] **OFX-02**: When offline, submit buttons are replaced with a single "Copy to clipboard" button
+- [x] **OFX-01**: When offline is detected, a persistent non-dismissable banner appears (verified Phase 14, 2026-05-07)
+- [x] **OFX-02**: When offline, submit buttons are replaced with a single "Copy to clipboard" button (verified Phase 14, 2026-05-07)
 
 ### Clipboard Export
 
-- [ ] **CLB-01**: Clipboard export serializes annotation state as `{"behavior":"allow"}` or `{"behavior":"deny","message":"..."}` — same format the server returns
-- [ ] **CLB-02**: After clipboard copy, a distinct confirmation screen says "Copied to clipboard — paste into Claude"
+- [x] **CLB-01**: Clipboard export serializes annotation state as `{"behavior":"allow"}` or `{"behavior":"deny","message":"..."}` — same format the server returns (verified Phase 15, 2026-05-07)
+- [x] **CLB-02**: After clipboard copy, a distinct confirmation screen says "Copied to clipboard — paste into Claude" (verified Phase 15, 2026-05-07)
 
 ### Slash Command
 
-- [ ] **SLC-01**: `annotate.md` Step 4 updated — if no stdout result received, Claude asks user to paste the clipboard JSON into the conversation
+- [x] **SLC-01**: `annotate.md` Step 4 updated — if no stdout result received, Claude asks user to paste the clipboard JSON into the conversation (verified Phase 16, 2026-05-07)
 
 ## Future Requirements
 

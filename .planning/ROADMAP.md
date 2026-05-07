@@ -4,8 +4,8 @@
 
 - ✅ **v0.1.0 MVP** — Phases 1-4 (shipped 2026-04-10)
 - 🚧 **v0.3.0 Integrations, Annotations & Polish** — Phases 5-9 (in progress)
-- 🚧 **v0.4.0 Agent-Native Review** — Phases 10-11.1 (planned)
-- 🚧 **v0.5.0 Offline Resilience** — Phases 12-16 (planned)
+- ✅ **v0.4.0 Agent-Native Review** — Phases 10-11.1 (shipped 2026-04-11)
+- ✅ **v0.5.0 Offline Resilience** — Phases 12-16 (shipped 2026-05-07)
 
 ## Phases
 
@@ -43,15 +43,18 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 - [x] **Phase 11: Slash Command Prompt** - The `annotate.md` prompt implements input resolution (explicit path → last `.md` → temp file), background execution via `plan-reviewer review`, and feedback-framed result handling (prompt-only, zero binary changes) (completed 2026-04-11)
 - [x] **Phase 11.1: Configurable Review Actions** - Add `--approve-label`/`--deny-label` CLI flags to `plan-reviewer review`; pass labels to frontend for dynamic rendering; update `annotate.md` to use "No issues"/"Leave feedback" labels (completed 2026-04-11)
 
-### 🚧 v0.5.0 Offline Resilience (Planned)
+<details>
+<summary>✅ v0.5.0 Offline Resilience (Phases 12-16) — SHIPPED 2026-05-07</summary>
 
-**Milestone Goal:** When Claude Code kills the background server process, the browser UI detects the loss, keeps the user working offline, and exports annotations via clipboard with a fallback path in the `annotate.md` slash command.
+- [x] Phase 12: Backend Heartbeat Endpoint (1/1 plans) — completed 2026-05-07
+- [x] Phase 13: Connectivity State & Heartbeat Hook (2/2 plans) — completed 2026-05-07
+- [x] Phase 14: Offline Banner & Button Relabeling (2/2 plans) — completed 2026-05-07
+- [x] Phase 15: Clipboard Submit Path (2/2 plans) — completed 2026-05-07
+- [x] Phase 16: Slash Command Fallback (1/1 plans) — completed 2026-05-07
 
-- [x] **Phase 12: Backend Heartbeat Endpoint** - Add `GET /api/ping` route returning 200 OK; the smallest possible change that unblocks all frontend heartbeat work (completed 2026-05-07)
-- [x] **Phase 13: Connectivity State & Heartbeat Hook** - Add `ConnectivityStatus` type and `useHeartbeat` hook with 3-failure threshold, `AbortSignal.timeout`, and visibility-aware pause/resume (completed 2026-05-07)
-- [x] **Phase 14: Offline Banner & Button Relabeling** - Render persistent amber banner when offline; replace submit buttons with "Copy to clipboard" label; banner clears on reconnect (completed 2026-05-07)
-- [x] **Phase 15: Clipboard Submit Path** - Wire clipboard export into approve/deny handlers; lock JSON format to server response shape; show distinct confirmation screen after copy (completed 2026-05-07)
-- [x] **Phase 16: Slash Command Fallback** - Update `annotate.md` Step 4 to ask user to paste clipboard JSON when no stdout result is received (completed 2026-05-07)
+Full archive: `.planning/milestones/v0.5.0-ROADMAP.md`
+
+</details>
 
 ## Phase Details
 
@@ -336,8 +339,8 @@ Plans:
 | 10. Slash Command Install/Uninstall | v0.4.0 | 1/1 | Complete   | 2026-04-11 |
 | 11. Slash Command Prompt | v0.4.0 | 1/1 | Complete   | 2026-04-11 |
 | 11.1. Configurable Review Actions | v0.4.0 | 2/2 | Complete   | 2026-04-11 |
-| 12. Backend Heartbeat Endpoint | v0.5.0 | 0/1 | Planned | - |
+| 12. Backend Heartbeat Endpoint | v0.5.0 | 1/1 | Complete    | 2026-05-07 |
 | 13. Connectivity State & Heartbeat Hook | v0.5.0 | 2/2 | Complete    | 2026-05-07 |
-| 14. Offline Banner & Button Relabeling | v0.5.0 | 0/2 | Planned | - |
-| 15. Clipboard Submit Path | v0.5.0 | 0/2 | Planned | - |
+| 14. Offline Banner & Button Relabeling | v0.5.0 | 2/2 | Complete    | 2026-05-07 |
+| 15. Clipboard Submit Path | v0.5.0 | 2/2 | Complete    | 2026-05-07 |
 | 16. Slash Command Fallback | v0.5.0 | 1/1 | Complete    | 2026-05-07 |

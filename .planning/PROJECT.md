@@ -4,33 +4,28 @@
 
 A Rust binary that intercepts Claude Code's plan approval flow, renders plans and code diffs in a local browser UI, and lets you annotate before approving or denying execution. It integrates via Claude Code's `ExitPlanMode` PermissionRequest hook and returns structured JSON feedback via stdout. Distributed as a single pre-built binary with `install`, `uninstall`, and `update` subcommands for zero-friction setup — no runtime, no monorepo, no complex install.
 
+The browser UI survives backend timeouts: when Claude Code kills the server process mid-review, the UI detects the loss via heartbeat polling, keeps the user working offline, and exports annotations via clipboard. The `/plan-reviewer:annotate` slash command closes the loop by handling pasted clipboard JSON as a fallback for the empty-stdout case.
+
 ## Core Value
 
 One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
 
-## Current Milestone: v0.5.0 Offline Resilience
+## Shipped: v0.5.0 Offline Resilience (2026-05-07)
 
-**Goal:** Make the `/plan-reviewer:annotate` workflow survive backend timeouts — when Claude Code kills the background server process, the browser UI continues working and exports annotations via clipboard rather than dying.
-
-**Target features:**
-- Heartbeat polling (`/api/ping`) — UI detects when the server has gone away
-- Offline annotation mode — user keeps annotating normally after server death; no error until submit
-- Clipboard fallback — "Submit" becomes "Copy to clipboard" when offline; exports the same JSON the server would have returned
-- Slash command update — `annotate.md` Step 4 handles pasted JSON as an alternative to stdout result
+The offline resilience milestone is complete. All 5 phases (Phases 12–16) shipped on 2026-05-07.
+The full offline annotation loop is now in place: heartbeat endpoint → connectivity state →
+offline banner → clipboard submit → slash command fallback.
 
 ## Current State
 
-v0.1.0 shipped 2026-04-10. Phase 08 complete 2026-04-11.
+v0.5.0 shipped 2026-05-07.
 
-- **Binary**: `plan-reviewer` — single static Rust binary, ~1,350 Rust LOC + ~3,060 frontend LOC (React+TS)
-- **Subcommands**: `install [integration]`, `uninstall [integration]`, `update [--check] [--version X] [-y]`
-- **Default behavior**: hook review flow (unchanged from initial design)
-- **Supported integrations**: Claude Code (full), opencode + codestral (stubs — hooks not yet spec'd)
+- **Binary**: `plan-reviewer` — single static Rust binary, ~5,307 Rust LOC + ~3,220 TypeScript/TSX LOC (React+TS)
+- **Subcommands**: `install [integration]`, `uninstall [integration]`, `update [--check] [--version X] [-y]`, `review <file>`, `review-hook`
+- **Supported integrations**: Claude Code (full plugin model — hook + slash command), opencode (JS plugin), Gemini CLI (extension directory)
 - **Distribution**: cargo-dist releases for darwin-arm64, darwin-x64, linux-musl-arm64, linux-musl-x64
-- **Human UAT pending**: TUI picker (TTY required), live `update` download, `--check` mode, `--version` pinning
-- **Phase 08 (complete)**: annotation quick-action chips (6 chips all in overflow dropdown), persistent light/dark theme switcher (localStorage + OS fallback, flash-free)
-- **Phase 12 (complete)**: backend `GET /api/ping` endpoint with SPA-fallback guard
-- **Phase 13 (complete)**: connectivity reducer (`ui/src/utils/connectivity.ts`) + `useHeartbeat` React hook polling every 5s, bounded by `AbortSignal.timeout(3000)`, paused on tab hide
+- **Offline resilience**: heartbeat polling, offline banner, clipboard submit path, slash command paste fallback — all complete
+- **Known tech debt**: `install_returns_err_when_binary_path_is_none` pre-existing test failure; 4 code review warnings (WR-01–WR-04 across prior milestones)
 
 ## Requirements
 
@@ -51,12 +46,19 @@ v0.1.0 shipped 2026-04-10. Phase 08 complete 2026-04-11.
 - ✓ Background execution + stdout return: result flows back to Claude when user completes review — v0.4.0
 - ✓ `plan-reviewer install claude` creates `commands/annotate.md`; uninstall removes it — v0.4.0
 
-### Active (v0.5.0)
+### Validated (v0.5.0)
 
-- [x] Heartbeat polling: browser UI polls `/api/ping` to detect server death — validated in Phase 13 (HB-02, HB-03, HB-04)
-- [ ] Offline annotation mode: after server death, user continues annotating with no blocking error
-- [ ] Clipboard fallback: when offline, submit exports annotation JSON to clipboard instead of POSTing to server
-- [ ] Slash command resilience: `annotate.md` Step 4 handles pasted clipboard JSON as fallback to stdout result
+- ✓ Heartbeat polling: browser UI polls `/api/ping` every 5s with 3-failure hysteresis to detect server death — v0.5.0 (HB-01–04)
+- ✓ Offline banner + button relabeling: amber persistent banner and "Copy to clipboard" button when offline — v0.5.0 (OFX-01–02)
+- ✓ Clipboard fallback: synchronous clipboard write with identical JSON format to server; distinct confirmation screen — v0.5.0 (CLB-01–02)
+- ✓ Slash command resilience: `annotate.md` Step 4 handles pasted clipboard JSON when no stdout result — v0.5.0 (SLC-01)
+
+### Active (next milestone)
+
+- [ ] Gemini CLI integration: full hook install/uninstall via `plan-reviewer install gemini` (INTEG-01, INTEG-02)
+- [ ] Integration test harness: `--no-browser`/`--port` flags + `assert_cmd`-based hook/install/server tests (TEST-01–03)
+- [ ] Annotation quick-actions + theme: predefined chips, light/dark toggle, OS preference default (ANNOT-01–03, THEME-01–03)
+- [ ] Documentation: README install/usage guide + per-integration wiring docs (DOCS-01–03)
 
 ### Future
 
@@ -97,6 +99,10 @@ v0.1.0 shipped 2026-04-10. Phase 08 complete 2026-04-11.
 | self_update for update subcommand | Handles download, verify, replace atomically | ✓ Correct — clean API, no subprocess needed |
 | dialoguer for TUI picker | Cross-platform, simple MultiSelect API | ✓ Correct — renders to stderr, doesn't pollute stdout |
 | .tar.gz over .tar.xz | Required by self_update's archive-tar feature | ✓ Correct — aligns cargo-dist and self_update |
+| ConnectivityStatus as parallel type (not AppState variant) | Merging offline into AppState would couple render state to network state | ✓ Correct — avoids implicit state coupling and keeps each concern testable in isolation |
+| Synchronous clipboard.writeText (no await before call) | Safari/Firefox void transient activation across async gap | ✓ Correct — all browsers accepted the call; async gap would have broken mobile |
+| 3-failure hysteresis before declaring offline | 1-failure threshold caused false alarms from transient loopback hiccups | ✓ Correct — no false offline triggers observed in testing |
+| Clipboard JSON byte-identical to build_opencode_output | Drift between clipboard and server format would silently produce wrong results | ✓ Correct — single source of truth, verified by Vitest tests |
 
 ## Evolution
 
@@ -116,4 +122,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-07 after Phase 13 complete (connectivity state + heartbeat hook)*
+*Last updated: 2026-05-07 after v0.5.0 milestone complete (Offline Resilience — Phases 12–16)*
