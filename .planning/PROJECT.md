@@ -29,6 +29,8 @@ v0.1.0 shipped 2026-04-10. Phase 08 complete 2026-04-11.
 - **Distribution**: cargo-dist releases for darwin-arm64, darwin-x64, linux-musl-arm64, linux-musl-x64
 - **Human UAT pending**: TUI picker (TTY required), live `update` download, `--check` mode, `--version` pinning
 - **Phase 08 (complete)**: annotation quick-action chips (6 chips all in overflow dropdown), persistent light/dark theme switcher (localStorage + OS fallback, flash-free)
+- **Phase 12 (complete)**: backend `GET /api/ping` endpoint with SPA-fallback guard
+- **Phase 13 (complete)**: connectivity reducer (`ui/src/utils/connectivity.ts`) + `useHeartbeat` React hook polling every 5s, bounded by `AbortSignal.timeout(3000)`, paused on tab hide
 
 ## Requirements
 
@@ -51,7 +53,7 @@ v0.1.0 shipped 2026-04-10. Phase 08 complete 2026-04-11.
 
 ### Active (v0.5.0)
 
-- [ ] Heartbeat polling: browser UI polls `/api/ping` to detect server death
+- [x] Heartbeat polling: browser UI polls `/api/ping` to detect server death — validated in Phase 13 (HB-02, HB-03, HB-04)
 - [ ] Offline annotation mode: after server death, user continues annotating with no blocking error
 - [ ] Clipboard fallback: when offline, submit exports annotation JSON to clipboard instead of POSTing to server
 - [ ] Slash command resilience: `annotate.md` Step 4 handles pasted clipboard JSON as fallback to stdout result
@@ -114,4 +116,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-06 after v0.5.0 milestone started (Offline Resilience)*
+*Last updated: 2026-05-07 after Phase 13 complete (connectivity state + heartbeat hook)*
