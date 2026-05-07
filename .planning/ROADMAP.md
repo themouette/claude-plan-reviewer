@@ -298,7 +298,7 @@ Plans:
 **Plans**: 2 plans
 Plans:
 **Wave 1**
-- [ ] 15-01-PLAN.md — buildClipboardPayload pure function in offlineLabels.ts + Vitest tests (TDD)
+- [x] 15-01-PLAN.md — buildClipboardPayload pure function in offlineLabels.ts + Vitest tests (TDD)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 15-02-PLAN.md — App.tsx wiring: offline branch in approve/deny handlers, ClipboardConfirmationView sub-component
