@@ -9,6 +9,8 @@ import {
   approveButtonLabel,
   denyButtonLabel,
   submitDenialButtonLabel,
+  buildClipboardPayload,
+  shouldUseClipboard,
 } from './utils/offlineLabels'
 import { TabBar } from './components/TabBar'
 import { DiffView } from './components/DiffView'
@@ -31,7 +33,7 @@ marked.use({ gfm: true })
 
 // --- Types ---
 
-type AppState = 'loading' | 'error' | 'reviewing' | 'confirmed'
+type AppState = 'loading' | 'error' | 'reviewing' | 'confirmed' | 'clipboard_confirmed'
 
 type Decision = 'allow' | 'deny'
 
@@ -509,6 +511,42 @@ function ConfirmationView({
   )
 }
 
+function ClipboardConfirmationView() {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexGrow: 1,
+        padding: '32px',
+        textAlign: 'center',
+      }}
+    >
+      <h2
+        style={{
+          fontSize: '28px',
+          fontWeight: 600,
+          color: 'var(--color-accent-approve)',
+          marginBottom: '12px',
+        }}
+      >
+        Copied to clipboard — paste into Claude
+      </h2>
+      <p
+        style={{
+          fontSize: '14px',
+          fontWeight: 400,
+          color: 'var(--color-text-secondary)',
+        }}
+      >
+        Paste the clipboard contents into your Claude conversation to submit your decision.
+      </p>
+    </div>
+  )
+}
+
 // --- PlanViewToggle ---
 
 function PlanViewToggle({ viewMode, onViewModeChange }: { viewMode: ViewMode; onViewModeChange: (m: ViewMode) => void }) {
@@ -712,6 +750,14 @@ export default function App() {
 
   const approve = useCallback(async () => {
     if (appState !== 'reviewing') return
+    if (shouldUseClipboard(connectivity)) {
+      const json = buildClipboardPayload('allow', '', '', [])
+      navigator.clipboard.writeText(json).catch(() => {
+        // Clipboard write failed silently — user can copy manually
+      })
+      setAppState('clipboard_confirmed')
+      return
+    }
     try {
       const res = await fetch('/api/decide', {
         method: 'POST',
@@ -727,7 +773,7 @@ export default function App() {
     } catch {
       setAppState('error')
     }
-  }, [appState])
+  }, [appState, connectivity])
 
   // Global Enter key handler for approve shortcut
   useEffect(() => {
@@ -1087,6 +1133,14 @@ export default function App() {
     if (appState !== 'reviewing') return
     const message = serializeAnnotations(denyMessage, overallComment, annotations)
     if (!message.trim()) return
+    if (shouldUseClipboard(connectivity)) {
+      const json = buildClipboardPayload('deny', denyMessage, overallComment, annotations)
+      navigator.clipboard.writeText(json).catch(() => {
+        // Clipboard write failed silently
+      })
+      setAppState('clipboard_confirmed')
+      return
+    }
     try {
       const res = await fetch('/api/decide', {
         method: 'POST',
@@ -1126,6 +1180,7 @@ export default function App() {
           {appState === 'confirmed' && decision && (
             <ConfirmationView decision={decision} approveLabel={approveLabel} denyLabel={denyLabel} />
           )}
+          {appState === 'clipboard_confirmed' && <ClipboardConfirmationView />}
         </div>
       )}
 
