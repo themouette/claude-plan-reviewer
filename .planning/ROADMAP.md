@@ -277,7 +277,13 @@ Plans:
   3. Submit buttons are relabeled to "Copy to clipboard" when offline and return to their normal labels when the server recovers
   4. The banner disappears when a successful ping restores connectivity
   5. The offline state is never represented as a blocking error — the annotation UI remains fully interactive
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+**Wave 1**
+- [ ] 14-01-PLAN.md — Pure helper module (offlineLabels.ts), Vitest tests, CSS token additions
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 14-02-PLAN.md — App.tsx wiring: OfflineBanner sub-component, useHeartbeat() call, banner mount, three label ternaries
 **UI hint**: yes
 
 ### Phase 15: Clipboard Submit Path
@@ -326,6 +332,6 @@ Plans:
 | 11.1. Configurable Review Actions | v0.4.0 | 2/2 | Complete   | 2026-04-11 |
 | 12. Backend Heartbeat Endpoint | v0.5.0 | 0/1 | Planned | - |
 | 13. Connectivity State & Heartbeat Hook | v0.5.0 | 2/2 | Complete    | 2026-05-07 |
-| 14. Offline Banner & Button Relabeling | v0.5.0 | 0/? | Not started | - |
+| 14. Offline Banner & Button Relabeling | v0.5.0 | 0/2 | Planned | - |
 | 15. Clipboard Submit Path | v0.5.0 | 0/? | Not started | - |
 | 16. Slash Command Fallback | v0.5.0 | 0/? | Not started | - |
