@@ -3,10 +3,11 @@ gsd_state_version: 1.0
 milestone: v0.6.0
 milestone_name: Markdown Annotator v2
 status: planning
-last_updated: "2026-05-19T00:00:00.000Z"
-last_activity: 2026-05-19
+stopped_at: Phase 17 context gathered
+last_updated: "2026-05-19T22:11:16.499Z"
+last_activity: 2026-05-19 — v0.6.0 roadmap created (Phases 17-23)
 progress:
-  total_phases: 7
+  total_phases: 9
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -34,6 +35,7 @@ Progress: [░░░░░░░░░░] 0% (v0.6.0 milestone)
 ## Performance Metrics
 
 **Velocity (v0.5.0 reference):**
+
 - Plans completed (v0.5.0): 8 across 5 phases
 
 *v0.6.0 metrics will populate as plans complete*
@@ -70,6 +72,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-19
-Stopped at: v0.6.0 roadmap written — ready to plan Phase 17
-Resume file: None
+Last session: 2026-05-19T22:11:16.488Z
+Stopped at: Phase 17 context gathered
+Resume file: .planning/phases/17-foundation-isolation/17-CONTEXT.md
