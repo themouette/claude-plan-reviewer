@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.5.0
-milestone_name: Offline Resilience
-status: complete
-stopped_at: Phase 16 complete — all v0.5.0 Offline Resilience phases done
-last_updated: "2026-05-07T20:30:00.000Z"
-last_activity: 2026-05-07 -- Phase 16 complete (Slash Command Fallback)
+milestone: v0.6.0
+milestone_name: Markdown Annotator v2
+status: planning
+last_updated: "2026-05-19T21:25:55.824Z"
+last_activity: 2026-05-19
 progress:
-  total_phases: 9
-  completed_phases: 9
-  total_plans: 19
-  completed_plans: 20
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,12 +24,10 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 
 ## Current Position
 
-Phase: 16
-Plan: 16-01 (complete)
-Status: All phases complete — v0.5.0 Offline Resilience milestone done
-Last activity: 2026-05-07 -- Phase 16 complete (Slash Command Fallback)
-
-Progress: [██████████] 100% (v0.5.0 — 5 of 5 phases complete)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-19 — Milestone v0.6.0 started
 
 ## Performance Metrics
 

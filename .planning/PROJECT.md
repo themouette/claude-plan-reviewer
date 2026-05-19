@@ -16,6 +16,21 @@ The offline resilience milestone is complete. All 5 phases (Phases 12–16) ship
 The full offline annotation loop is now in place: heartbeat endpoint → connectivity state →
 offline banner → clipboard submit → slash command fallback.
 
+## Current Milestone: v0.6.0 Markdown Annotator v2
+
+**Goal:** Build a standalone 3-column annotation reviewer alongside the existing UI — optimized for eventual deletion of the existing view, with no backwards code coupling.
+
+**Target features:**
+- 3-column layout: tree outline (left) / formatted markdown (center) / anchored comment sidebar (right)
+- Outline tree: heading hierarchy, click-to-scroll, active section highlight, per-section comment counts
+- Comment sidebar: text-anchored comments, hover highlights, floating alignment, overlap/collapse handling
+- Markdown content: formatted rendering, paragraph hover, text selection → comment toolbar
+- Comment creation: 3 quick actions (comment, delete, replace) + expandable predefined-action menu
+- Review submission: approve vs. ask-for-changes with validation gates
+- Clipboard fallback (degraded mode) preserved
+- Regression test suite guarding the existing annotation flow
+- No code coupling to existing view (existing view may import from new component, never vice versa)
+
 ## Current State
 
 v0.5.0 shipped 2026-05-07.
@@ -53,12 +68,23 @@ v0.5.0 shipped 2026-05-07.
 - ✓ Clipboard fallback: synchronous clipboard write with identical JSON format to server; distinct confirmation screen — v0.5.0 (CLB-01–02)
 - ✓ Slash command resilience: `annotate.md` Step 4 handles pasted clipboard JSON when no stdout result — v0.5.0 (SLC-01)
 
-### Active (next milestone)
+### Active (v0.6.0)
 
-- [ ] Gemini CLI integration: full hook install/uninstall via `plan-reviewer install gemini` (INTEG-01, INTEG-02)
-- [ ] Integration test harness: `--no-browser`/`--port` flags + `assert_cmd`-based hook/install/server tests (TEST-01–03)
-- [ ] Annotation quick-actions + theme: predefined chips, light/dark toggle, OS preference default (ANNOT-01–03, THEME-01–03)
-- [ ] Documentation: README install/usage guide + per-integration wiring docs (DOCS-01–03)
+- [ ] LAYOUT-01: 3-column layout shell (outline / content / comments) rendered in a new browser tab alongside existing
+- [ ] OUTLINE-01: Heading tree with click-to-scroll and active section tracking
+- [ ] OUTLINE-02: Per-section comment count badges in the outline tree
+- [ ] CONTENT-01: Markdown rendered as formatted HTML in the center pane
+- [ ] CONTENT-02: Paragraph hover highlight + comment toolbar trigger
+- [ ] CONTENT-03: Text selection → comment toolbar (anchored to selection)
+- [ ] COMMENT-01: Comment sidebar scrolls with content; comments float at anchor text level
+- [ ] COMMENT-02: Hover a comment → highlight corresponding text; hover text → highlight comment
+- [ ] COMMENT-03: Overlap handling — non-focused comments collapse; focused comment rises; all reachable by scroll
+- [ ] COMMENT-04: Quick actions: comment / delete / replace; expandable menu with predefined actions
+- [ ] COMMENT-05: Comment edit/delete via pencil and X icons on each bubble
+- [ ] SUBMIT-01: Approve vs. ask-for-changes with validation (no approve when comments exist; no ask-for-changes without at least one comment)
+- [ ] SUBMIT-02: Clipboard fallback (degraded mode) preserved on the new reviewer
+- [ ] TEST-01: Regression test suite covering existing annotation flow (no regressions from new component introduction)
+- [ ] ARCH-01: New reviewer is architecturally isolated; existing view may import from new component, never the reverse
 
 ### Future
 
@@ -122,4 +148,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-07 after v0.5.0 milestone complete (Offline Resilience — Phases 12–16)*
+*Last updated: 2026-05-19 after v0.6.0 milestone start (Markdown Annotator v2)*
