@@ -6,6 +6,7 @@
 - 🚧 **v0.3.0 Integrations, Annotations & Polish** — Phases 5-9 (in progress)
 - ✅ **v0.4.0 Agent-Native Review** — Phases 10-11.1 (shipped 2026-04-11)
 - ✅ **v0.5.0 Offline Resilience** — Phases 12-16 (shipped 2026-05-07)
+- 🚧 **v0.6.0 Markdown Annotator v2** — Phases 17-23 (in progress)
 
 ## Phases
 
@@ -39,7 +40,7 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 
 **Milestone Goal:** A `/annotate` slash command in the Claude Code plugin lets users review any markdown document from within a Claude conversation, with the result returned to Claude via stdout so it can act on the feedback.
 
-- [x] **Phase 10: Slash Command Install/Uninstall** - `plan-reviewer install claude` creates `commands/annotate.md` in the plugin directory; `uninstall claude` removes it; `/annotate` appears in Claude Code's slash command menu (completed 2026-04-11)
+- [x] **Phase 10: Slash Command Install/Uninstall** - `plan-reviewer install claude` creates `commands/annotate.md` in the plugin directory; `plan-reviewer uninstall claude` removes it; `/annotate` appears in Claude Code's slash command menu (completed 2026-04-11)
 - [x] **Phase 11: Slash Command Prompt** - The `annotate.md` prompt implements input resolution (explicit path → last `.md` → temp file), background execution via `plan-reviewer review`, and feedback-framed result handling (prompt-only, zero binary changes) (completed 2026-04-11)
 - [x] **Phase 11.1: Configurable Review Actions** - Add `--approve-label`/`--deny-label` CLI flags to `plan-reviewer review`; pass labels to frontend for dynamic rendering; update `annotate.md` to use "No issues"/"Leave feedback" labels (completed 2026-04-11)
 
@@ -55,6 +56,18 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 Full archive: `.planning/milestones/v0.5.0-ROADMAP.md`
 
 </details>
+
+### 🚧 v0.6.0 Markdown Annotator v2 (In Progress)
+
+**Milestone Goal:** Build a standalone 3-column annotation reviewer alongside the existing UI, architecturally isolated under `ui/src/reviewer-v2/`, with heading outline, formatted markdown, anchored comment sidebar, and full submit/clipboard-fallback support.
+
+- [ ] **Phase 17: Foundation & Isolation** - Test infrastructure (jsdom mocks, ESLint coupling rule), routing switch in `main.tsx`, v2 types, annotation store, heartbeat, and `/v2` layout shell
+- [ ] **Phase 18: Content Pane** - GFM markdown rendering, paragraph hover highlight + gutter icon, text-selection comment toolbar
+- [ ] **Phase 19: Outline Pane** - Heading tree with click-to-scroll, active section tracking, per-section comment count badges
+- [ ] **Phase 20: Comment Pane** - Anchored comment bubbles that follow scroll, bidirectional hover linking, overlap/collapse handling
+- [ ] **Phase 21: Comment Actions** - Three quick actions (comment/delete/replace), expandable predefined-action menu, edit/delete per bubble
+- [ ] **Phase 22: Submit & Clipboard** - Approve/ask-for-changes validation gates, clipboard fallback in degraded mode
+- [ ] **Phase 23: Regression Tests** - Existing annotation flow regression suite covering App.tsx review cycle with `/v2` routing in place
 
 ## Phase Details
 
@@ -317,6 +330,95 @@ Plans:
   3. When a user pastes `{"behavior":"deny","message":"..."}`, Claude treats the message as feedback and proposes revisions
   4. The existing stdout path (server alive, result arrives normally) is unchanged — the fallback triggers only on empty stdout
   5. The `install_creates_annotate_md_with_expected_content` unit test is updated to assert the new Step 4 text
+**Plans**: 1 plan
+Plans:
+- [x] 16-01-PLAN.md — Update annotate_content Step 4 with clipboard paste fallback + update test assertion (completed 2026-05-07)
+
+---
+
+## v0.6.0: Markdown Annotator v2
+
+### Phase 17: Foundation & Isolation
+**Goal**: The v2 reviewer scaffold is in place — test infrastructure (jsdom mocks, ESLint coupling rule) prevents regressions and enforces isolation before any feature code is written; `main.tsx` routes `/v2` to the new entry; shared types and annotation store exist; the new reviewer renders at `/v2` with a 3-column layout shell; heartbeat runs independently of the existing component tree
+**Depends on**: Phase 16
+**Requirements**: TEST-02, TEST-03, ARCH-01, ARCH-02, LAYOUT-01, LAYOUT-02
+**Success Criteria** (what must be TRUE):
+  1. Navigating to `/v2` renders a 3-column shell (left/center/right) with no content yet — the layout boundary is visible
+  2. `npm run lint` fails with an error if any file outside `reviewer-v2/` imports from inside it — the ESLint rule is active and catches violations
+  3. `npm test` passes and jsdom mocks for `IntersectionObserver`, `ResizeObserver`, and `CSS.highlights` are registered before any test runs — v2 component tests can be written immediately
+  4. The `/v2` reviewer polls `/api/ping` independently — opening `/v2` without the existing reviewer mounted still maintains heartbeat/connectivity state
+  5. All v2 code lives exclusively under `ui/src/reviewer-v2/` — no v2 files appear outside that directory
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 18: Content Pane
+**Goal**: The center pane renders the plan markdown as formatted HTML with GFM support; hovering a paragraph reveals a gutter icon and subtle background; selecting text shows an anchored comment toolbar — the primary interaction surface for creating comments is complete
+**Depends on**: Phase 17
+**Requirements**: LAYOUT-02, CONTENT-01, CONTENT-02, CONTENT-03
+**Success Criteria** (what must be TRUE):
+  1. The markdown plan renders with GFM formatting: tables render as grids, task list items show checkboxes, strikethrough renders with strikethrough styling, code blocks are syntax-highlighted
+  2. Hovering over any paragraph shows a subtle background color change and a `+` icon at the right edge of the paragraph
+  3. Selecting text in the content pane shows a toolbar anchored to the selection end — the hover highlight disappears and a selection highlight appears while text is selected
+  4. Text selections serialize to character offsets (not DOM paths) — confirmed by inspecting the toolbar's data payload in browser devtools
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 19: Outline Pane
+**Goal**: The left pane shows the document's heading hierarchy as an indented tree; clicking an item scrolls the corresponding heading into view; the active section tracks scroll position and is highlighted; each item shows its comment count
+**Depends on**: Phase 18
+**Requirements**: OUTLINE-01, OUTLINE-02, OUTLINE-03, OUTLINE-04
+**Success Criteria** (what must be TRUE):
+  1. All headings in the document appear in the outline panel, indented proportionally to their depth (H2 deeper than H1, H3 deeper than H2, etc.)
+  2. Clicking any outline item scrolls that heading to the top of the content viewport — the browser URL does not change (no hash navigation)
+  3. As the user scrolls the content pane, the outline item for the heading closest to the top of the viewport is highlighted and scrolled into the outline panel's view automatically
+  4. Each outline item shows a badge with the count of comments anchored within that section; a section with no comments shows no badge or shows zero; adding a comment in the content pane updates its section's count immediately
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 20: Comment Pane
+**Goal**: Comments appear in the right sidebar floating at the vertical level of their anchor text; as content scrolls, comment positions update to stay aligned with their anchors; hovering creates a bidirectional highlight between comment and anchor text; overlapping comments collapse to compact previews with one focused card expanded
+**Depends on**: Phase 18
+**Requirements**: COMMENT-01, COMMENT-02, COMMENT-03
+**Success Criteria** (what must be TRUE):
+  1. Each comment bubble appears in the right column at the same vertical position as its anchor text in the center pane; when the content pane scrolls, comment bubbles reposition to remain aligned with their anchors
+  2. Hovering a comment bubble highlights the corresponding anchor text in the center pane; hovering the anchor text highlights the corresponding comment bubble — both directions work
+  3. When two or more comments would overlap vertically, non-focused comments collapse to a 2-line preview; the focused (last-clicked) comment expands to full height and snaps to its anchor Y position
+  4. All comments remain reachable by scrolling the comment column — no comment is permanently hidden behind another
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 21: Comment Actions
+**Goal**: Users can create, edit, and delete comments via quick-action triggers on paragraph hover and text selection; three primary actions pre-fill the comment textarea; an expandable menu offers six predefined actions; existing bubbles have edit and delete controls
+**Depends on**: Phase 20
+**Requirements**: COMMENT-04, COMMENT-05
+**Success Criteria** (what must be TRUE):
+  1. After hovering a paragraph or selecting text, three quick-action buttons appear: "Comment" (empty textarea), "Delete" (textarea pre-filled with "Delete"), "Replace" (textarea pre-filled with "Replace")
+  2. An expandable menu button reveals six predefined actions — "Clarify this", "Needs test", "Give me an example", "Out of scope", "Search the web", "Search codebase" — each opens a textarea pre-filled with that label
+  3. Every submitted comment bubble shows a pencil icon (edit) and an × icon (delete); clicking the pencil reopens the textarea with the existing text for inline editing; clicking × removes the bubble immediately with no confirmation dialog
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 22: Submit & Clipboard
+**Goal**: The submit bar enforces annotation discipline — Approve is blocked when comments exist, Ask for changes is blocked when no comments exist; when the server is unreachable, submission falls back to clipboard using the existing `buildClipboardPayload` and `shouldUseClipboard` utilities without reimplementing them
+**Depends on**: Phase 21, Phase 17
+**Requirements**: SUBMIT-01, SUBMIT-02
+**Success Criteria** (what must be TRUE):
+  1. Clicking "Approve" is impossible (button disabled) when one or more comments exist in the annotation store
+  2. Clicking "Ask for changes" is impossible (button disabled) when no comments exist
+  3. "Ask for changes" accepts an optional free-text overall message before submission; submitting without a message is permitted
+  4. The JSON returned by the v2 submit path is identical in format to the existing reviewer's server response — both approve and ask-for-changes cases
+  5. When offline, the submit action writes to the clipboard using the same `buildClipboardPayload` utility as the existing reviewer — no separate clipboard implementation exists in v2 code
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 23: Regression Tests
+**Goal**: A Vitest regression suite covers the existing annotation flow (App.tsx review → approve/deny/annotate cycle) with assertions that would fail if the `/v2` routing change in `main.tsx` broke or regressed any existing behavior
+**Depends on**: Phase 17
+**Requirements**: TEST-01
+**Success Criteria** (what must be TRUE):
+  1. `npm test` includes at least one test file explicitly covering the existing App.tsx flow (not just v2 components)
+  2. The regression tests assert the approve path, deny path, and annotation submission path all produce the correct JSON payloads — tests would fail if any of these paths were broken by the v2 routing change
+  3. All regression tests pass after the `/v2` routing switch in `main.tsx` is in place — the existing flow is verified to be unaffected
 **Plans**: TBD
 
 ## Progress
@@ -344,3 +446,10 @@ Plans:
 | 14. Offline Banner & Button Relabeling | v0.5.0 | 2/2 | Complete    | 2026-05-07 |
 | 15. Clipboard Submit Path | v0.5.0 | 2/2 | Complete    | 2026-05-07 |
 | 16. Slash Command Fallback | v0.5.0 | 1/1 | Complete    | 2026-05-07 |
+| 17. Foundation & Isolation | v0.6.0 | 0/? | Not started | - |
+| 18. Content Pane | v0.6.0 | 0/? | Not started | - |
+| 19. Outline Pane | v0.6.0 | 0/? | Not started | - |
+| 20. Comment Pane | v0.6.0 | 0/? | Not started | - |
+| 21. Comment Actions | v0.6.0 | 0/? | Not started | - |
+| 22. Submit & Clipboard | v0.6.0 | 0/? | Not started | - |
+| 23. Regression Tests | v0.6.0 | 0/? | Not started | - |

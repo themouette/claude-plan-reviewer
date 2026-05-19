@@ -83,33 +83,33 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LAYOUT-01 | — | Pending |
-| LAYOUT-02 | — | Pending |
-| OUTLINE-01 | — | Pending |
-| OUTLINE-02 | — | Pending |
-| OUTLINE-03 | — | Pending |
-| OUTLINE-04 | — | Pending |
-| CONTENT-01 | — | Pending |
-| CONTENT-02 | — | Pending |
-| CONTENT-03 | — | Pending |
-| COMMENT-01 | — | Pending |
-| COMMENT-02 | — | Pending |
-| COMMENT-03 | — | Pending |
-| COMMENT-04 | — | Pending |
-| COMMENT-05 | — | Pending |
-| SUBMIT-01 | — | Pending |
-| SUBMIT-02 | — | Pending |
-| ARCH-01 | — | Pending |
-| ARCH-02 | — | Pending |
-| TEST-01 | — | Pending |
-| TEST-02 | — | Pending |
-| TEST-03 | — | Pending |
+| LAYOUT-01 | Phase 17 | Pending |
+| LAYOUT-02 | Phase 17 | Pending |
+| OUTLINE-01 | Phase 19 | Pending |
+| OUTLINE-02 | Phase 19 | Pending |
+| OUTLINE-03 | Phase 19 | Pending |
+| OUTLINE-04 | Phase 19 | Pending |
+| CONTENT-01 | Phase 18 | Pending |
+| CONTENT-02 | Phase 18 | Pending |
+| CONTENT-03 | Phase 18 | Pending |
+| COMMENT-01 | Phase 20 | Pending |
+| COMMENT-02 | Phase 20 | Pending |
+| COMMENT-03 | Phase 20 | Pending |
+| COMMENT-04 | Phase 21 | Pending |
+| COMMENT-05 | Phase 21 | Pending |
+| SUBMIT-01 | Phase 22 | Pending |
+| SUBMIT-02 | Phase 22 | Pending |
+| ARCH-01 | Phase 17 | Pending |
+| ARCH-02 | Phase 17 | Pending |
+| TEST-01 | Phase 23 | Pending |
+| TEST-02 | Phase 17 | Pending |
+| TEST-03 | Phase 17 | Pending |
 
 **Coverage:**
 - v0.6.0 requirements: 21 total
-- Mapped to phases: 0
-- Unmapped: 21 ⚠️
+- Mapped to phases: 21
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-10*
-*Last updated: 2026-05-19 after v0.6.0 milestone start*
+*Last updated: 2026-05-19 after v0.6.0 roadmap creation (Phases 17-23)*
