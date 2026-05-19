@@ -1,127 +1,81 @@
 # Requirements: claude-plan-reviewer
 
 **Defined:** 2026-04-10
+**Milestone:** v0.6.0 — Markdown Annotator v2
 **Core Value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
 
-## v0.3.0 Requirements
+## v0.6.0 Requirements
 
-Requirements for this milestone. Each maps to roadmap phases.
+New 3-column annotation reviewer built alongside the existing UI, architecturally isolated for eventual deletion of the existing view.
 
-### Integrations
+### Layout
 
-- [ ] **INTEG-01**: User can run `plan-reviewer install gemini` to wire plan review into Gemini CLI
-- [ ] **INTEG-02**: User can run `plan-reviewer uninstall gemini` to remove Gemini CLI hook wiring
-- [ ] **INTEG-03**: User can run `plan-reviewer install opencode` to wire plan review into opencode (writes bundled JS plugin to disk, updates opencode.json)
-- [ ] **INTEG-04**: User can run `plan-reviewer uninstall opencode` to remove opencode integration (removes plugin file and config entry)
-- [ ] **INTEG-05**: All install/uninstall commands are idempotent — safe to run multiple times without corrupting config
+- [ ] **LAYOUT-01**: New reviewer renders at `/v2` in a browser tab alongside the existing reviewer (no Rust changes — existing `FallbackBehavior::Ok` routes `/v2` to `index.html`)
+- [ ] **LAYOUT-02**: Three-column shell: outline tree (left) / formatted markdown (center) / comment sidebar (right)
 
-### Review Subcommand
+### Outline
 
-- [x] **REVIEW-01**: User can run `plan-reviewer review <file.md>` to open any markdown file in the browser review UI
-- [x] **REVIEW-02**: Approving or denying in the browser outputs neutral `{"behavior":"allow"|"deny"}` JSON to stdout (no hook-specific wrapper)
-- [x] **REVIEW-03**: Running `plan-reviewer review <nonexistent>` exits with code 1 and a descriptive error on stderr
+- [ ] **OUTLINE-01**: Outline panel shows document heading hierarchy as a tree (not accordion); each item reflects its heading depth via indentation
+- [ ] **OUTLINE-02**: Clicking an outline item scrolls the corresponding heading to the top of the content pane via `scrollIntoView` — no browser history change, no anchor link navigation
+- [ ] **OUTLINE-03**: The heading closest to the top of the content viewport is highlighted in the outline and scrolled into view in the outline panel as the user scrolls (active section tracking)
+- [ ] **OUTLINE-04**: Each outline item displays the count of comments whose anchor falls within that section; a comment spanning multiple sections counts only under the first section
 
-### Integration Tests
+### Content Pane
 
-- [ ] **TEST-01**: Integration tests for hook stdin→stdout flow run without opening a browser or touching real system config
-- [ ] **TEST-02**: Integration tests for install/uninstall commands run with HOME isolated to a tmpdir
-- [ ] **TEST-03**: Integration tests for the full server approve/deny cycle run by POSTing to a known local port
+- [ ] **CONTENT-01**: Markdown content renders as formatted HTML with GFM support (tables, task lists, strikethrough) using `react-markdown` + `remark-gfm` + `rehype-highlight`
+- [ ] **CONTENT-02**: Hovering a paragraph shows a subtle background highlight and a `+` comment gutter icon on the right edge of the paragraph (overlapping the comment column boundary)
+- [ ] **CONTENT-03**: Selecting text replaces the paragraph hover highlight with a selection highlight and shows a comment toolbar anchored to the selection; text selection serializes to character offsets (not DOM paths)
 
-### Annotation Actions
+### Comment Sidebar
 
-- [ ] **ANNOT-01**: User can apply a predefined quick-action (clarify this, needs test, give me an example, out of scope, search internet, search codebase) with one click
-- [ ] **ANNOT-02**: Selecting a quick-action pre-fills the annotation comment field with the action label
-- [ ] **ANNOT-03**: User can edit the pre-filled comment before submitting
+- [ ] **COMMENT-01**: Comments appear in the right sidebar floating at the vertical level of their anchor text; as the content pane scrolls, comments follow so the anchor text and comment remain visually aligned; if comments would overflow below the last line of content, the content area extends to accommodate
+- [ ] **COMMENT-02**: Hovering a comment highlights the corresponding anchor text in the content pane; hovering anchor text highlights the corresponding comment bubble — bidirectional, shared `hoveredCommentId` state
+- [ ] **COMMENT-03**: When comments overlap, non-focused cards are shown in compact (2-line preview) form; the focused card expands to full height and snaps to its anchor Y; all comments remain reachable by scroll; the last clicked comment is on top; evaluate `sidenotes@2.0.1` as the implementation before rolling a custom `useCommentLayout` hook
+- [ ] **COMMENT-04**: Three quick actions available on text selection or paragraph hover: **Comment** (opens textarea), **Delete** (opens textarea pre-filled with "Delete"), **Replace** (opens textarea pre-filled with "Replace"); an expandable menu reveals predefined actions — "Clarify this", "Needs test", "Give me an example", "Out of scope", "Search the web", "Search codebase" — each opens a textarea pre-filled with the action label
+- [ ] **COMMENT-05**: Each submitted comment bubble has edit (pencil icon) and delete (× icon) buttons; edit reopens the textarea for inline editing; delete removes the comment with no confirmation
 
-### Theme
+### Review Submission
 
-- [ ] **THEME-01**: User can toggle between light and dark mode in the browser UI
-- [ ] **THEME-02**: Theme preference persists across sessions
-- [ ] **THEME-03**: Browser UI defaults to OS dark/light preference on first load (no flash)
+- [ ] **SUBMIT-01**: Submit bar has "Approve" (disabled when any comment exists) and "Ask for changes" (disabled when no comments exist); "Ask for changes" allows an optional free-text overall message; submission returns the same JSON format as the existing reviewer
+- [ ] **SUBMIT-02**: When the server is unreachable (offline/degraded mode), submission uses the clipboard fallback — clipboard JSON format is identical to the server response; the existing `buildClipboardPayload` and `shouldUseClipboard` utilities are reused, not reimplemented
 
-### Documentation
+### Architecture & Isolation
 
-- [ ] **DOCS-01**: User can find installation instructions in README (curl | sh, binary download)
-- [ ] **DOCS-02**: User can find usage and configuration instructions in README
-- [ ] **DOCS-03**: User can find an integration guide for Claude Code, Gemini CLI, and opencode
+- [ ] **ARCH-01**: All new reviewer code lives under `ui/src/reviewer-v2/`; no file outside `reviewer-v2/` imports from within it (coupling direction: existing view may import shared utilities from `reviewer-v2/`, never vice versa)
+- [ ] **ARCH-02**: The new reviewer owns its own heartbeat/connectivity detection via `useHeartbeat` — no dependency on `App.tsx` internal state or imported state from the existing component tree
 
-## v0.4.0 Requirements
+### Tests & Regression Safety
 
-Requirements for the Agent-Native Review milestone.
-
-### Slash Command
-
-- [ ] **SLSH-01**: User can invoke `/annotate` in a Claude Code conversation to open the browser review UI
-- [ ] **SLSH-02**: User can pass a file path argument (`/annotate path/to/file.md`) to review a specific file
-- [ ] **SLSH-03**: When no argument given, Claude resolves the target to the last `.md` file written in the current session
-- [ ] **SLSH-04**: When no file is found on disk, Claude writes the last markdown message content to a temp file and reviews that
-- [ ] **SLSH-05**: Review runs in the background — no timeout constraint on how long the user spends in the browser
-- [ ] **SLSH-06**: The review result (`{"behavior":"allow"|"deny","message":"..."}`) is returned to Claude via stdout when the process completes
-- [ ] **SLSH-07**: Claude acts on `allow` by proceeding; Claude acts on `deny` by treating the message as blocking feedback and revising
-
-### Plugin Integration
-
-- [ ] **PLGN-01**: `plan-reviewer install claude` creates a `commands/annotate.md` file in the plugin directory alongside the existing hook
-- [ ] **PLGN-02**: `plan-reviewer uninstall claude` removes the `commands/` directory
-- [ ] **PLGN-03**: `/annotate` is discoverable in Claude Code's slash command menu after install
-
-### Configurable Review Actions (Phase 11.1)
-
-- [ ] **ACT-01**: `plan-reviewer review` accepts `--approve-label <LABEL>` and `--deny-label <LABEL>` flags to customize button text in the browser UI
-- [ ] **ACT-02**: Custom labels are rendered in the browser review UI when set; UI falls back to "Approve" / "Deny" when flags are omitted
-- [ ] **ACT-03**: Existing behavior and tests are unaffected when flags are not provided
-- [ ] **ACT-04**: `annotate.md` (slash command) uses `--approve-label "No issues" --deny-label "Leave feedback"` so the UI itself frames review as feedback collection
-
-## v0.5.0 Requirements
-
-Requirements for the Offline Resilience milestone.
-
-### Heartbeat
-
-- [x] **HB-01**: Server exposes `GET /api/ping` returning 200 OK (verified Phase 12, 2026-05-07)
-- [x] **HB-02**: Frontend polls `/api/ping` every 5s, requiring 3 consecutive failures before declaring server offline (verified Phase 13, 2026-05-07)
-- [x] **HB-03**: Polling pauses when the browser tab is hidden and resumes on visibility (verified Phase 13, 2026-05-07)
-- [x] **HB-04**: Each ping request uses `AbortSignal.timeout(3000)` to prevent hanging fetches (verified Phase 13, 2026-05-07)
-
-### Offline UX
-
-- [x] **OFX-01**: When offline is detected, a persistent non-dismissable banner appears (verified Phase 14, 2026-05-07)
-- [x] **OFX-02**: When offline, submit buttons are replaced with a single "Copy to clipboard" button (verified Phase 14, 2026-05-07)
-
-### Clipboard Export
-
-- [x] **CLB-01**: Clipboard export serializes annotation state as `{"behavior":"allow"}` or `{"behavior":"deny","message":"..."}` — same format the server returns (verified Phase 15, 2026-05-07)
-- [x] **CLB-02**: After clipboard copy, a distinct confirmation screen says "Copied to clipboard — paste into Claude" (verified Phase 15, 2026-05-07)
-
-### Slash Command
-
-- [x] **SLC-01**: `annotate.md` Step 4 updated — if no stdout result received, Claude asks user to paste the clipboard JSON into the conversation (verified Phase 16, 2026-05-07)
+- [ ] **TEST-01**: Regression test suite covers the existing annotation flow (App.tsx review → approve/deny/annotate cycle) with zero regressions introduced by the `/v2` routing change in `main.tsx`
+- [ ] **TEST-02**: `vitest.setup.ts` includes jsdom mocks for `IntersectionObserver`, `ResizeObserver`, and `CSS.highlights` before any v2 component code is written
+- [ ] **TEST-03**: An ESLint rule (`no-restricted-imports` or equivalent) enforces the ARCH-01 coupling constraint automatically — violation is a lint error, not just a convention
 
 ## Future Requirements
 
-### Ask from UI
+### Annotation Enhancements
 
-- **ASK-01**: User can select text in the plan/diff, type a question, and receive an AI response inline (integration-aware; each integration declares its ask command)
+- **ANNOT-F-01**: Ask-from-UI — select text, type a question, stream AI response inline
+- **ANNOT-F-02**: Per-comment color coding (multi-reviewer)
+- **ANNOT-F-03**: Threaded comment replies
 
-### Slash Command Resilience
+### Integrations (deferred from v0.3.0)
 
-- **SLC-02**: Double-result disambiguation — guidance on which result wins when both stdout and pasted JSON appear (deferred — iterate after v0.5.0)
-
-### Offline UX
-
-- **OFX-03**: Textarea fallback — show copyable JSON in a textarea if `navigator.clipboard` API is blocked (deferred)
-- **OFX-04**: Graceful online recovery — if server comes back, restore normal submit flow (deferred)
+- **INTEG-F-01**: Gemini CLI integration — full hook install/uninstall via `plan-reviewer install gemini`
+- **INTEG-F-02**: Integration test harness — `--no-browser`/`--port` flags + `assert_cmd`-based hook/install/server tests
+- **ANNOT-F-04**: Annotation quick-actions from v0.3.0 plan — predefined chips, light/dark theme (superseded by v0.6.0 implementation)
+- **DOCS-F-01**: README install/usage guide and per-integration wiring docs
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Codex CLI integration | Per-command hook only (PreToolUse) — no plan-level hook; would deliver a command approver, not a plan reviewer |
-| GitHub Copilot integration | No plan-level hook; per-project config contradicts curl \| sh UX |
-| Codestral / Mistral integration | Codestral is a model, not an agent runtime; no hook infrastructure |
-| Ask-from-UI | Deferred to v0.4.0 |
-| Three-state theme picker (System/Light/Dark) | Defer to v0.4.0; OS preference honored as default |
-| Annotation tip/tooltip field | Defer to v0.4.0; plain chip pre-fill ships first |
+| Migrating existing annotations to v2 format | Existing format stays until v2 is proven; no migration needed for plan review use case |
+| URL sharing / team collaboration | Not needed for local-only use case |
+| Real-time multi-user sync | Deferred; local-only for now |
+| Mobile / native app | Web-first, browser tab is correct UX |
+| TUI (terminal UI) | Browser UI chosen for rich rendering |
+| `react-diff-view` | Brief explicitly excluded it; diff rendering stays in existing Tab |
+| `@recogito/react-text-annotator` (React wrapper) | Incompatible data model; sidebar model differs from its popup model — use plain `@recogito/text-annotator` for anchor serialization inspiration only |
 
 ## Traceability
 
@@ -129,65 +83,33 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TEST-01 | Phase 6.1 | Pending |
-| TEST-02 | Phase 6.1 | Pending |
-| TEST-03 | Phase 6.1 | Pending |
-| INTEG-01 | Phase 6 | Pending |
-| INTEG-02 | Phase 6 | Pending |
-| INTEG-03 | Phase 7 | Pending |
-| INTEG-04 | Phase 7 | Pending |
-| INTEG-05 | Phase 5 | Pending |
-| REVIEW-01 | Phase 7.1 | Complete |
-| REVIEW-02 | Phase 7.1 | Complete |
-| REVIEW-03 | Phase 7.1 | Complete |
-| ANNOT-01 | Phase 8 | Pending |
-| ANNOT-02 | Phase 8 | Pending |
-| ANNOT-03 | Phase 8 | Pending |
-| THEME-01 | Phase 8 | Pending |
-| THEME-02 | Phase 8 | Pending |
-| THEME-03 | Phase 8 | Pending |
-| DOCS-01 | Phase 9 | Pending |
-| DOCS-02 | Phase 9 | Pending |
-| DOCS-03 | Phase 9 | Pending |
-| PLGN-01 | Phase 10 | Pending |
-| PLGN-02 | Phase 10 | Pending |
-| PLGN-03 | Phase 10 | Pending |
-| SLSH-01 | Phase 11 | Pending |
-| SLSH-02 | Phase 11 | Pending |
-| SLSH-03 | Phase 11 | Pending |
-| SLSH-04 | Phase 11 | Pending |
-| SLSH-05 | Phase 11 | Pending |
-| SLSH-06 | Phase 11 | Pending |
-| SLSH-07 | Phase 11 | Pending |
-| ACT-01 | Phase 11.1 | Pending |
-| ACT-02 | Phase 11.1 | Pending |
-| ACT-03 | Phase 11.1 | Pending |
-| ACT-04 | Phase 11.1 | Pending |
-| HB-01 | Phase 12 | Verified 2026-05-07 |
-| HB-02 | Phase 13 | Pending |
-| HB-03 | Phase 13 | Pending |
-| HB-04 | Phase 13 | Pending |
-| OFX-01 | Phase 14 | Pending |
-| OFX-02 | Phase 14 | Pending |
-| CLB-01 | Phase 15 | Pending |
-| CLB-02 | Phase 15 | Pending |
-| SLC-01 | Phase 16 | Pending |
+| LAYOUT-01 | — | Pending |
+| LAYOUT-02 | — | Pending |
+| OUTLINE-01 | — | Pending |
+| OUTLINE-02 | — | Pending |
+| OUTLINE-03 | — | Pending |
+| OUTLINE-04 | — | Pending |
+| CONTENT-01 | — | Pending |
+| CONTENT-02 | — | Pending |
+| CONTENT-03 | — | Pending |
+| COMMENT-01 | — | Pending |
+| COMMENT-02 | — | Pending |
+| COMMENT-03 | — | Pending |
+| COMMENT-04 | — | Pending |
+| COMMENT-05 | — | Pending |
+| SUBMIT-01 | — | Pending |
+| SUBMIT-02 | — | Pending |
+| ARCH-01 | — | Pending |
+| ARCH-02 | — | Pending |
+| TEST-01 | — | Pending |
+| TEST-02 | — | Pending |
+| TEST-03 | — | Pending |
 
 **Coverage:**
-- v0.3.0 requirements: 20 total
-- Mapped to phases: 20
-- Unmapped: 0
-
-**v0.4.0 coverage:**
-- v0.4.0 requirements: 10 total
-- Mapped to phases: 10
-- Unmapped: 0 ✓
-
-**v0.5.0 coverage:**
-- v0.5.0 requirements: 9 total
-- Mapped to phases: 9
-- Unmapped: 0 ✓
+- v0.6.0 requirements: 21 total
+- Mapped to phases: 0
+- Unmapped: 21 ⚠️
 
 ---
 *Requirements defined: 2026-04-10*
-*Last updated: 2026-05-06 — v0.5.0 requirements added (Phases 12–16)*
+*Last updated: 2026-05-19 after v0.6.0 milestone start*
