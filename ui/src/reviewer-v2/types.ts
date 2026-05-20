@@ -5,6 +5,8 @@ export interface Annotation {
   anchorText: string
   comment: string
   type: AnnotationType
+  anchorStart: number
+  anchorEnd: number
 }
 
 export type AnnotationAction =

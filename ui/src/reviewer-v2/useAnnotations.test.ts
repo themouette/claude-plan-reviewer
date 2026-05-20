@@ -7,6 +7,8 @@ const sampleAnnotation: Annotation = {
   anchorText: 'some text',
   comment: 'original comment',
   type: 'comment',
+  anchorStart: 0,
+  anchorEnd: 9,
 }
 
 describe('annotationReducer', () => {
