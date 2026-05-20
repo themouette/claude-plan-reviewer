@@ -1,6 +1,13 @@
+import { useRef, useState } from 'react'
 import ContentPane from './ContentPane'
+import OutlinePane from './OutlinePane'
+import type { Section } from './types'
 
 export default function ReviewerV2Shell() {
+  const mainRef = useRef<HTMLElement>(null)
+  const [sections, setSections] = useState<Section[]>([])
+  const [activeId, setActiveId] = useState<string | null>(null)
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Header strip — 48px fixed height */}
@@ -40,19 +47,17 @@ export default function ReviewerV2Shell() {
             padding: 16,
           }}
         >
-          <span
-            style={{
-              fontSize: 14,
-              fontWeight: 400,
-              color: 'var(--color-text-secondary)',
-            }}
-          >
-            Outline
-          </span>
+          <OutlinePane
+            sections={sections}
+            activeId={activeId}
+            mainRef={mainRef}
+            onActiveIdChange={setActiveId}
+          />
         </aside>
 
         {/* Center column: Content */}
         <main
+          ref={mainRef}
           style={{
             flex: 1,
             minWidth: 0,
@@ -61,7 +66,7 @@ export default function ReviewerV2Shell() {
             padding: 0,
           }}
         >
-          <ContentPane />
+          <ContentPane onSectionsFound={setSections} />
         </main>
 
         {/* Right column: Comments */}
