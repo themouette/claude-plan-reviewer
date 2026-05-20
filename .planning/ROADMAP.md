@@ -485,7 +485,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 19-01-PLAN.md — Heading id injection: slugify + extractRawText exports + heading renderer in markdownRenderer.ts (TDD)
+- [x] 19-01-PLAN.md — Heading id injection: slugify + extractRawText exports + heading renderer in markdownRenderer.ts (TDD)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -582,7 +582,7 @@ Plans:
 | 16. Slash Command Fallback | v0.5.0 | 1/1 | Complete    | 2026-05-07 |
 | 17. Foundation & Isolation | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 18. Content Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
-| 19. Outline Pane | v0.6.0 | 0/3 | Planned | - |
+| 19. Outline Pane | v0.6.0 | 1/3 | In Progress|  |
 | 20. Comment Pane | v0.6.0 | 0/? | Not started | - |
 | 21. Comment Actions | v0.6.0 | 0/? | Not started | - |
 | 22. Submit & Clipboard | v0.6.0 | 0/? | Not started | - |
