@@ -481,7 +481,20 @@ Plans:
   3. As the user scrolls the content pane, the outline item for the heading closest to the top of the viewport is highlighted and scrolled into the outline panel's view automatically
   4. Each outline item shows a badge with the count of comments anchored within that section; a section with no comments shows no badge or shows zero; adding a comment in the content pane updates its section's count immediately
 
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+**Wave 1**
+
+- [ ] 19-01-PLAN.md — Heading id injection: slugify + extractRawText exports + heading renderer in markdownRenderer.ts (TDD)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 19-02-PLAN.md — Section type + ContentPane onSectionsFound callback + heading walk useEffect (TDD)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 19-03-PLAN.md — OutlinePane component + ReviewerV2Shell wiring + human verify
+
 **UI hint**: yes
 
 ### Phase 20: Comment Pane
@@ -569,7 +582,7 @@ Plans:
 | 16. Slash Command Fallback | v0.5.0 | 1/1 | Complete    | 2026-05-07 |
 | 17. Foundation & Isolation | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 18. Content Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
-| 19. Outline Pane | v0.6.0 | 0/? | Not started | - |
+| 19. Outline Pane | v0.6.0 | 0/3 | Planned | - |
 | 20. Comment Pane | v0.6.0 | 0/? | Not started | - |
 | 21. Comment Actions | v0.6.0 | 0/? | Not started | - |
 | 22. Submit & Clipboard | v0.6.0 | 0/? | Not started | - |
