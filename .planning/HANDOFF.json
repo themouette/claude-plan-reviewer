@@ -1,0 +1,39 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-20T10:53:24.005Z",
+  "phase": "18",
+  "phase_name": "content-pane",
+  "phase_dir": ".planning/phases/18-content-pane",
+  "plan": 3,
+  "task": "post-execution-gates",
+  "status": "paused",
+  "completed_tasks": [
+    {"id": "plans", "name": "All 3 plans executed (18-01, 18-02, 18-03)", "status": "done"},
+    {"id": "code-review", "name": "Code review — 18-REVIEW.md committed", "status": "done"},
+    {"id": "verification", "name": "Verification — human_needed, 18-VERIFICATION.md committed", "status": "done"},
+    {"id": "uat-file", "name": "18-HUMAN-UAT.md created (6 items)", "status": "done"},
+    {"id": "bug-hover", "name": "Hover flicker fixed (overlay sibling + MarkdownView memo)", "status": "done"},
+    {"id": "bug-selection", "name": "Selection anchor fixed (no setState on mousedown + e.buttons guard)", "status": "done"},
+    {"id": "bug-outside-click", "name": "Outside-click now clears selection", "status": "done"}
+  ],
+  "remaining_tasks": [
+    {"id": "uat-items-3-6", "name": "User verifies UAT items 3-6 in browser", "status": "not_started"},
+    {"id": "phase-complete", "name": "gsd-sdk query phase.complete 18 + commit", "status": "not_started"},
+    {"id": "offer-next", "name": "Present next phase routing", "status": "not_started"}
+  ],
+  "blockers": [
+    {"description": "GPG key times out between sessions", "type": "human_action", "workaround": "User unlocks with: echo test | gpg --armor --clearsign"}
+  ],
+  "human_actions_pending": [
+    {"action": "Test UAT items 3-6 in browser at /v2", "context": "Items 1-2 confirmed. Need: selection toolbar, offset DevTools, More expander, pill-click clear", "blocking": true}
+  ],
+  "decisions": [
+    {"decision": "MarkdownView extracted as memo'd component", "rationale": "Hard bail-out prevents React reconciling innerHTML subtree during hover state changes", "phase": "18"},
+    {"decision": "No setSelectedText on mousedown", "rationale": "setState mid-drag triggers re-render that resets browser selection anchor", "phase": "18"},
+    {"decision": "e.buttons !== 0 guard in handleMouseMove", "rationale": "UX rule: suppress hover jitter during drag; complementary to memoization", "phase": "18"},
+    {"decision": "Outside-click clears selection", "rationale": "Previous containment guard too conservative; Phase 21 can re-add exclusions", "phase": "18"}
+  ],
+  "uncommitted_files": [".gitignore", ".planning/STATE.md", ".planning/config.json"],
+  "next_action": "Present UAT checkpoint to user (items 3-6). On 'approved': gsd-sdk query phase.complete 18 → commit → offer_next routing.",
+  "context_notes": "Phase 18 functionally complete. All selection bugs resolved. Architecture is solid: MarkdownView memo isolates innerHTML from React reconciliation; no setState on mousedown prevents drag anchor resets. Waiting only for UAT sign-off."
+}
