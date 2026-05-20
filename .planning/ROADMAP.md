@@ -61,7 +61,7 @@ Full archive: `.planning/milestones/v0.5.0-ROADMAP.md`
 
 **Milestone Goal:** Build a standalone 3-column annotation reviewer alongside the existing UI, architecturally isolated under `ui/src/reviewer-v2/`, with heading outline, formatted markdown, anchored comment sidebar, and full submit/clipboard-fallback support.
 
-- [ ] **Phase 17: Foundation & Isolation** - Test infrastructure (jsdom mocks, ESLint coupling rule), routing switch in `main.tsx`, v2 types, annotation store, heartbeat, and `/v2` layout shell
+- [x] **Phase 17: Foundation & Isolation** - Test infrastructure (jsdom mocks, ESLint coupling rule), routing switch in `main.tsx`, v2 types, annotation store, heartbeat, and `/v2` layout shell (completed 2026-05-20)
 - [ ] **Phase 18: Content Pane** - GFM markdown rendering, paragraph hover highlight + gutter icon, text-selection comment toolbar
 - [ ] **Phase 19: Outline Pane** - Heading tree with click-to-scroll, active section tracking, per-section comment count badges
 - [ ] **Phase 20: Comment Pane** - Anchored comment bubbles that follow scroll, bidirectional hover linking, overlap/collapse handling
@@ -348,16 +348,16 @@ Plans:
   3. `npm test` passes and jsdom mocks for `IntersectionObserver`, `ResizeObserver`, and `CSS.highlights` are registered before any test runs — v2 component tests can be written immediately
   4. The `/v2` reviewer polls `/api/ping` independently — opening `/v2` without the existing reviewer mounted still maintains heartbeat/connectivity state
   5. All v2 code lives exclusively under `ui/src/reviewer-v2/` — no v2 files appear outside that directory
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 Plans:
 **Wave 1**
-- [ ] 17-01-PLAN.md — Test infrastructure: jsdom install + vitest.setup.ts + ESLint reviewer-v2 coupling block
+- [x] 17-01-PLAN.md — Test infrastructure: jsdom install + vitest.setup.ts + ESLint reviewer-v2 coupling block
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 17-02-PLAN.md — v2 subtree foundation: types, copied connectivity/serializeAnnotations/offlineLabels, useHeartbeat copy, useAnnotations reducer hook + tests
+- [x] 17-02-PLAN.md — v2 subtree foundation: types, copied connectivity/serializeAnnotations/offlineLabels, useHeartbeat copy, useAnnotations reducer hook + tests
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 17-03-PLAN.md — ReviewerV2 + 3-column shell + /v2 routing branch in main.tsx + human verification of layout boundary
+- [x] 17-03-PLAN.md — ReviewerV2 + 3-column shell + /v2 routing branch in main.tsx + human verification of layout boundary
 **UI hint**: yes
 
 ### Phase 18: Content Pane
@@ -455,7 +455,7 @@ Plans:
 | 14. Offline Banner & Button Relabeling | v0.5.0 | 2/2 | Complete    | 2026-05-07 |
 | 15. Clipboard Submit Path | v0.5.0 | 2/2 | Complete    | 2026-05-07 |
 | 16. Slash Command Fallback | v0.5.0 | 1/1 | Complete    | 2026-05-07 |
-| 17. Foundation & Isolation | v0.6.0 | 0/3 | Planned | - |
+| 17. Foundation & Isolation | v0.6.0 | 3/3 | Complete   | 2026-05-20 |
 | 18. Content Pane | v0.6.0 | 0/? | Not started | - |
 | 19. Outline Pane | v0.6.0 | 0/? | Not started | - |
 | 20. Comment Pane | v0.6.0 | 0/? | Not started | - |

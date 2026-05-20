@@ -4,8 +4,8 @@ milestone: v0.6.0
 milestone_name: Markdown Annotator v2
 status: executing
 stopped_at: Phase 17 context gathered
-last_updated: "2026-05-20T05:08:58.369Z"
-last_activity: 2026-05-20 -- Phase 17 planning complete
+last_updated: "2026-05-20T05:09:53.524Z"
+last_activity: 2026-05-20 -- Phase 17 execution started
 progress:
   total_phases: 9
   completed_phases: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** v0.6.0 — Phase 17: Foundation & Isolation (ready to plan)
+**Current focus:** Phase 17 — foundation-isolation
 
 ## Current Position
 
-Phase: 17 of 23 (Foundation & Isolation)
-Plan: — of —
-Status: Ready to execute
-Last activity: 2026-05-20 -- Phase 17 planning complete
+Phase: 17 (foundation-isolation) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 17
+Last activity: 2026-05-20 -- Phase 17 execution started
 
 Progress: [░░░░░░░░░░] 0% (v0.6.0 milestone)
 
