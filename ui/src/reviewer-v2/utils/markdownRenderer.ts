@@ -63,7 +63,7 @@ export function renderMarkdown(md: string): string {
       renderer: {
         heading({ tokens, depth }: Tokens.Heading) {
           const rawText = extractRawText(tokens)
-          const baseSlug = slugify(rawText)
+          const baseSlug = slugify(rawText) || `section-${depth}`
           const count = headingSlugCounts.get(baseSlug) ?? 0
           headingSlugCounts.set(baseSlug, count + 1)
           const id = count === 0 ? baseSlug : `${baseSlug}-${count + 1}`
