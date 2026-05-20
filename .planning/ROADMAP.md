@@ -63,7 +63,7 @@ Full archive: `.planning/milestones/v0.5.0-ROADMAP.md`
 
 - [x] **Phase 17: Foundation & Isolation** - Test infrastructure (jsdom mocks, ESLint coupling rule), routing switch in `main.tsx`, v2 types, annotation store, heartbeat, and `/v2` layout shell (completed 2026-05-20)
 - [x] **Phase 18: Content Pane** - GFM markdown rendering, paragraph hover highlight + gutter icon, text-selection comment toolbar (completed 2026-05-20)
-- [ ] **Phase 19: Outline Pane** - Heading tree with click-to-scroll, active section tracking, per-section comment count badges
+- [x] **Phase 19: Outline Pane** - Heading tree with click-to-scroll, active section tracking, per-section comment count badges (completed 2026-05-20)
 - [ ] **Phase 20: Comment Pane** - Anchored comment bubbles that follow scroll, bidirectional hover linking, overlap/collapse handling
 - [ ] **Phase 21: Comment Actions** - Three quick actions (comment/delete/replace), expandable predefined-action menu, edit/delete per bubble
 - [ ] **Phase 22: Submit & Clipboard** - Approve/ask-for-changes validation gates, clipboard fallback in degraded mode
@@ -493,7 +493,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 19-03-PLAN.md — OutlinePane component + ReviewerV2Shell wiring + human verify
+- [x] 19-03-PLAN.md — OutlinePane component + ReviewerV2Shell wiring + human verify
 
 **UI hint**: yes
 
@@ -582,7 +582,7 @@ Plans:
 | 16. Slash Command Fallback | v0.5.0 | 1/1 | Complete    | 2026-05-07 |
 | 17. Foundation & Isolation | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 18. Content Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
-| 19. Outline Pane | v0.6.0 | 2/3 | In Progress|  |
+| 19. Outline Pane | v0.6.0 | 3/3 | Complete   | 2026-05-20 |
 | 20. Comment Pane | v0.6.0 | 0/? | Not started | - |
 | 21. Comment Actions | v0.6.0 | 0/? | Not started | - |
 | 22. Submit & Clipboard | v0.6.0 | 0/? | Not started | - |
