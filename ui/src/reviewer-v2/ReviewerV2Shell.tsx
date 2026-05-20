@@ -1,3 +1,5 @@
+import ContentPane from './ContentPane'
+
 export default function ReviewerV2Shell() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -56,18 +58,10 @@ export default function ReviewerV2Shell() {
             minWidth: 0,
             background: 'var(--color-bg)',
             overflowY: 'auto',
-            padding: 32,
+            padding: 0,
           }}
         >
-          <span
-            style={{
-              fontSize: 14,
-              fontWeight: 400,
-              color: 'var(--color-text-secondary)',
-            }}
-          >
-            Content
-          </span>
+          <ContentPane />
         </main>
 
         {/* Right column: Comments */}

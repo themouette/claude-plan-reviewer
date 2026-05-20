@@ -1,3 +1,4 @@
+import 'highlight.js/styles/github-dark.css'
 import { useHeartbeat } from './useHeartbeat'
 import { useAnnotations } from './useAnnotations'
 import ReviewerV2Shell from './ReviewerV2Shell'
