@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.6.0
 milestone_name: Markdown Annotator v2
 status: executing
-stopped_at: Phase 18 executing wave 2
-last_updated: "2026-05-20T08:30:00.000Z"
-last_activity: 2026-05-20 -- Phase 18 wave 1 complete (18-01)
+stopped_at: Phase 18 executing wave 3 (checkpoint)
+last_updated: "2026-05-20T09:00:00.000Z"
+last_activity: 2026-05-20 -- Phase 18 wave 2 complete (18-02)
 progress:
   total_phases: 9
   completed_phases: 8
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 ## Current Position
 
 Phase: 18
-Plan: 18-02 (wave 2)
+Plan: 18-03 (wave 3 — checkpoint)
 Status: Executing
-Last activity: 2026-05-20 -- Phase 18 wave 1 complete
+Last activity: 2026-05-20 -- Phase 18 wave 2 complete
 
 Progress: [░░░░░░░░░░] 0% (v0.6.0 milestone)
 

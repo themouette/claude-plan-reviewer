@@ -461,7 +461,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 18-02-PLAN.md — Affordance components: GutterIcon + SelectionToolbar (pills + more expander) + tests
+- [x] 18-02-PLAN.md — Affordance components: GutterIcon + SelectionToolbar (pills + more expander) + tests (complete 2026-05-20)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
