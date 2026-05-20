@@ -435,7 +435,7 @@ useLayoutEffect(() => {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Where does `ContentPane` fetch plan data?**
    - What we know: `App.tsx` fetches `/api/plan` and passes `planHtml` down to the render div. `ReviewerV2.tsx` currently mounts the shell directly with no data.
