@@ -1,5 +1,21 @@
-import { useState, type RefObject } from 'react'
+import { memo, useState, type RefObject } from 'react'
 import GutterIcon from './GutterIcon'
+
+const MarkdownView = memo(function MarkdownView({
+  planHtml,
+  planRef,
+}: {
+  planHtml: string
+  planRef: RefObject<HTMLDivElement | null>
+}) {
+  return (
+    <div
+      ref={planRef}
+      className="plan-prose"
+      dangerouslySetInnerHTML={{ __html: planHtml }}
+    />
+  )
+})
 
 export default function PlanContent({
   planHtml,
@@ -16,8 +32,7 @@ export default function PlanContent({
 
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
     if (selectedText) return
-    // Skip hover updates while any mouse button is held (text selection drag).
-    // DOM mutations from hover state changes disrupt the browser's drag-selection anchor.
+    // No hover updates while a button is held — selection drag would jitter.
     if (e.buttons !== 0) return
     const target = e.target as Element
     if (target.closest('button[aria-label="Add comment to paragraph"]')) return
@@ -41,14 +56,9 @@ export default function PlanContent({
       onMouseMove={handleMouseMove}
       onMouseOut={handleMouseOut}
     >
-      <div
-        ref={planRef}
-        className="plan-prose"
-        dangerouslySetInnerHTML={{ __html: planHtml }}
-      />
+      <MarkdownView planHtml={planHtml} planRef={planRef} />
       {hoveredParagraph && !selectedText && (
         <>
-          {/* Overlay sibling — never touches dangerouslySetInnerHTML DOM */}
           <div
             aria-hidden="true"
             className="paragraph-hover-overlay"
