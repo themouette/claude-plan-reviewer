@@ -47,3 +47,29 @@ describe('ContentPane', () => {
     expect(handleActionBody).toMatch(/resetTextSelection/)
   })
 })
+
+describe('ContentPane onSectionsFound wiring', () => {
+  it('source contains onSectionsFound prop declaration', () => {
+    expect(source).toContain('onSectionsFound')
+  })
+
+  it('source contains querySelectorAll for heading walk', () => {
+    expect(source).toContain('querySelectorAll')
+  })
+
+  it('source imports or uses the Section type', () => {
+    expect(source).toContain('Section')
+  })
+
+  it('source contains the specific h1,h2,h3,h4,h5,h6 selector', () => {
+    expect(source).toContain('h1,h2,h3,h4,h5,h6')
+  })
+
+  it('source contains el.textContent for text extraction from heading elements', () => {
+    expect(source).toContain('el.textContent')
+  })
+
+  it('source contains parseInt(el.tagName for depth extraction', () => {
+    expect(source).toContain('parseInt(el.tagName')
+  })
+})

@@ -3,9 +3,13 @@ import { useTextSelection } from './hooks/useTextSelection'
 import { renderMarkdown } from './utils/markdownRenderer'
 import PlanContent from './PlanContent'
 import SelectionToolbar from './SelectionToolbar'
-import type { AnnotationType } from './types'
+import type { AnnotationType, Section } from './types'
 
-export default function ContentPane() {
+export default function ContentPane({
+  onSectionsFound,
+}: {
+  onSectionsFound?: (sections: Section[]) => void
+} = {}) {
   const planRef = useRef<HTMLDivElement>(null)
   const [planHtml, setPlanHtml] = useState<string>('')
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -23,6 +27,19 @@ export default function ContentPane() {
       })
       .catch(() => setStatus('error'))
   }, [])
+
+  // After planHtml loads and React commits the DOM, walk headings to build Section[]
+  // and notify the shell via the optional onSectionsFound callback.
+  useEffect(() => {
+    if (!planRef.current || !onSectionsFound) return
+    const headings = planRef.current.querySelectorAll('h1,h2,h3,h4,h5,h6')
+    const sections: Section[] = Array.from(headings).map((el) => ({
+      id: el.id,
+      text: el.textContent ?? '',
+      depth: parseInt(el.tagName[1], 10),
+    }))
+    onSectionsFound(sections)
+  }, [planHtml, onSectionsFound])
 
   // Inline getOffsets() call — synchronous snapshot of stored offsets.
   // The inline form is intentionally simpler for v2: getOffsets() is a synchronous
