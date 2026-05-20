@@ -96,28 +96,14 @@ export function useTextSelection(
   const storedOffsets = useRef<{ start: number; end: number } | null>(null)
 
   useEffect(() => {
-    // Capture selection on mouseup (after drag completes).
-    // Only clear selectedText when the click was inside the plan container —
-    // clicks in the sidebar must not dismiss the annotation pills.
-    const capture = (e: MouseEvent) => {
+    // Shared: process a non-collapsed selection that is within the container.
+    // Returns true if a selection was captured, false if it was cleared/ignored.
+    const processSelection = (): boolean => {
       const selection = document.getSelection()
+      if (!selection || selection.isCollapsed) return false
 
-      if (!selection || selection.isCollapsed) {
-        // Intentional deselect only when the user clicked inside the container.
-        if (containerRef.current?.contains(e.target as Node)) {
-          removeHighlight()
-          currentRange.current = null
-          storedOffsets.current = null
-          setSelectedText('')
-        }
-        return
-      }
-
-      // Guard: only track selections within the plan content container
       const range = selection.getRangeAt(0)
-      if (!containerRef.current?.contains(range.commonAncestorContainer)) {
-        return
-      }
+      if (!containerRef.current?.contains(range.commonAncestorContainer)) return false
 
       const text = selection.toString().trim()
       if (!text) {
@@ -125,7 +111,7 @@ export function useTextSelection(
         currentRange.current = null
         storedOffsets.current = null
         setSelectedText('')
-        return
+        return false
       }
 
       // Convert to character offsets immediately (while DOM is untouched).
@@ -134,13 +120,7 @@ export function useTextSelection(
       storedOffsets.current = offsets
 
       if (offsets) {
-        // Reconstruct a fresh Range from the offsets (independent of the selection
-        // object) and apply the CSS highlight before clearing native selection.
-        const freshRange = rangeFromOffsets(
-          containerRef.current,
-          offsets.start,
-          offsets.end,
-        )
+        const freshRange = rangeFromOffsets(containerRef.current, offsets.start, offsets.end)
         if (freshRange) {
           currentRange.current = freshRange
           applyHighlight(freshRange)
@@ -148,11 +128,54 @@ export function useTextSelection(
       }
 
       setSelectedText(text)
+      return true
     }
 
+    // Mouse path: capture on mouseup (after drag completes).
+    // Only clear selectedText when the click was inside the plan container —
+    // clicks in the sidebar must not dismiss the annotation pills.
+    const capture = (e: MouseEvent) => {
+      if (!processSelection()) {
+        // Collapsed or out-of-container — only clear when click was inside container.
+        if (containerRef.current?.contains(e.target as Node)) {
+          removeHighlight()
+          currentRange.current = null
+          storedOffsets.current = null
+          setSelectedText('')
+        }
+      }
+    }
+
+    // Keyboard path: selectionchange handles Shift+arrows, Ctrl+A, etc.
+    // Skip when a mouse button is held (mid-drag) — mouseup will handle that case.
+    let mouseDown = false
+    const onMouseDown = () => { mouseDown = true }
+    const onMouseUp = () => { mouseDown = false }
+    const captureKeyboard = () => {
+      if (mouseDown) return // mid-drag: wait for mouseup
+      const selection = document.getSelection()
+      if (!selection || selection.isCollapsed) {
+        // Keyboard collapse (ArrowLeft/Right without Shift) — always clear.
+        if (storedOffsets.current) {
+          removeHighlight()
+          currentRange.current = null
+          storedOffsets.current = null
+          setSelectedText('')
+        }
+        return
+      }
+      processSelection()
+    }
+
+    document.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('mouseup', onMouseUp)
     document.addEventListener('mouseup', capture)
+    document.addEventListener('selectionchange', captureKeyboard)
     return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('mouseup', onMouseUp)
       document.removeEventListener('mouseup', capture)
+      document.removeEventListener('selectionchange', captureKeyboard)
     }
   }, [containerRef])
 
