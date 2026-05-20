@@ -478,7 +478,7 @@ describe('computeCommentLayout', () => {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Expanded bubble height measurement timing**
    - What we know: `computeCommentLayout` needs the expanded bubble's rendered height for accurate `previousBottom` computation. On first pass this is unknown.
