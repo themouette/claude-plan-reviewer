@@ -25,7 +25,10 @@ export default function ContentPane({
         setPlanHtml(renderMarkdown(data.plan_md))
         setStatus('ready')
       })
-      .catch(() => setStatus('error'))
+      .catch((err: unknown) => {
+        console.error('[ContentPane] Failed to load /api/plan:', err)
+        setStatus('error')
+      })
   }, [])
 
   // After planHtml loads and React commits the DOM, walk headings to build Section[]
