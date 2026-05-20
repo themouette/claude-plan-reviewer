@@ -457,7 +457,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 18-01-PLAN.md — Foundation utilities: useTextSelection copy + markdownRenderer + unit tests
+- [x] 18-01-PLAN.md — Foundation utilities: useTextSelection copy + markdownRenderer + unit tests (complete 2026-05-20)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
