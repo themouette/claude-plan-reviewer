@@ -489,7 +489,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 19-02-PLAN.md — Section type + ContentPane onSectionsFound callback + heading walk useEffect (TDD)
+- [x] 19-02-PLAN.md — Section type + ContentPane onSectionsFound callback + heading walk useEffect (TDD)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -582,7 +582,7 @@ Plans:
 | 16. Slash Command Fallback | v0.5.0 | 1/1 | Complete    | 2026-05-07 |
 | 17. Foundation & Isolation | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 18. Content Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
-| 19. Outline Pane | v0.6.0 | 1/3 | In Progress|  |
+| 19. Outline Pane | v0.6.0 | 2/3 | In Progress|  |
 | 20. Comment Pane | v0.6.0 | 0/? | Not started | - |
 | 21. Comment Actions | v0.6.0 | 0/? | Not started | - |
 | 22. Submit & Clipboard | v0.6.0 | 0/? | Not started | - |
