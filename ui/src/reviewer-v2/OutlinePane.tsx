@@ -47,9 +47,9 @@ export default function OutlinePane({
   return (
     <nav aria-label="Document outline">
       <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-        {sections.map((section) => (
+        {sections.map((section, i) => (
           <li
-            key={section.id}
+            key={section.id || `__section-${i}`}
             ref={section.id === activeId ? activeItemRef : undefined}
           >
             <button
