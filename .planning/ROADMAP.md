@@ -473,13 +473,12 @@ Plans:
 
 **Goal**: The left pane shows the document's heading hierarchy as an indented tree; clicking an item scrolls the corresponding heading into view; the active section tracks scroll position and is highlighted; each item shows its comment count
 **Depends on**: Phase 18
-**Requirements**: OUTLINE-01, OUTLINE-02, OUTLINE-03, OUTLINE-04
+**Requirements**: OUTLINE-01, OUTLINE-02, OUTLINE-03
 **Success Criteria** (what must be TRUE):
 
   1. All headings in the document appear in the outline panel, indented proportionally to their depth (H2 deeper than H1, H3 deeper than H2, etc.)
   2. Clicking any outline item scrolls that heading to the top of the content viewport — the browser URL does not change (no hash navigation)
   3. As the user scrolls the content pane, the outline item for the heading closest to the top of the viewport is highlighted and scrolled into the outline panel's view automatically
-  4. Each outline item shows a badge with the count of comments anchored within that section; a section with no comments shows no badge or shows zero; adding a comment in the content pane updates its section's count immediately
 
 **Plans**: 3 plans
 Plans:
@@ -516,12 +515,13 @@ Plans:
 
 **Goal**: Users can create, edit, and delete comments via quick-action triggers on paragraph hover and text selection; three primary actions pre-fill the comment textarea; an expandable menu offers six predefined actions; existing bubbles have edit and delete controls
 **Depends on**: Phase 20
-**Requirements**: COMMENT-04, COMMENT-05
+**Requirements**: COMMENT-04, COMMENT-05, OUTLINE-04
 **Success Criteria** (what must be TRUE):
 
   1. After hovering a paragraph or selecting text, three quick-action buttons appear: "Comment" (empty textarea), "Delete" (textarea pre-filled with "Delete"), "Replace" (textarea pre-filled with "Replace")
   2. An expandable menu button reveals six predefined actions — "Clarify this", "Needs test", "Give me an example", "Out of scope", "Search the web", "Search codebase" — each opens a textarea pre-filled with that label
   3. Every submitted comment bubble shows a pencil icon (edit) and an × icon (delete); clicking the pencil reopens the textarea with the existing text for inline editing; clicking × removes the bubble immediately with no confirmation dialog
+  4. Each outline item shows a badge with the count of comments anchored within that section; a section with no comments shows no badge; adding a comment in the content pane updates its section's count immediately
 
 **Plans**: TBD
 **UI hint**: yes

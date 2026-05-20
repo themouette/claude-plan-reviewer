@@ -88,7 +88,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OUTLINE-01 | Phase 19 | Pending |
 | OUTLINE-02 | Phase 19 | Pending |
 | OUTLINE-03 | Phase 19 | Pending |
-| OUTLINE-04 | Phase 19 | Pending |
+| OUTLINE-04 | Phase 21 | Pending |
 | CONTENT-01 | Phase 18 | Pending |
 | CONTENT-02 | Phase 18 | Pending |
 | CONTENT-03 | Phase 18 | Pending |
