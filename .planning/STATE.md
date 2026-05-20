@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.6.0
 milestone_name: Markdown Annotator v2
-status: ready_to_plan
-stopped_at: Phase 19 complete (3/3) — ready to discuss Phase 20
-last_updated: 2026-05-20T19:56:03.751Z
-last_activity: 2026-05-20 -- Phase 19 execution started
+status: planning
+stopped_at: Phase 20 context gathered
+last_updated: "2026-05-20T21:56:35.801Z"
+last_activity: 2026-05-20
 progress:
   total_phases: 9
   completed_phases: 8
   total_plans: 18
-  completed_plans: 40
+  completed_plans: 19
   percent: 89
 ---
 
@@ -72,6 +72,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-20T15:00:52.105Z
-Stopped at: Phase 19 UI-SPEC approved
-Resume file: .planning/phases/19-outline-pane/19-UI-SPEC.md
+Last session: 2026-05-20T21:56:35.795Z
+Stopped at: Phase 20 context gathered
+Resume file: .planning/phases/20-comment-pane/20-CONTEXT.md
