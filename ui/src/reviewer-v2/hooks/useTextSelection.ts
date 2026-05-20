@@ -135,17 +135,15 @@ export function useTextSelection(
     }
 
     // Mouse path: capture on mouseup (after drag completes).
-    // Only clear selectedText when the click was inside the plan container —
-    // clicks in the sidebar must not dismiss the annotation pills.
     const capture = (e: MouseEvent) => {
       if (!processSelection()) {
-        // Collapsed or out-of-container — only clear when click was inside container.
-        if (containerRef.current?.contains(e.target as Node)) {
-          removeHighlight()
-          currentRange.current = null
-          storedOffsets.current = null
-          setSelectedText('')
-        }
+        // No valid selection after mouseup — clear regardless of where the click landed.
+        // When Phase 21 adds annotation pill interactions that must preserve selection,
+        // re-add a target exclusion here (e.g. target.closest('[data-annotation-control]')).
+        removeHighlight()
+        currentRange.current = null
+        storedOffsets.current = null
+        setSelectedText('')
       }
     }
 
