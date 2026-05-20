@@ -19,11 +19,14 @@ export default function OutlinePane({
     if (!mainRef.current || sections.length === 0) return
     const observer = new IntersectionObserver(
       (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            onActiveIdChange(entry.target.id)
-            break // first intersecting entry wins
-          }
+        const intersectingIds = new Set(
+          entries.filter((e) => e.isIntersecting).map((e) => e.target.id),
+        )
+        if (intersectingIds.size > 0) {
+          // Select the entry whose id appears earliest in sections (document order)
+          // rather than relying on the spec-undefined order of entries[].
+          const first = sections.find((s) => intersectingIds.has(s.id))
+          if (first) onActiveIdChange(first.id)
         }
       },
       {
