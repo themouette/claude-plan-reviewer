@@ -62,7 +62,7 @@ Full archive: `.planning/milestones/v0.5.0-ROADMAP.md`
 **Milestone Goal:** Build a standalone 3-column annotation reviewer alongside the existing UI, architecturally isolated under `ui/src/reviewer-v2/`, with heading outline, formatted markdown, anchored comment sidebar, and full submit/clipboard-fallback support.
 
 - [x] **Phase 17: Foundation & Isolation** - Test infrastructure (jsdom mocks, ESLint coupling rule), routing switch in `main.tsx`, v2 types, annotation store, heartbeat, and `/v2` layout shell (completed 2026-05-20)
-- [ ] **Phase 18: Content Pane** - GFM markdown rendering, paragraph hover highlight + gutter icon, text-selection comment toolbar
+- [x] **Phase 18: Content Pane** - GFM markdown rendering, paragraph hover highlight + gutter icon, text-selection comment toolbar (completed 2026-05-20)
 - [ ] **Phase 19: Outline Pane** - Heading tree with click-to-scroll, active section tracking, per-section comment count badges
 - [ ] **Phase 20: Comment Pane** - Anchored comment bubbles that follow scroll, bidirectional hover linking, overlap/collapse handling
 - [ ] **Phase 21: Comment Actions** - Three quick actions (comment/delete/replace), expandable predefined-action menu, edit/delete per bubble
@@ -453,7 +453,7 @@ Plans:
   3. Selecting text in the content pane shows a toolbar anchored to the selection end — the hover highlight disappears and a selection highlight appears while text is selected
   4. Text selections serialize to character offsets (not DOM paths) — confirmed by inspecting the toolbar's data payload in browser devtools
 
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 Plans:
 **Wave 1**
 
@@ -465,7 +465,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 18-03-PLAN.md — PlanContent + ContentPane wiring + Shell integration + index.css + human verify
+- [x] 18-03-PLAN.md — PlanContent + ContentPane wiring + Shell integration + index.css + human verify
 
 **UI hint**: yes
 
@@ -568,7 +568,7 @@ Plans:
 | 15. Clipboard Submit Path | v0.5.0 | 2/2 | Complete    | 2026-05-07 |
 | 16. Slash Command Fallback | v0.5.0 | 1/1 | Complete    | 2026-05-07 |
 | 17. Foundation & Isolation | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
-| 18. Content Pane | v0.6.0 | 0/3 | Planned | - |
+| 18. Content Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 19. Outline Pane | v0.6.0 | 0/? | Not started | - |
 | 20. Comment Pane | v0.6.0 | 0/? | Not started | - |
 | 21. Comment Actions | v0.6.0 | 0/? | Not started | - |

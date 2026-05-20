@@ -1,5 +1,10 @@
+/// <reference types="node" />
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
 import { rangeFromOffsets, useTextSelection } from './useTextSelection'
+
+const source = readFileSync(resolve(__dirname, './useTextSelection.ts'), 'utf-8')
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -58,6 +63,27 @@ describe('rangeFromOffsets', () => {
     expect(range).not.toBeNull()
     expect(range!.toString()).toBe('lo wo')
   })
+
+  it('returns a collapsed range when start === end (zero-length selection)', () => {
+    const container = singleTextContainer('hello')
+    const range = rangeFromOffsets(container, 2, 2)
+    expect(range).not.toBeNull()
+    expect(range!.collapsed).toBe(true)
+    expect(range!.toString()).toBe('')
+  })
+
+  it('returns null when end exceeds total text length', () => {
+    const container = singleTextContainer('hi')
+    const range = rangeFromOffsets(container, 0, 100)
+    expect(range).toBeNull()
+  })
+
+  it('handles a single-character selection', () => {
+    const container = singleTextContainer('abc')
+    const range = rangeFromOffsets(container, 1, 2)
+    expect(range).not.toBeNull()
+    expect(range!.toString()).toBe('b')
+  })
 })
 
 // ─── useTextSelection ────────────────────────────────────────────────────────
@@ -65,6 +91,48 @@ describe('rangeFromOffsets', () => {
 describe('useTextSelection', () => {
   it('is a function (export shape check)', () => {
     expect(typeof useTextSelection).toBe('function')
+  })
+})
+
+// ─── reset() contract (source assertions) ────────────────────────────────────
+//
+// reset() is the programmatic clear path called after annotation creation. It must
+// remove the CSS highlight, null out stored offsets, and clear selectedText state.
+// If any of these are missing, the toolbar or highlight can linger after an action.
+
+describe('useTextSelection reset contract', () => {
+  it('reset calls removeHighlight() to clear the CSS custom highlight', () => {
+    const resetBody = source.match(/const reset = useCallback\(\(\) => \{[\s\S]*?\}, \[\]\)/)?.[0] ?? ''
+    expect(resetBody).toContain('removeHighlight()')
+  })
+
+  it('reset nulls storedOffsets.current so getOffsets() returns null afterwards', () => {
+    const resetBody = source.match(/const reset = useCallback\(\(\) => \{[\s\S]*?\}, \[\]\)/)?.[0] ?? ''
+    expect(resetBody).toContain('storedOffsets.current = null')
+  })
+
+  it('reset calls setSelectedText(\'\') to collapse the toolbar', () => {
+    const resetBody = source.match(/const reset = useCallback\(\(\) => \{[\s\S]*?\}, \[\]\)/)?.[0] ?? ''
+    expect(resetBody).toContain("setSelectedText('')")
+  })
+})
+
+// ─── mousedown drag guard (source assertions) ────────────────────────────────
+//
+// Calling setSelectedText during a drag resets the browser selection anchor.
+// The mousedown handler must clear the CSS highlight (no re-render) but must NOT
+// call setSelectedText — mouseup handles the final state update.
+
+describe('useTextSelection drag guard', () => {
+  it('mousedown handler calls removeHighlight but not setSelectedText()', () => {
+    const onMouseDownBody = source.match(/const onMouseDown = \(e: MouseEvent\) => \{[\s\S]*?\n    \}/)?.[0] ?? ''
+    expect(onMouseDownBody).toContain('removeHighlight()')
+    // The comment explains WHY setSelectedText is absent — the call must not be there.
+    expect(onMouseDownBody).not.toMatch(/setSelectedText\(/)
+  })
+
+  it('capture parameter is prefixed with _ (intentionally unused — only side effects matter)', () => {
+    expect(source).toContain('const capture = (_e: MouseEvent)')
   })
 })
 
@@ -80,5 +148,15 @@ describe('CSS.highlights mock + selection-lock', () => {
     CSS.highlights.set('selection-lock', new Highlight(range!))
     expect(CSS.highlights.has('selection-lock')).toBe(true)
     CSS.highlights.delete('selection-lock')
+  })
+
+  it('CSS.highlights.delete removes the key (simulates removeHighlight)', () => {
+    const div = document.createElement('div')
+    div.appendChild(document.createTextNode('abc'))
+    document.body.appendChild(div)
+    const range = rangeFromOffsets(div, 0, 3)!
+    CSS.highlights.set('selection-lock', new Highlight(range))
+    CSS.highlights.delete('selection-lock')
+    expect(CSS.highlights.has('selection-lock')).toBe(false)
   })
 })

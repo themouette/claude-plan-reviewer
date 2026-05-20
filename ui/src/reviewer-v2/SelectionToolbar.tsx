@@ -53,11 +53,15 @@ export default function SelectionToolbar({
   if (!range) return null
   /* eslint-enable react-hooks/refs */
 
-  const rect = range.getBoundingClientRect()
+  // Use the last client rect so the toolbar anchors to the actual end of the
+  // selection rather than the right edge of the overall bounding box (which, for
+  // multi-line selections, is the widest line — not where the drag ended).
+  const rects = range.getClientRects()
+  const lastRect = rects.length > 0 ? rects[rects.length - 1] : range.getBoundingClientRect()
   // position: fixed — avoids all scroll-offset math
-  const top = rect.bottom + 6
+  const top = lastRect.bottom + 6
   // Clamp left against viewport right edge (Pitfall 5 mitigation)
-  const left = Math.min(rect.right, window.innerWidth - TOOLBAR_WIDTH)
+  const left = Math.min(lastRect.right, window.innerWidth - TOOLBAR_WIDTH)
 
   return (
     <div
@@ -82,7 +86,7 @@ export default function SelectionToolbar({
           aria-label={`Add ${pill.label} annotation`}
           // CRITICAL (Pitfall 1): prevent mousedown from clearing selection before click fires
           onMouseDown={(e) => e.preventDefault()}
-          onClick={() => onAction(pill.type, selectedText)}
+          onClick={() => { onAction(pill.type, selectedText); window.getSelection()?.removeAllRanges() }}
           style={{
             fontSize: '13px',
             fontWeight: 600,
@@ -155,6 +159,7 @@ export default function SelectionToolbar({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 onAction('comment', selectedText, label)
+                window.getSelection()?.removeAllRanges()
                 if (detailsRef.current) detailsRef.current.open = false
               }}
               style={{

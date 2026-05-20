@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.6.0
 milestone_name: Markdown Annotator v2
-status: executing
-stopped_at: Phase 18 plan 18-03 checkpoint — 2 UAT bugs unresolved, paused
-last_updated: "2026-05-20T10:45:00.000Z"
-last_activity: 2026-05-20 -- Phase 18 paused mid-checkpoint (hover + selection bugs)
+status: ready_to_plan
+stopped_at: Phase 18 complete (3/3) — ready to discuss Phase 19
+last_updated: 2026-05-20T13:40:16.761Z
+last_activity: 2026-05-20 -- 2 UAT bugs unresolved (hover bg invisible, selection anchor wrong)
 progress:
   total_phases: 9
   completed_phases: 8
   total_plans: 18
-  completed_plans: 19
+  completed_plans: 37
   percent: 89
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 18 — content pane
+**Current focus:** Phase 19 — outline pane
 
 ## Current Position
 
-Phase: 18
-Plan: 18-03 (checkpoint pending — UAT in progress)
-Status: Paused
-Last activity: 2026-05-20 -- 2 UAT bugs unresolved (hover bg invisible, selection anchor wrong)
+Phase: 19
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-05-20
 
 Progress: [░░░░░░░░░░] 0% (v0.6.0 milestone)
 
@@ -72,6 +72,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-20T06:44:24.295Z
-Stopped at: Phase 18 UI-SPEC approved
-Resume file: .planning/phases/18-content-pane/18-UI-SPEC.md
+Last session: 2026-05-20T09:17:30.658Z
+Stopped at: context exhaustion at 76% (2026-05-20)
+Resume file: None
