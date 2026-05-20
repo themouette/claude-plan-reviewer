@@ -24,3 +24,13 @@ if (typeof CSS === 'undefined') {
 if (!(CSS as { highlights?: unknown }).highlights) {
   ;(CSS as { highlights: unknown }).highlights = new Map()
 }
+
+// Highlight constructor — not implemented in jsdom
+if (typeof (global as unknown as { Highlight?: unknown }).Highlight === 'undefined') {
+  ;(global as unknown as { Highlight: unknown }).Highlight = class Highlight {
+    ranges: Range[]
+    constructor(...ranges: Range[]) {
+      this.ranges = ranges
+    }
+  }
+}
