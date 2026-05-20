@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.6.0
 milestone_name: Markdown Annotator v2
 status: executing
-stopped_at: Phase 18 executing wave 3 (checkpoint)
-last_updated: "2026-05-20T09:00:00.000Z"
-last_activity: 2026-05-20 -- Phase 18 wave 2 complete (18-02)
+stopped_at: Phase 18 plan 18-03 checkpoint — 2 UAT bugs unresolved, paused
+last_updated: "2026-05-20T10:45:00.000Z"
+last_activity: 2026-05-20 -- Phase 18 paused mid-checkpoint (hover + selection bugs)
 progress:
   total_phases: 9
   completed_phases: 8
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 ## Current Position
 
 Phase: 18
-Plan: 18-03 (wave 3 — checkpoint)
-Status: Executing
-Last activity: 2026-05-20 -- Phase 18 wave 2 complete
+Plan: 18-03 (checkpoint pending — UAT in progress)
+Status: Paused
+Last activity: 2026-05-20 -- 2 UAT bugs unresolved (hover bg invisible, selection anchor wrong)
 
 Progress: [░░░░░░░░░░] 0% (v0.6.0 milestone)
 
