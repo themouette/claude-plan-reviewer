@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { marked } from 'marked'
+import { type Token } from 'marked'
 import { renderMarkdown, slugify, extractRawText } from './markdownRenderer'
 
 describe('renderMarkdown', () => {
@@ -53,7 +53,7 @@ describe('slugify', () => {
 
 describe('extractRawText', () => {
   it('concatenates raw values from a flat token array', () => {
-    const tokens = [{ raw: 'Hello', type: 'text' }, { raw: ' World', type: 'text' }] as marked.Token[]
+    const tokens = [{ raw: 'Hello', type: 'text' }, { raw: ' World', type: 'text' }] as Token[]
     expect(extractRawText(tokens)).toBe('Hello World')
   })
 })

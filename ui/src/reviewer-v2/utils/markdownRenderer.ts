@@ -1,4 +1,4 @@
-import { marked } from 'marked'
+import { marked, type Token, type Tokens } from 'marked'
 import { markedHighlight } from 'marked-highlight'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
@@ -17,9 +17,9 @@ let headingSlugCounts: Map<string, number> = new Map()
  * Used by the heading renderer to get the plain-text content of a heading
  * before slugifying it into an id attribute.
  */
-export function extractRawText(tokens: marked.Token[]): string {
+export function extractRawText(tokens: Token[]): string {
   return tokens
-    .map((t) => ('tokens' in t && t.tokens ? extractRawText(t.tokens as marked.Token[]) : t.raw ?? ''))
+    .map((t) => ('tokens' in t && t.tokens ? extractRawText(t.tokens as Token[]) : t.raw ?? ''))
     .join('')
 }
 
@@ -60,7 +60,7 @@ export function renderMarkdown(md: string): string {
     // CRITICAL: regular method (not arrow function) — this.parser requires `this` binding.
     marked.use({
       renderer: {
-        heading({ tokens, depth }: { tokens: marked.Token[]; depth: number }) {
+        heading({ tokens, depth }: Tokens.Heading) {
           const rawText = extractRawText(tokens)
           const baseSlug = slugify(rawText)
           const count = headingSlugCounts.get(baseSlug) ?? 0
