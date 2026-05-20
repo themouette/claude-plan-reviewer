@@ -35,17 +35,24 @@ Declared values (must be multiples of 4):
 | Token | Value | Usage |
 |-------|-------|-------|
 | xs | 4px | Icon-text gap, task-list checkbox margin, annotation pill padding vertical |
-| sm | 8px | Paragraph bottom margin, table cell padding vertical, outline item padding |
+| sm | 8px | Paragraph bottom margin, table cell padding vertical, outline item padding, pill gap in SelectionToolbar |
 | md | 16px | Content pane horizontal padding, code block padding, blockquote left padding |
-| lg | 24px | Section break (h1/h2 top margin area), list left padding |
+| lg | 24px | Section break (h1/h2 top margin area), list left padding, gutter icon touch target (24px × 24px) |
 | xl | 32px | Content pane top/bottom padding (matching `ReviewerV2Shell` `main` padding) |
 | 2xl | 48px | Not used in this phase |
 | 3xl | 64px | Not used in this phase |
 
-Exceptions:
+Exceptions (on-grid only):
 - Gutter `+` icon touch target: 24px × 24px (minimum; aligns with sm/md boundary)
-- `--toolbar-height: 28px` — 28px inherited from existing `FloatingAnnotationAffordance` in `App.tsx`. Changing to 24px or 32px would create a visual mismatch between existing and new affordances during the transition period. This value is pre-existing and cannot be changed without a separate refactor pass.
 - Toolbar pill padding: `0 8px` horizontal (sm token = 8px), height governed by `--toolbar-height`
+
+### Inherited Constraints (out of grid)
+
+The following value is inherited from pre-existing components and is **out of the 4-point grid**. Executors MUST NOT replicate this pattern for any new spacing decisions in this phase or future phases. It is documented here only so the executor does not silently introduce a new out-of-grid value while matching the inherited affordance.
+
+| Variable | Value | Source | Note |
+|----------|-------|--------|------|
+| `--toolbar-height` | 28px | `FloatingAnnotationAffordance` in `App.tsx` | Pre-existing; 28px is not a multiple of 4. Changing to 24px or 32px would create a visual mismatch between existing and new affordances during the transition period. Requires a separate refactor pass to normalize. |
 
 ---
 
@@ -117,7 +124,7 @@ These are the new components this phase introduces, all under `ui/src/reviewer-v
 ### `GutterIcon` (absolute-positioned `+` button)
 - Visible only when `hoveredParagraph` is set and `selectedText` is empty
 - Position: right edge of the paragraph element, vertically centered in the paragraph's bounding rect
-- `position: absolute`, `right: -12px` (overlaps the boundary between center and right column — matches CONTENT-02 "right edge of the paragraph")
+- `position: absolute`, `right: -8px` (sm token, −8px negative offset — overlaps the boundary between center and right column, preserving the visual alignment with the column edge)
 - Size: 24px × 24px
 - Appearance: `+` character or inline SVG plus icon
 - Color: `var(--color-focus)` at 70% opacity at rest, 100% on hover
@@ -130,8 +137,8 @@ These are the new components this phase introduces, all under `ui/src/reviewer-v
 - Anchored to the bottom-right of the current selection range (`getBoundingClientRect()` of the Range end)
 - Position: `position: fixed` (not absolute) — avoids scroll-offset math
 - Layout: row of pills + "more" expander, identical visual treatment to `FloatingAnnotationAffordance` in `App.tsx`
-- Height: `var(--toolbar-height)` (28px) per pill
-- Pill gap: 6px (sm/xs boundary)
+- Height: `var(--toolbar-height)` (28px — inherited out-of-grid value; see Inherited Constraints) per pill
+- Pill gap: 8px (sm token)
 - Background: `var(--color-surface)`, `border-radius: 6px`, `padding: 4px`, `box-shadow: 0 2px 8px rgba(0,0,0,0.3)`
 - Pills: "Comment" (blue), "Delete" (red), "Replace" (amber) — same colors as existing `App.tsx` affordance
 - `zIndex: 20`
