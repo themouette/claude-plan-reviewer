@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.6.0
 milestone_name: Markdown Annotator v2
-status: executing
-stopped_at: Phase 17 context gathered
-last_updated: "2026-05-20T05:09:53.524Z"
-last_activity: 2026-05-20 -- Phase 17 execution started
+status: planning
+stopped_at: Phase 17 complete — human UAT approved
+last_updated: "2026-05-20T06:20:00.530Z"
+last_activity: 2026-05-20
 progress:
   total_phases: 9
   completed_phases: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 17 — foundation-isolation
+**Current focus:** Phase 18 — content pane
 
 ## Current Position
 
-Phase: 17 (foundation-isolation) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 17
-Last activity: 2026-05-20 -- Phase 17 execution started
+Phase: 18
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-05-20
 
 Progress: [░░░░░░░░░░] 0% (v0.6.0 milestone)
 
@@ -72,6 +72,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-19T22:11:16.488Z
-Stopped at: Phase 17 context gathered
-Resume file: .planning/phases/17-foundation-isolation/17-CONTEXT.md
+Last session: 2026-05-20T06:20:00.525Z
+Stopped at: Phase 17 complete — human UAT approved
+Resume file: .planning/phases/17-foundation-isolation/17-HUMAN-UAT.md

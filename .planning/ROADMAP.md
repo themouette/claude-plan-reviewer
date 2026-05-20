@@ -455,7 +455,7 @@ Plans:
 | 14. Offline Banner & Button Relabeling | v0.5.0 | 2/2 | Complete    | 2026-05-07 |
 | 15. Clipboard Submit Path | v0.5.0 | 2/2 | Complete    | 2026-05-07 |
 | 16. Slash Command Fallback | v0.5.0 | 1/1 | Complete    | 2026-05-07 |
-| 17. Foundation & Isolation | v0.6.0 | 3/3 | Complete   | 2026-05-20 |
+| 17. Foundation & Isolation | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 18. Content Pane | v0.6.0 | 0/? | Not started | - |
 | 19. Outline Pane | v0.6.0 | 0/? | Not started | - |
 | 20. Comment Pane | v0.6.0 | 0/? | Not started | - |
