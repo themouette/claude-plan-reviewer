@@ -44,8 +44,8 @@ Declared values (must be multiples of 4):
 
 Exceptions:
 - Gutter `+` icon touch target: 24px × 24px (minimum; aligns with sm/md boundary)
-- Annotation toolbar height: 28px (carried forward from existing `FloatingAnnotationAffordance` pattern in `App.tsx`)
-- Toolbar pill padding: `0 10px` horizontal, 28px height (matches existing `App.tsx` pill pattern)
+- `--toolbar-height: 28px` — 28px inherited from existing `FloatingAnnotationAffordance` in `App.tsx`. Changing to 24px or 32px would create a visual mismatch between existing and new affordances during the transition period. This value is pre-existing and cannot be changed without a separate refactor pass.
+- Toolbar pill padding: `0 8px` horizontal (sm token = 8px), height governed by `--toolbar-height`
 
 ---
 
@@ -85,6 +85,8 @@ Additional semantic colors (carried from existing system):
 - "Replace" pill: `var(--color-annotation-replace)` → amber `#f59e0b` / `#d97706` light
 - Code background: `var(--color-code-bg)` → `#12151f` dark / `#e2e8f0` light
 - Border: `var(--color-border)` → `#2d3148` dark / `#cbd5e1` light
+
+Primary focal point: plan content text in `PlanContent`; gutter icon and selection toolbar are secondary affordances that appear contextually.
 
 ---
 
@@ -128,7 +130,7 @@ These are the new components this phase introduces, all under `ui/src/reviewer-v
 - Anchored to the bottom-right of the current selection range (`getBoundingClientRect()` of the Range end)
 - Position: `position: fixed` (not absolute) — avoids scroll-offset math
 - Layout: row of pills + "more" expander, identical visual treatment to `FloatingAnnotationAffordance` in `App.tsx`
-- Height: 28px per pill
+- Height: `var(--toolbar-height)` (28px) per pill
 - Pill gap: 6px (sm/xs boundary)
 - Background: `var(--color-surface)`, `border-radius: 6px`, `padding: 4px`, `box-shadow: 0 2px 8px rgba(0,0,0,0.3)`
 - Pills: "Comment" (blue), "Delete" (red), "Replace" (amber) — same colors as existing `App.tsx` affordance
@@ -196,6 +198,8 @@ Syntax highlighting theme: `highlight.js/styles/github-dark.css` (already import
 | Empty state body | "The plan content could not be loaded. Check that the server is running and reload." |
 | Error state | "Could not render plan — The markdown content is unavailable. Reload the page to retry." |
 | Destructive actions in this phase | None — no destructive actions in ContentPane itself (delete annotation is Phase 21) |
+
+Note: Single-word pill labels ("Comment", "Delete", "Replace") are intentional for space-efficiency within the `--toolbar-height: 28px` constraint. They match the existing `App.tsx` `FloatingAnnotationAffordance` pattern exactly and are locked for visual consistency — do not expand to "Add comment", "Delete selection", etc.
 
 ---
 
