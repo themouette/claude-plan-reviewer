@@ -145,3 +145,9 @@ Plan 03 (PlanContent + ContentPane) can now import:
 - RED gate (test commits): 5c69f2b (Task 1), 3f6f760 (Task 2)
 - GREEN gate (impl commits): 19aad4c (Task 1), 439a5b9 (Task 2)
 - Both RED → GREEN sequences preserved in git history
+
+## Self-Check: PASSED
+
+- All 4 task files found on disk
+- All 4 task commits verified in git history
+- SUMMARY.md written before final commit
