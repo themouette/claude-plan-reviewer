@@ -16,6 +16,9 @@ export default function PlanContent({
 
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
     if (selectedText) return
+    // Skip hover updates while any mouse button is held (text selection drag).
+    // DOM mutations from hover state changes disrupt the browser's drag-selection anchor.
+    if (e.buttons !== 0) return
     const target = e.target as Element
     if (target.closest('button[aria-label="Add comment to paragraph"]')) return
     const para = target.closest('p, pre, li, blockquote, h1, h2, h3, h4, h5, h6')
