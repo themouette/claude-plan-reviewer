@@ -226,13 +226,11 @@ details > summary::-webkit-details-marker {
   display: none;
 }
 
-/* Phase 18: paragraph hover background — toggled via classList in PlanContent.tsx */
-.plan-prose .paragraph-hovered {
+/* Phase 18: paragraph hover overlay — absolutely-positioned sibling, React-managed */
+.paragraph-hover-overlay {
   background: rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
-  transition: background 0.15s ease;
 }
 
-[data-theme="light"] .plan-prose .paragraph-hovered {
+[data-theme="light"] .paragraph-hover-overlay {
   background: rgba(0, 0, 0, 0.05);
 }

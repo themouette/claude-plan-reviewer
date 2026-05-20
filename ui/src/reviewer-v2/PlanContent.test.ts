@@ -34,10 +34,10 @@ describe('PlanContent', () => {
     expect(source).toContain('className="plan-prose"')
   })
 
-  it('uses CSS class toggle for hover background (not inline style)', () => {
-    expect(source).toContain("classList.add('paragraph-hovered')")
-    expect(source).toContain("classList.remove('paragraph-hovered')")
-    expect(source).not.toContain('style.background')
+  it('uses an absolutely-positioned overlay sibling for hover (no DOM mutation)', () => {
+    expect(source).toContain('paragraph-hover-overlay')
+    expect(source).toContain("pointerEvents: 'none'")
+    expect(source).not.toContain("classList.add('paragraph-hovered')")
   })
 
   it('uses onMouseOut with relatedTarget guard (not onMouseLeave)', () => {

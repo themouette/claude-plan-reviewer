@@ -1,4 +1,4 @@
-import { useState, useEffect, type RefObject } from 'react'
+import { useState, type RefObject } from 'react'
 import GutterIcon from './GutterIcon'
 
 export default function PlanContent({
@@ -14,23 +14,9 @@ export default function PlanContent({
 }) {
   const [hoveredParagraph, setHoveredParagraph] = useState<HTMLElement | null>(null)
 
-  // Toggle the .paragraph-hovered CSS class on the hovered element.
-  // Class is defined in index.css — keeps style in CSS, not JavaScript.
-  useEffect(() => {
-    if (!hoveredParagraph) return
-    hoveredParagraph.classList.add('paragraph-hovered')
-    return () => {
-      hoveredParagraph.classList.remove('paragraph-hovered')
-    }
-  }, [hoveredParagraph])
-
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
-    // Selection supersedes hover — suppress hover state when text is selected
     if (selectedText) return
     const target = e.target as Element
-    // Stable hover: don't clear when the cursor slides onto the GutterIcon itself.
-    // The icon lives outside .plan-prose so its presence would otherwise trigger a
-    // spurious mouseleave → null → unmount → remount flicker loop.
     if (target.closest('button[aria-label="Add comment to paragraph"]')) return
     const para = target.closest('p, pre, li, blockquote, h1, h2, h3, h4, h5, h6')
     if (para && planRef.current?.contains(para)) {
@@ -42,8 +28,6 @@ export default function PlanContent({
 
   function handleMouseOut(e: React.MouseEvent<HTMLDivElement>) {
     const relatedTarget = e.relatedTarget as Node | null
-    // GutterIcon is a DOM child — contains() returns true when cursor moves to it.
-    // Only clear hover when cursor genuinely leaves the outer wrapper.
     if (relatedTarget && e.currentTarget.contains(relatedTarget)) return
     setHoveredParagraph(null)
   }
@@ -60,7 +44,24 @@ export default function PlanContent({
         dangerouslySetInnerHTML={{ __html: planHtml }}
       />
       {hoveredParagraph && !selectedText && (
-        <GutterIcon paragraph={hoveredParagraph} containerRef={planRef} onAdd={onAdd} />
+        <>
+          {/* Overlay sibling — never touches dangerouslySetInnerHTML DOM */}
+          <div
+            aria-hidden="true"
+            className="paragraph-hover-overlay"
+            style={{
+              position: 'absolute',
+              pointerEvents: 'none',
+              top: hoveredParagraph.offsetTop,
+              left: 0,
+              right: 0,
+              height: hoveredParagraph.offsetHeight,
+              borderRadius: 4,
+              zIndex: 0,
+            }}
+          />
+          <GutterIcon paragraph={hoveredParagraph} containerRef={planRef} onAdd={onAdd} />
+        </>
       )}
     </div>
   )
