@@ -11,3 +11,9 @@ export type AnnotationAction =
   | { type: 'add'; annotation: Annotation }
   | { type: 'edit'; id: string; comment: string }
   | { type: 'remove'; id: string }
+
+export interface Section {
+  id: string
+  text: string
+  depth: number
+}
