@@ -2,6 +2,7 @@ import { marked, type Token, type Tokens } from 'marked'
 import { markedHighlight } from 'marked-highlight'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
+import DOMPurify from 'dompurify'
 
 // Module-level flag: ensures marked.use() is called at most once, regardless
 // of how many times renderMarkdown() is called or how modules are split/loaded.
@@ -74,5 +75,17 @@ export function renderMarkdown(md: string): string {
   }
   // Reset per-call state BEFORE parsing so duplicate-id counters don't drift across calls.
   headingSlugCounts = new Map()
-  return marked.parse(md) as string
+  const rawHtml = marked.parse(md)
+  if (rawHtml instanceof Promise) {
+    throw new Error(
+      'renderMarkdown: marked.parse() returned a Promise. ' +
+        'An async walkTokens was registered. Disable async mode or refactor to async.',
+    )
+  }
+  return DOMPurify.sanitize(rawHtml, {
+    USE_PROFILES: { html: true },
+    ADD_ATTR: ['class'], // preserve highlight.js class attributes
+    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus'],
+  })
 }

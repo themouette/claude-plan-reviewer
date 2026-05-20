@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@pierre/diffs": "^1.1.12",
+    "@types/dompurify": "^3.0.5",
+    "dompurify": "^3.4.5",
     "highlight.js": "^11.11.1",
     "marked": "^18.0.0",
     "marked-highlight": "^2.2.4",
