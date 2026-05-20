@@ -226,6 +226,22 @@ details > summary::-webkit-details-marker {
   display: none;
 }
 
+/* Phase 19: OutlinePane button — CSS-driven hover/focus replaces imperative style mutation */
+.outline-button:not([aria-current="true"]):hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="light"] .outline-button:not([aria-current="true"]):hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.outline-button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
 /* Phase 18: paragraph hover overlay — absolutely-positioned sibling, React-managed */
 .paragraph-hover-overlay {
   background: rgba(255, 255, 255, 0.15);

@@ -56,6 +56,7 @@ export default function OutlinePane({
             ref={section.id === activeId ? activeItemRef : undefined}
           >
             <button
+              className="outline-button"
               aria-label={section.text}
               aria-current={section.id === activeId ? 'true' : undefined}
               onClick={() =>
@@ -63,25 +64,6 @@ export default function OutlinePane({
                   .getElementById(section.id)
                   ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
               }
-              onMouseEnter={(e) => {
-                if (section.id !== activeId) {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                  e.currentTarget.style.color = 'var(--color-text-primary)'
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (section.id !== activeId) {
-                  e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.color = 'var(--color-text-secondary)'
-                }
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.outline = '2px solid var(--color-focus)'
-                e.currentTarget.style.outlineOffset = '2px'
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.outline = 'none'
-              }}
               style={{
                 width: '100%',
                 textAlign: 'left',
@@ -104,7 +86,6 @@ export default function OutlinePane({
                 cursor: 'pointer',
                 display: 'block',
                 minHeight: 28,
-                outline: 'none',
               }}
             >
               {section.text}
