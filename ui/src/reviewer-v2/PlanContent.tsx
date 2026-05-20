@@ -19,7 +19,7 @@ export default function PlanContent({
   /* eslint-disable react-hooks/immutability -- intentional DOM style mutation; hoveredParagraph is a live HTMLElement, not React state */
   useEffect(() => {
     if (!hoveredParagraph) return
-    hoveredParagraph.style.background = 'rgba(255,255,255,0.04)'
+    hoveredParagraph.style.background = 'rgba(255,255,255,0.08)'
     hoveredParagraph.style.borderRadius = '4px'
     hoveredParagraph.style.transition = 'background 0.1s ease'
     return () => {
@@ -34,7 +34,7 @@ export default function PlanContent({
     // Selection supersedes hover — suppress hover state when text is selected
     if (selectedText) return
     const target = e.target as Element
-    const para = target.closest('p, li, blockquote, h1, h2, h3, h4, h5, h6')
+    const para = target.closest('p, pre, li, blockquote, h1, h2, h3, h4, h5, h6')
     if (para && planRef.current?.contains(para)) {
       setHoveredParagraph(para as HTMLElement)
     } else {

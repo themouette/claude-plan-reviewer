@@ -19,7 +19,7 @@ describe('PlanContent', () => {
   })
 
   it('delegates hover detection to the correct element selector', () => {
-    expect(source).toContain("target.closest('p, li, blockquote, h1, h2, h3, h4, h5, h6')")
+    expect(source).toContain("target.closest('p, pre, li, blockquote, h1, h2, h3, h4, h5, h6')")
   })
 
   it('suppresses GutterIcon when text is selected', () => {

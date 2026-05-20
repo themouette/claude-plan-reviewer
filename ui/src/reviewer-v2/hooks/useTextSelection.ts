@@ -147,12 +147,6 @@ export function useTextSelection(
         }
       }
 
-      // Clear native selection so the focus-dependent blue highlight doesn't
-      // compete with our focus-independent CSS custom highlight.
-      if (supportsHighlights) {
-        selection.removeAllRanges()
-      }
-
       setSelectedText(text)
     }
 
