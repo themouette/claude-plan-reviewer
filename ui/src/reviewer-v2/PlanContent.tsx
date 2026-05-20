@@ -14,21 +14,15 @@ export default function PlanContent({
 }) {
   const [hoveredParagraph, setHoveredParagraph] = useState<HTMLElement | null>(null)
 
-  // Apply hover background imperatively to the hovered paragraph element.
-  // Cleanup clears the inline styles when the hovered element changes or unmounts.
-  /* eslint-disable react-hooks/immutability -- intentional DOM style mutation; hoveredParagraph is a live HTMLElement, not React state */
+  // Toggle the .paragraph-hovered CSS class on the hovered element.
+  // Class is defined in index.css — keeps style in CSS, not JavaScript.
   useEffect(() => {
     if (!hoveredParagraph) return
-    hoveredParagraph.style.background = 'rgba(255,255,255,0.08)'
-    hoveredParagraph.style.borderRadius = '4px'
-    hoveredParagraph.style.transition = 'background 0.1s ease'
+    hoveredParagraph.classList.add('paragraph-hovered')
     return () => {
-      hoveredParagraph.style.background = ''
-      hoveredParagraph.style.borderRadius = ''
-      hoveredParagraph.style.transition = ''
+      hoveredParagraph.classList.remove('paragraph-hovered')
     }
   }, [hoveredParagraph])
-  /* eslint-enable react-hooks/immutability */
 
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
     // Selection supersedes hover — suppress hover state when text is selected

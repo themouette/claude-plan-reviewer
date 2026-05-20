@@ -94,6 +94,9 @@ export function useTextSelection(
   // Selection stored as character offsets so DOM mutations (React reconciliation)
   // cannot collapse it. The live Range is re-created from these on every render.
   const storedOffsets = useRef<{ start: number; end: number } | null>(null)
+  // Tracks active mouse drag so useLayoutEffect skips re-applying the CSS highlight
+  // mid-drag (prevents stale highlight from a prior selection from re-appearing).
+  const isDraggingRef = useRef(false)
 
   useEffect(() => {
     // Shared: process a non-collapsed selection that is within the container.
@@ -149,8 +152,23 @@ export function useTextSelection(
     // Keyboard path: selectionchange handles Shift+arrows, Ctrl+A, etc.
     // Skip when a mouse button is held (mid-drag) — mouseup will handle that case.
     let mouseDown = false
-    const onMouseDown = () => { mouseDown = true }
-    const onMouseUp = () => { mouseDown = false }
+    const onMouseDown = (e: MouseEvent) => {
+      mouseDown = true
+      isDraggingRef.current = true
+      // Clear a stale CSS highlight when the user starts a fresh selection inside
+      // the container. Without this, the old highlight re-appears on every hover
+      // render and visually looks like the new selection anchors at the old position.
+      if (storedOffsets.current && containerRef.current?.contains(e.target as Node)) {
+        removeHighlight()
+        currentRange.current = null
+        storedOffsets.current = null
+        setSelectedText('')
+      }
+    }
+    const onMouseUp = () => {
+      mouseDown = false
+      isDraggingRef.current = false
+    }
     const captureKeyboard = () => {
       if (mouseDown) return // mid-drag: wait for mouseup
       const selection = document.getSelection()
@@ -183,7 +201,10 @@ export function useTextSelection(
   // re-apply the CSS highlight. Because we walk live DOM text nodes each time,
   // the reconstructed Range is always valid — even if prior DOM reconciliation
   // had collapsed the previous Range object.
+  // Guard: skip during active drag — the old highlight must not re-appear while
+  // the user is mid-drag on a new selection (would look like anchor-at-old-pos).
   useLayoutEffect(() => {
+    if (isDraggingRef.current) return
     if (!storedOffsets.current || !containerRef.current) return
     const range = rangeFromOffsets(
       containerRef.current,

@@ -226,15 +226,13 @@ details > summary::-webkit-details-marker {
   display: none;
 }
 
-/* Phase 18: paragraph hover background — applied via inline style in PlanContent.tsx; class hook reserved for future theme overrides. */
+/* Phase 18: paragraph hover background — toggled via classList in PlanContent.tsx */
 .plan-prose .paragraph-hovered {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
-  transition: background 0.1s ease;
+  transition: background 0.15s ease;
 }
 
-@media (prefers-color-scheme: light) {
-  .plan-prose .paragraph-hovered {
-    background: rgba(0, 0, 0, 0.03);
-  }
+[data-theme="light"] .plan-prose .paragraph-hovered {
+  background: rgba(0, 0, 0, 0.05);
 }

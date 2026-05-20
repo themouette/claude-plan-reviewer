@@ -33,4 +33,10 @@ describe('PlanContent', () => {
   it('applies existing .plan-prose styles', () => {
     expect(source).toContain('className="plan-prose"')
   })
+
+  it('uses CSS class toggle for hover background (not inline style)', () => {
+    expect(source).toContain("classList.add('paragraph-hovered')")
+    expect(source).toContain("classList.remove('paragraph-hovered')")
+    expect(source).not.toContain('style.background')
+  })
 })
