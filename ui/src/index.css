@@ -225,3 +225,16 @@ details > summary {
 details > summary::-webkit-details-marker {
   display: none;
 }
+
+/* Phase 18: paragraph hover background — applied via inline style in PlanContent.tsx; class hook reserved for future theme overrides. */
+.plan-prose .paragraph-hovered {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  transition: background 0.1s ease;
+}
+
+@media (prefers-color-scheme: light) {
+  .plan-prose .paragraph-hovered {
+    background: rgba(0, 0, 0, 0.03);
+  }
+}
