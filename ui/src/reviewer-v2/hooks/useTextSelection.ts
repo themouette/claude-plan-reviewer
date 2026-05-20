@@ -155,14 +155,15 @@ export function useTextSelection(
     const onMouseDown = (e: MouseEvent) => {
       mouseDown = true
       isDraggingRef.current = true
-      // Clear a stale CSS highlight when the user starts a fresh selection inside
-      // the container. Without this, the old highlight re-appears on every hover
-      // render and visually looks like the new selection anchors at the old position.
-      if (storedOffsets.current && containerRef.current?.contains(e.target as Node)) {
+      // Clear the CSS highlight and stored offsets on drag start — but do NOT call
+      // setSelectedText here. setSelectedText triggers a React re-render mid-drag
+      // which can mutate the DOM and reset the browser's native selection anchor,
+      // making all drags appear to start at position 0. removeHighlight() is a
+      // direct CSS API call with no re-render; selectedText clears on mouseup.
+      if (containerRef.current?.contains(e.target as Node)) {
         removeHighlight()
         currentRange.current = null
         storedOffsets.current = null
-        setSelectedText('')
       }
     }
     const onMouseUp = () => {
