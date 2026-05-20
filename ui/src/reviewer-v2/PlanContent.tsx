@@ -40,17 +40,19 @@ export default function PlanContent({
     }
   }
 
-  function handleMouseLeave() {
+  function handleMouseOut(e: React.MouseEvent<HTMLDivElement>) {
+    const relatedTarget = e.relatedTarget as Node | null
+    // GutterIcon is a DOM child — contains() returns true when cursor moves to it.
+    // Only clear hover when cursor genuinely leaves the outer wrapper.
+    if (relatedTarget && e.currentTarget.contains(relatedTarget)) return
     setHoveredParagraph(null)
   }
 
   return (
-    // Handlers on the outer wrapper so moving to the GutterIcon (right: -8, outside
-    // .plan-prose) does NOT fire mouseleave on .plan-prose and kill the hover state.
     <div
       style={{ position: 'relative', maxWidth: 720, margin: '0 auto' }}
       onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
+      onMouseOut={handleMouseOut}
     >
       <div
         ref={planRef}

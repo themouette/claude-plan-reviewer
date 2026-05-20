@@ -39,4 +39,10 @@ describe('PlanContent', () => {
     expect(source).toContain("classList.remove('paragraph-hovered')")
     expect(source).not.toContain('style.background')
   })
+
+  it('uses onMouseOut with relatedTarget guard (not onMouseLeave)', () => {
+    expect(source).toContain('onMouseOut={handleMouseOut}')
+    expect(source).toContain('e.currentTarget.contains(relatedTarget)')
+    expect(source).not.toContain('onMouseLeave')
+  })
 })
