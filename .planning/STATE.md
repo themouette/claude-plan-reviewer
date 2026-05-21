@@ -4,8 +4,8 @@ milestone: v0.6.0
 milestone_name: Markdown Annotator v2
 status: executing
 stopped_at: Phase 21 UI-SPEC approved
-last_updated: "2026-05-21T10:11:17.698Z"
-last_activity: 2026-05-21 -- Phase 21 planning complete
+last_updated: "2026-05-21T10:46:20.120Z"
+last_activity: 2026-05-21 -- Phase 21 execution started
 progress:
   total_phases: 9
   completed_phases: 8
@@ -21,13 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 21 — annotation form (next)
+**Current focus:** Phase 21 — comment-actions
 
 ## Current Position
 
-Phase: 20 (comment-pane) — COMPLETE
-Status: Ready to execute
-Last activity: 2026-05-21 -- Phase 21 planning complete
+Phase: 21 (comment-actions) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 21
+Last activity: 2026-05-21 -- Phase 21 execution started
 
 Progress: [██████████] 100% (v0.6.0 milestone — Phases 17-20 complete)
 
