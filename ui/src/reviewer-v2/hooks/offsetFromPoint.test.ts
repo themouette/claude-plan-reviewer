@@ -1,9 +1,17 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { offsetFromPoint } from './offsetFromPoint'
 
+// jsdom does not implement caretRangeFromPoint or caretPositionFromPoint.
+// We install stubs directly on the document object per-test and restore in afterEach.
+
 describe('offsetFromPoint', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    // Clean up any directly-assigned stubs
+    // @ts-expect-error untyped cleanup
+    delete document.caretRangeFromPoint
+    // @ts-expect-error untyped cleanup
+    delete document.caretPositionFromPoint
   })
 
   it('returns the character offset using caretRangeFromPoint (WebKit/Blink path)', () => {
@@ -16,7 +24,8 @@ describe('offsetFromPoint', () => {
     range.setStart(textNode, 5)
     range.setEnd(textNode, 5)
 
-    vi.spyOn(document, 'caretRangeFromPoint').mockReturnValue(range)
+    // @ts-expect-error jsdom does not have caretRangeFromPoint
+    document.caretRangeFromPoint = vi.fn().mockReturnValue(range)
 
     const result = offsetFromPoint(container, 10, 10)
     expect(result).toBe(5)
@@ -24,15 +33,15 @@ describe('offsetFromPoint', () => {
     document.body.removeChild(container)
   })
 
-  it('falls back to caretPositionFromPoint when caretRangeFromPoint is undefined', () => {
+  it('falls back to caretPositionFromPoint when caretRangeFromPoint is not a function', () => {
     const container = document.createElement('div')
     const textNode = document.createTextNode('hello world')
     container.appendChild(textNode)
     document.body.appendChild(container)
 
-    vi.spyOn(document, 'caretRangeFromPoint').mockImplementation(undefined as unknown as typeof document.caretRangeFromPoint)
-    // @ts-expect-error caretPositionFromPoint is not in jsdom typings but we stub it
-    vi.spyOn(document, 'caretPositionFromPoint').mockReturnValue({
+    // caretRangeFromPoint not installed — only caretPositionFromPoint available
+    // @ts-expect-error jsdom does not have caretPositionFromPoint
+    document.caretPositionFromPoint = vi.fn().mockReturnValue({
       offsetNode: textNode,
       offset: 3,
     })
@@ -57,7 +66,8 @@ describe('offsetFromPoint', () => {
     range.setStart(outsideText, 2)
     range.setEnd(outsideText, 2)
 
-    vi.spyOn(document, 'caretRangeFromPoint').mockReturnValue(range)
+    // @ts-expect-error jsdom does not have caretRangeFromPoint
+    document.caretRangeFromPoint = vi.fn().mockReturnValue(range)
 
     const result = offsetFromPoint(container, 10, 10)
     expect(result).toBeNull()
@@ -78,7 +88,8 @@ describe('offsetFromPoint', () => {
     range.setStart(textNode2, 2)
     range.setEnd(textNode2, 2)
 
-    vi.spyOn(document, 'caretRangeFromPoint').mockReturnValue(range)
+    // @ts-expect-error jsdom does not have caretRangeFromPoint
+    document.caretRangeFromPoint = vi.fn().mockReturnValue(range)
 
     // 3 chars from 'foo' + 2 chars into 'bar' = offset 5
     const result = offsetFromPoint(container, 10, 10)
@@ -92,10 +103,7 @@ describe('offsetFromPoint', () => {
     container.appendChild(document.createTextNode('text'))
     document.body.appendChild(container)
 
-    vi.spyOn(document, 'caretRangeFromPoint').mockImplementation(undefined as unknown as typeof document.caretRangeFromPoint)
-    // @ts-expect-error caretPositionFromPoint stub
-    document.caretPositionFromPoint = undefined
-
+    // Neither API installed (they are not present by default in jsdom)
     const result = offsetFromPoint(container, 10, 10)
     expect(result).toBeNull()
 
