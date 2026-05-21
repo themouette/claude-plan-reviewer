@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.6.0
 milestone_name: Markdown Annotator v2
 status: executing
-stopped_at: Phase 20 Plan 01 complete
-last_updated: "2026-05-21T08:00:00.000Z"
-last_activity: 2026-05-21 -- Phase 20 Plan 01 complete (type foundation + computeCommentLayout)
+stopped_at: Phase 20 complete
+last_updated: "2026-05-21T00:00:00.000Z"
+last_activity: 2026-05-21 -- Phase 20 complete (comment pane, bidirectional hover, scroll alignment)
 progress:
   total_phases: 9
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 18
-  completed_plans: 20
-  percent: 89
+  completed_plans: 23
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 20 — comment-pane
+**Current focus:** Phase 21 — annotation form (next)
 
 ## Current Position
 
-Phase: 20 (comment-pane) — EXECUTING
-Plan: 2 of 3 (Wave 2 — CommentBubble + CommentPane)
-Status: Phase 20 Plan 01 complete; ready for Plan 02
-Last activity: 2026-05-21 -- Phase 20 Plan 01 complete (type foundation + computeCommentLayout)
+Phase: 20 (comment-pane) — COMPLETE
+Status: All 3 plans complete; UAT passed 7/7
+Last activity: 2026-05-21 -- Phase 20 complete (comment pane, bidirectional hover, scroll alignment fix)
 
-Progress: [░░░░░░░░░░] 0% (v0.6.0 milestone)
+Progress: [██████████] 100% (v0.6.0 milestone — Phases 17-20 complete)
 
 ## Performance Metrics
 
