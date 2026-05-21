@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTextSelection, rangeFromOffsets } from './hooks/useTextSelection'
+import { offsetFromPoint } from './hooks/offsetFromPoint'
 import { renderMarkdown } from './utils/markdownRenderer'
 import PlanContent from './PlanContent'
 import SelectionToolbar from './SelectionToolbar'
@@ -15,8 +16,7 @@ export default function ContentPane({
   hoveredCommentId,
   annotations,
   planRef: planRefProp,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onHoverCommentId: _onHoverCommentId,
+  onHoverCommentId,
 }: {
   onSectionsFound?: (sections: Section[]) => void
   onAddAnnotation?: (annotation: Annotation) => void
@@ -109,8 +109,26 @@ export default function ContentPane({
     resetTextSelection()
   }
 
+  // COMMENT-02 direction 2 (anchor -> bubble): resolve cursor position to a character
+  // offset within planRef, match against annotation [anchorStart, anchorEnd) intervals,
+  // and call onHoverCommentId with the matching annotation id (or null).
+  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (!onHoverCommentId || !annotations || annotations.length === 0 || !planRef.current) return
+    const offset = offsetFromPoint(planRef.current, e.clientX, e.clientY)
+    if (offset === null) {
+      onHoverCommentId(null)
+      return
+    }
+    const hit = annotations.find((a) => offset >= a.anchorStart && offset < a.anchorEnd)
+    onHoverCommentId(hit ? hit.id : null)
+  }
+
   return (
-    <div style={{ position: 'relative', padding: 32 }}>
+    <div
+      style={{ position: 'relative', padding: 32 }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => onHoverCommentId?.(null)}
+    >
       {status === 'loading' && (
         <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>Loading…</span>
       )}

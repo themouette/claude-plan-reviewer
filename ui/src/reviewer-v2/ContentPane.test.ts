@@ -95,6 +95,44 @@ describe('ContentPane annotation creation wiring (D-02 + D-07)', () => {
   })
 })
 
+describe('ContentPane anchor-text hover -> bubble highlight wiring (COMMENT-02 reverse direction)', () => {
+  it("source imports offsetFromPoint from './hooks/offsetFromPoint'", () => {
+    expect(source).toContain("from './hooks/offsetFromPoint'")
+  })
+
+  it('source has onMouseMove= handler on the content wrapper', () => {
+    expect(source).toContain('onMouseMove=')
+  })
+
+  it('source has onMouseLeave= handler on the content wrapper', () => {
+    expect(source).toContain('onMouseLeave=')
+  })
+
+  it('source calls offsetFromPoint( with arguments', () => {
+    expect(source).toContain('offsetFromPoint(')
+  })
+
+  it('source invokes onHoverCommentId (not just declares it)', () => {
+    expect(source).toContain('onHoverCommentId(')
+  })
+
+  it('source contains range containment check against anchorStart', () => {
+    expect(source).toMatch(/offset >= [a-zA-Z]+\.anchorStart/)
+  })
+
+  it('source contains half-open interval check against anchorEnd', () => {
+    expect(source).toMatch(/offset < [a-zA-Z]+\.anchorEnd/)
+  })
+
+  it('source uses e.clientX for cursor coordinates', () => {
+    expect(source).toContain('e.clientX')
+  })
+
+  it('source uses e.clientY for cursor coordinates', () => {
+    expect(source).toContain('e.clientY')
+  })
+})
+
 describe('ContentPane onSectionsFound wiring', () => {
   it('source contains onSectionsFound prop declaration', () => {
     expect(source).toContain('onSectionsFound')
