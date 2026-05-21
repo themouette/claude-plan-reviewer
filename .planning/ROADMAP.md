@@ -541,11 +541,11 @@ Plans:
 **Wave 1**
 
 - [ ] 21-01-PLAN.md — AnnotationForm component + getElementCharOffset utility + useSectionAnnotationCounts hook (foundation/pure)
-- [ ] 21-03-PLAN.md — CommentBubble edit/delete icons + inline edit textarea + CommentPane sticky pinning for editing bubble
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [ ] 21-02-PLAN.md — ContentPane formState + AnnotationForm render branch + gutter-icon programmatic paragraph selection (D-06)
+- [ ] 21-03-PLAN.md — CommentBubble edit/delete icons + inline edit textarea + CommentPane sticky pinning for editing bubble
 
 **Wave 3** *(blocked on Wave 2 completion)*
 

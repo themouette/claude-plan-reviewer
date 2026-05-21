@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.6.0
 milestone_name: Markdown Annotator v2
-status: completed
+status: executing
 stopped_at: Phase 21 UI-SPEC approved
-last_updated: "2026-05-21T08:44:31.222Z"
-last_activity: 2026-05-21 -- Phase 20 complete (comment pane, bidirectional hover, scroll alignment fix)
+last_updated: "2026-05-21T10:11:17.698Z"
+last_activity: 2026-05-21 -- Phase 21 planning complete
 progress:
   total_phases: 9
   completed_phases: 8
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 ## Current Position
 
 Phase: 20 (comment-pane) — COMPLETE
-Status: All 3 plans complete; UAT passed 7/7
-Last activity: 2026-05-21 -- Phase 20 complete (comment pane, bidirectional hover, scroll alignment fix)
+Status: Ready to execute
+Last activity: 2026-05-21 -- Phase 21 planning complete
 
 Progress: [██████████] 100% (v0.6.0 milestone — Phases 17-20 complete)
 

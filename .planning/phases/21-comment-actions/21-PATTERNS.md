@@ -256,7 +256,7 @@ export default function CommentBubble({
 ```typescript
 // Add to the prop interface:
 isEditing: boolean
-onEdit: () => void
+onEdit: (newComment?: string) => void  // undefined = open edit mode; string = save with new value
 onRemove: () => void
 ```
 

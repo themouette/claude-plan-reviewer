@@ -476,22 +476,25 @@ function useSectionAnnotationCounts(
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`lastRect` storage: store in formState or as separate state?**
    - What we know: `formState` needs `{ type, anchorText, anchorStart, anchorEnd, prefill }` per D-01. Position info (`rect`) is needed to render `AnnotationForm` at the correct coordinates.
    - What's unclear: Should `rect` be part of `formState` type, or a separate `useState<{ top, left } | null>`?
    - Recommendation: Include `rect` in `formState` since it is only needed when form is active — keeps the state collocated and eliminates a second `useState`.
+   - RESOLVED: Include `rect` in `formState` (implemented in Plan 21-01/T3 and Plan 21-02/T2).
 
 2. **`getElementCharOffset` placement**
    - What we know: D-15 leaves this to Claude's discretion. Options: add to `useTextSelection.ts` alongside `rangeFromOffsets`, or create a separate `hooks/useSectionAnnotationCounts.ts` that includes the utility.
    - What's unclear: Whether a dedicated file for the hook improves discoverability.
    - Recommendation: Co-locate `getElementCharOffset` in `useTextSelection.ts` (exported, next to `rangeFromOffsets`) since both are character-offset utilities operating on the same container model. The hook `useSectionAnnotationCounts` can be a separate file.
+   - RESOLVED: `getElementCharOffset` co-located in `useTextSelection.ts` (implemented in Plan 21-01/T1).
 
 3. **GutterIcon signature change scope**
    - What we know: `onAdd: () => void` must become `onAdd: (el: HTMLElement) => void` OR `PlanContent` can wrap the callback and pass `hoveredParagraph` from its own state.
    - What's unclear: Which approach is less disruptive to `GutterIcon.test.ts`.
    - Recommendation: Change `PlanContent` to wrap the `onAdd` call: `<GutterIcon paragraph={hoveredParagraph} containerRef={planRef} onAdd={() => handleAdd(hoveredParagraph)} />`. This avoids changing `GutterIcon`'s interface, which is already tested. `handleAdd` in `ContentPane` receives the element from the closure.
+   - RESOLVED: `PlanContent` wraps the callback — `GutterIcon` interface unchanged (implemented in Plan 21-02/T1).
 
 ---
 
