@@ -16,7 +16,7 @@ export default function CommentPane({
   annotations: Annotation[]
   hoveredCommentId: string | null
   focusedCommentId: string | null
-  mainRef: React.RefObject<HTMLElement | null>
+  mainRef: React.RefObject<HTMLDivElement | null>
   planRef: React.RefObject<HTMLDivElement | null>
   onHover: (id: string | null) => void
   onFocus: (id: string | null) => void
@@ -37,19 +37,20 @@ export default function CommentPane({
         const range = rangeFromOffsets(content, ann.anchorStart, ann.anchorEnd)
         if (!range) continue
         const rangeRect = range.getBoundingClientRect()
-        const anchorY = rangeRect.top - containerRect.top + el.scrollTop
+        // rangeRect.top - containerRect.top is scroll-invariant (both rects shift
+        // together when <main> scrolls), giving the anchor's fixed offset within
+        // the plan content. Adding scrollTop here would double-count the scroll.
+        const anchorY = rangeRect.top - containerRect.top
         map.set(ann.id, anchorY)
       }
       setAnchorYMap(map)
     }
 
-    el.addEventListener('scroll', recompute, { passive: true })
     const ro = new ResizeObserver(recompute)
     ro.observe(content)
     recompute()
 
     return () => {
-      el.removeEventListener('scroll', recompute)
       ro.disconnect()
     }
   }, [mainRef, planRef, annotations])

@@ -6,7 +6,7 @@ import { useAnnotations } from './useAnnotations'
 import type { Section } from './types'
 
 export default function ReviewerV2Shell() {
-  const mainRef = useRef<HTMLElement>(null)
+  const mainRef = useRef<HTMLDivElement>(null)
   const planRef = useRef<HTMLDivElement>(null)
   const [sections, setSections] = useState<Section[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -69,49 +69,45 @@ export default function ReviewerV2Shell() {
           />
         </aside>
 
-        {/* Center column: Content */}
-        <main
+        {/* Shared scroller: content + comments scroll as one unit */}
+        <div
           ref={mainRef}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            background: 'var(--color-bg)',
-            overflowY: 'auto',
-            padding: 0,
-          }}
+          style={{ flex: 1, minWidth: 0, overflowY: 'auto', display: 'flex' }}
         >
-          <ContentPane
-            onSectionsFound={setSections}
-            onAddAnnotation={addAnnotation}
-            hoveredCommentId={hoveredCommentId}
-            annotations={annotations}
-            planRef={planRef}
-            onHoverCommentId={setHoveredCommentId}
-          />
-        </main>
+          {/* Center column: Content */}
+          <main style={{ flex: 1, minWidth: 0, background: 'var(--color-bg)', padding: 0 }}>
+            <ContentPane
+              onSectionsFound={setSections}
+              onAddAnnotation={addAnnotation}
+              hoveredCommentId={hoveredCommentId}
+              annotations={annotations}
+              planRef={planRef}
+              onHoverCommentId={setHoveredCommentId}
+            />
+          </main>
 
-        {/* Right column: Comments */}
-        <aside
-          aria-label="Comments"
-          style={{
-            width: 280,
-            flexShrink: 0,
-            borderLeft: '1px solid var(--color-border)',
-            background: 'var(--color-bg)',
-            overflowY: 'auto',
-            padding: 16,
-          }}
-        >
-          <CommentPane
-            annotations={annotations}
-            hoveredCommentId={hoveredCommentId}
-            focusedCommentId={focusedCommentId}
-            mainRef={mainRef}
-            planRef={planRef}
-            onHover={setHoveredCommentId}
-            onFocus={setFocusedCommentId}
-          />
-        </aside>
+          {/* Right column: Comments — scrolls with content, no independent scroll */}
+          <aside
+            aria-label="Comments"
+            style={{
+              width: 280,
+              flexShrink: 0,
+              borderLeft: '1px solid var(--color-border)',
+              background: 'var(--color-bg)',
+              padding: 16,
+            }}
+          >
+            <CommentPane
+              annotations={annotations}
+              hoveredCommentId={hoveredCommentId}
+              focusedCommentId={focusedCommentId}
+              mainRef={mainRef}
+              planRef={planRef}
+              onHover={setHoveredCommentId}
+              onFocus={setFocusedCommentId}
+            />
+          </aside>
+        </div>
       </div>
     </div>
   )

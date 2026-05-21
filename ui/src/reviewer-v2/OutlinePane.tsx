@@ -9,7 +9,7 @@ export default function OutlinePane({
 }: {
   sections: Section[]
   activeId: string | null
-  mainRef: React.RefObject<HTMLElement | null>
+  mainRef: React.RefObject<HTMLDivElement | null>
   onActiveIdChange: (id: string) => void
 }): React.JSX.Element {
   const activeItemRef = useRef<HTMLLIElement>(null)
