@@ -536,7 +536,21 @@ Plans:
   3. Every submitted comment bubble shows a pencil icon (edit) and an × icon (delete); clicking the pencil reopens the textarea with the existing text for inline editing; clicking × removes the bubble immediately with no confirmation dialog
   4. Each outline item shows a badge with the count of comments anchored within that section; a section with no comments shows no badge; adding a comment in the content pane updates its section's count immediately
 
-**Plans**: TBD
+**Plans:** 4 plans
+Plans:
+**Wave 1**
+
+- [ ] 21-01-PLAN.md — AnnotationForm component + getElementCharOffset utility + useSectionAnnotationCounts hook (foundation/pure)
+- [ ] 21-03-PLAN.md — CommentBubble edit/delete icons + inline edit textarea + CommentPane sticky pinning for editing bubble
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 21-02-PLAN.md — ContentPane formState + AnnotationForm render branch + gutter-icon programmatic paragraph selection (D-06)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 21-04-PLAN.md — ReviewerV2Shell integration (editingId, useSectionAnnotationCounts) + OutlinePane count badges + human verification
+
 **UI hint**: yes
 
 ### Phase 22: Submit & Clipboard
@@ -597,6 +611,6 @@ Plans:
 | 18. Content Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 19. Outline Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 20. Comment Pane | v0.6.0 | 3/3 | Complete   | 2026-05-21 |
-| 21. Comment Actions | v0.6.0 | 0/? | Not started | - |
+| 21. Comment Actions | v0.6.0 | 0/4 | Planned | - |
 | 22. Submit & Clipboard | v0.6.0 | 0/? | Not started | - |
 | 23. Regression Tests | v0.6.0 | 0/? | Not started | - |

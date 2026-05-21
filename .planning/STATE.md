@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.6.0
 milestone_name: Markdown Annotator v2
 status: completed
-stopped_at: Phase 21 context gathered
-last_updated: "2026-05-21T08:01:19.191Z"
+stopped_at: Phase 21 UI-SPEC approved
+last_updated: "2026-05-21T08:44:31.222Z"
 last_activity: 2026-05-21 -- Phase 20 complete (comment pane, bidirectional hover, scroll alignment fix)
 progress:
   total_phases: 9
@@ -71,6 +71,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-21T08:01:19.185Z
-Stopped at: Phase 21 context gathered
-Resume file: .planning/phases/21-comment-actions/21-CONTEXT.md
+Last session: 2026-05-21T08:44:31.215Z
+Stopped at: Phase 21 UI-SPEC approved
+Resume file: .planning/phases/21-comment-actions/21-UI-SPEC.md
