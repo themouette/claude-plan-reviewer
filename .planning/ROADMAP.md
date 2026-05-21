@@ -64,7 +64,7 @@ Full archive: `.planning/milestones/v0.5.0-ROADMAP.md`
 - [x] **Phase 17: Foundation & Isolation** - Test infrastructure (jsdom mocks, ESLint coupling rule), routing switch in `main.tsx`, v2 types, annotation store, heartbeat, and `/v2` layout shell (completed 2026-05-20)
 - [x] **Phase 18: Content Pane** - GFM markdown rendering, paragraph hover highlight + gutter icon, text-selection comment toolbar (completed 2026-05-20)
 - [x] **Phase 19: Outline Pane** - Heading tree with click-to-scroll, active section tracking, per-section comment count badges (completed 2026-05-20)
-- [ ] **Phase 20: Comment Pane** - Anchored comment bubbles that follow scroll, bidirectional hover linking, overlap/collapse handling
+- [x] **Phase 20: Comment Pane** - Anchored comment bubbles that follow scroll, bidirectional hover linking, overlap/collapse handling (completed 2026-05-21)
 - [ ] **Phase 21: Comment Actions** - Three quick actions (comment/delete/replace), expandable predefined-action menu, edit/delete per bubble
 - [ ] **Phase 22: Submit & Clipboard** - Approve/ask-for-changes validation gates, clipboard fallback in degraded mode
 - [ ] **Phase 23: Regression Tests** - Existing annotation flow regression suite covering App.tsx review cycle with `/v2` routing in place
@@ -508,7 +508,7 @@ Plans:
   3. When two or more comments would overlap vertically, non-focused comments collapse to a 2-line preview; the focused (last-clicked) comment expands to full height and snaps to its anchor Y position
   4. All comments remain reachable by scrolling the comment column — no comment is permanently hidden behind another
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 **Wave 1**
 
@@ -520,7 +520,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 20-03-PLAN.md — Shell state lift (annotations + hover/focus + planRef), ContentPane handleAction dispatch + CSS Highlights effect, human verification
+- [x] 20-03-PLAN.md — Shell state lift (annotations + hover/focus + planRef), ContentPane handleAction dispatch + CSS Highlights effect, human verification
 
 **UI hint**: yes
 
@@ -596,7 +596,7 @@ Plans:
 | 17. Foundation & Isolation | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 18. Content Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 19. Outline Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
-| 20. Comment Pane | v0.6.0 | 2/3 | In Progress|  |
+| 20. Comment Pane | v0.6.0 | 3/3 | Complete   | 2026-05-21 |
 | 21. Comment Actions | v0.6.0 | 0/? | Not started | - |
 | 22. Submit & Clipboard | v0.6.0 | 0/? | Not started | - |
 | 23. Regression Tests | v0.6.0 | 0/? | Not started | - |
