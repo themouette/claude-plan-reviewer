@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
-import { rangeFromOffsets, useTextSelection } from './useTextSelection'
+import { rangeFromOffsets, useTextSelection, getElementCharOffset } from './useTextSelection'
 
 const source = readFileSync(resolve(__dirname, './useTextSelection.ts'), 'utf-8')
 
@@ -133,6 +133,46 @@ describe('useTextSelection drag guard', () => {
 
   it('capture parameter is prefixed with _ (intentionally unused — only side effects matter)', () => {
     expect(source).toContain('const capture = (_e: MouseEvent)')
+  })
+})
+
+// ─── getElementCharOffset ────────────────────────────────────────────────────
+
+describe('getElementCharOffset', () => {
+  it('returns 0 when target is the container itself', () => {
+    const container = singleTextContainer('hello')
+    expect(getElementCharOffset(container, container)).toBe(0)
+  })
+
+  it('returns the cumulative length of text nodes before the target child span', () => {
+    // container: <div><span>foo</span><span>bar</span></div>
+    // offset of second span = length of "foo" = 3
+    const container = multiNodeContainer(['foo', 'bar'])
+    const secondSpan = container.children[1] as HTMLElement
+    expect(getElementCharOffset(container, secondSpan)).toBe(3)
+  })
+
+  it('handles inline children in headings correctly (Pitfall 6 — uses .contains not ===)', () => {
+    // container: <div>text before<h2><code>code</code> heading</h2></div>
+    // offset of h2 = length of "text before" = 11
+    const container = document.createElement('div')
+    container.appendChild(document.createTextNode('text before'))
+    const h2 = document.createElement('h2')
+    const code = document.createElement('code')
+    code.appendChild(document.createTextNode('code'))
+    h2.appendChild(code)
+    h2.appendChild(document.createTextNode(' heading'))
+    container.appendChild(h2)
+    document.body.appendChild(container)
+    expect(getElementCharOffset(container, h2)).toBe(11)
+  })
+
+  it('returns total container text length when target is not a descendant', () => {
+    // container has "hello" (5 chars); detached element is not a descendant
+    const container = singleTextContainer('hello')
+    const detached = document.createElement('span')
+    detached.appendChild(document.createTextNode('other'))
+    expect(getElementCharOffset(container, detached)).toBe(5)
   })
 })
 
