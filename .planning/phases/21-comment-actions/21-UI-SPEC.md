@@ -37,7 +37,7 @@ Source: inferred from `index.css` and existing components (ContentPane padding: 
 | Token | Value | Usage in this phase |
 |-------|-------|---------------------|
 | xs | 4px | Icon-to-text gap inside edit/delete icon buttons; textarea margin-top from anchor header |
-| sm | 8px | CommentBubble internal vertical padding; gap between icon buttons; textarea padding; form row gap |
+| sm | 8px | CommentBubble internal vertical padding; gap between icon buttons; textarea padding; form row gap; badge margin-left |
 | md | 16px | Annotation form horizontal padding; CommentBubble horizontal padding (carried from Phase 20) |
 | lg | 24px | n/a this phase |
 | xl | 32px | n/a this phase |
@@ -50,7 +50,7 @@ Exceptions:
 - Section count badge: 16px diameter minimum, `font-size: 11px` — designed to fit a 2-digit number inline with the outline text
 - Annotation creation form: `position: fixed` — same approach as SelectionToolbar; no explicit width constraint beyond viewport right-edge clamp
 - Textarea minimum height: 64px (4 lines × 16px line-height); no max-height imposed (scrolls internally)
-- Touch target minimum: 44px for submit and cancel buttons in the annotation creation form (accessibility requirement)
+- Touch target minimum: 44px for "Post Comment" and "Dismiss" buttons in the annotation creation form (accessibility requirement)
 
 ---
 
@@ -61,14 +61,17 @@ Source: `index.css` `.plan-prose` rules + existing SelectionToolbar, CommentBubb
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Body | 16px | 400 | 1.6 | Plan prose (inherited from `<body>`) |
-| Label | 14px | 400 | 1.5 | Textarea placeholder + input text; "Submit" / "Cancel" button labels; predefined action menu items; edit mode textarea; section badge number |
+| Label | 14px | 400 | 1.5 | Textarea placeholder + input text; "Post Comment" / "Dismiss" / "Save Changes" / "Discard Changes" button labels; predefined action menu items; edit mode textarea |
 | Caption | 13px | 400 | 1.4 | Annotation type tag in expanded bubble (carried from Phase 20); icon button aria-label fallback |
 | Heading | 14px | 600 | 1.4 | Bubble anchor-text preview header (carried from Phase 20); pill labels in SelectionToolbar |
+| Badge | 11px | 600 | 1 | Section count badge number in OutlinePane |
 
-Exactly 3 distinct sizes in this phase: 16px (inherited prose), 14px (label + pill), 13px (caption + badge).
-Exactly 2 weights: 400 (regular) + 600 (semibold — pill labels, bubble anchor-text header).
+Exactly 4 distinct sizes in this phase: 16px (inherited prose), 14px (label + pill), 13px (caption), 11px (badge).
+Exactly 2 weights: 400 (regular) + 600 (semibold — pill labels, bubble anchor-text header, badge numbers).
 
-Note: SelectionToolbar pills already use `font-size: 13px, font-weight: 600` — the annotation creation form's Submit button follows the same pill styling (13px/600 for consistency), while the inline Cancel link uses 13px/400.
+Note: SelectionToolbar pills already use `font-size: 13px, font-weight: 600` — the annotation creation form's "Post Comment" button follows the same pill styling (13px/600 for consistency), while the inline "Dismiss" link uses 13px/400.
+
+Note: 13px (Caption) and 14px (Label) are intentionally 1px apart. Caption is used for secondary metadata (type tags); Label is used for all interactive control text. Distinction is deliberate — they serve different hierarchy levels.
 
 ---
 
@@ -83,14 +86,14 @@ Source: `ui/src/index.css` `:root` block. No new tokens introduced in this phase
 | Border | `--color-border` | `#2d3148` | `#cbd5e1` | Annotation form border; textarea border; edit-mode textarea border |
 | Text primary | `--color-text-primary` | `#f1f5f9` | `#0f172a` | Textarea input text; submit button text; menu item text |
 | Text secondary | `--color-text-secondary` | `#94a3b8` | `#64748b` | Textarea placeholder text; cancel button text; section badge text |
-| Accent — focus | `--color-focus` | `#3b82f6` | `#2563eb` | Submit button background; focus outline on all interactive elements; section badge background |
+| Accent — focus | `--color-focus` | `#3b82f6` | `#2563eb` | "Post Comment" button background; focus outline on all interactive elements; section badge background |
 | Accent — comment | `--color-annotation-comment` | `#3b82f6` | `#2563eb` | "Comment" pill background tint and text color |
 | Accent — delete | `--color-annotation-delete` | `#ef4444` | `#dc2626` | "Delete" pill background tint and text color; × delete button color on bubble |
 | Accent — replace | `--color-annotation-replace` | `#f59e0b` | `#d97706` | "Replace" pill background tint and text color |
 | Destructive | `--color-accent-deny` | `#ef4444` | `#dc2626` | × delete icon button on CommentBubble (same token as annotation-delete; delete is a destructive action) |
 
 Accent reserved for (this phase only):
-1. Submit button in the annotation creation form — `background: var(--color-focus)`, `color: var(--color-bg)`
+1. "Post Comment" button in the annotation creation form — `background: var(--color-focus)`, `color: var(--color-bg)`
 2. Section count badges in OutlinePane — `background: var(--color-focus)`, `color: #fff`
 3. "Comment" pill text + background tint (`var(--color-annotation-comment)`)
 4. "Delete" pill text + background tint (`var(--color-annotation-delete)`)
@@ -112,6 +115,8 @@ Components modified or introduced in Phase 21:
 
 **Trigger:** Any pill click or quick-action menu item click causes `handleAction` to set `formState`. The SelectionToolbar disappears and the form appears at the same `position: fixed` coordinates (anchored to `lastRect.bottom + 6` of the selection).
 
+**Focal point:** The `<textarea>` is the primary visual anchor. It receives `autoFocus` on mount, draws the eye as the largest interactive element, and has the widest contrast boundary (`var(--color-border)` outline against `var(--color-surface)` background). All other form elements (buttons, type label) are secondary.
+
 **Visual spec:**
 - Container: `position: fixed`, same `top`/`left` calculation as SelectionToolbar (reuse `lastRect`)
 - `background: var(--color-surface)`, `border: 1px solid var(--color-border)`, `border-radius: 6px`, `padding: 8px`, `box-shadow: 0 2px 8px rgba(0,0,0,0.3)`, `z-index: 20`
@@ -119,8 +124,8 @@ Components modified or introduced in Phase 21:
 - Textarea: `width: 100%`, `min-height: 64px`, `font-size: 14px`, `font-family: inherit`, `background: transparent`, `color: var(--color-text-primary)`, `border: 1px solid var(--color-border)`, `border-radius: 4px`, `padding: 6px 8px`, `resize: vertical`
 - Textarea `placeholder`: "Add a comment…" for Comment type; for Delete/Replace/predefined actions, textarea is pre-filled (placeholder not shown)
 - Button row: `display: flex`, `justify-content: flex-end`, `gap: 8px`, `margin-top: 8px`
-- Submit button: `font-size: 13px`, `font-weight: 600`, `height: 28px`, `padding: 0 12px`, `border-radius: 4px`, `background: var(--color-focus)`, `color: #fff` (or `var(--color-bg)`), `border: none`, `cursor: pointer`, `min-width: 44px`
-- Cancel link-button: `font-size: 13px`, `font-weight: 400`, `height: 28px`, `padding: 0 8px`, `border-radius: 4px`, `background: transparent`, `color: var(--color-text-secondary)`, `border: none`, `cursor: pointer`
+- "Post Comment" button: `font-size: 13px`, `font-weight: 600`, `height: 28px`, `padding: 0 12px`, `border-radius: 4px`, `background: var(--color-focus)`, `color: #fff` (or `var(--color-bg)`), `border: none`, `cursor: pointer`, `min-width: 44px`
+- "Dismiss" link-button: `font-size: 13px`, `font-weight: 400`, `height: 28px`, `padding: 0 8px`, `border-radius: 4px`, `background: transparent`, `color: var(--color-text-secondary)`, `border: none`, `cursor: pointer`
 
 **Focus behavior:** Textarea receives `autoFocus` on mount so the user can start typing immediately.
 
@@ -152,7 +157,8 @@ onRemove: () => void
 **Edit mode visual spec (when `isEditing === true`):**
 - The `<p>` comment body is replaced by a `<textarea>` pre-filled with `annotation.comment`
 - Same textarea styling as the Annotation Creation Form (14px, 64px min-height, `var(--color-border)` border)
-- Same button row below: "Save" button (same style as Submit: `var(--color-focus)` background) + "Cancel" link-button
+- Focal point: The `<textarea>` is the primary visual anchor in edit mode — it receives `autoFocus` on mount and is the largest interactive element within the bubble
+- Same button row below: "Save Changes" button (same style as "Post Comment": `var(--color-focus)` background) + "Discard Changes" link-button (same style as "Dismiss": `var(--color-text-secondary)` color, transparent background)
 - `autoFocus` on textarea mount
 - `Cmd+Enter` / `Ctrl+Enter`: saves (calls `onEdit` with new text → `editAnnotation(id, newText)` in Shell)
 - `Escape` or click outside: cancels (reverts textarea, calls `onEdit` equivalent to cancel)
@@ -177,7 +183,7 @@ annotationCounts?: Map<string, number>
 - `font-size: 11px`, `font-weight: 600`, `line-height: 1`, `min-width: 16px`, `height: 16px`, `padding: 0 4px`, `border-radius: 8px`
 - Active section: `background: var(--color-focus)`, `color: #fff`
 - Inactive section: `background: rgba(59, 130, 246, 0.25)`, `color: var(--color-focus)`
-- `display: inline-flex; align-items: center; justify-content: center; margin-left: 6px`
+- `display: inline-flex; align-items: center; justify-content: center; margin-left: 8px`
 - No badge rendered (not hidden with opacity — entirely absent from DOM) when count is 0
 
 ---
@@ -212,7 +218,7 @@ annotationCounts?: Map<string, number>
 2. `setFormState(null)` — form unmounts
 3. `resetTextSelection()` — `selection-lock` Highlight cleared
 
-**Form cancel (Escape / click outside):**
+**Form cancel (Escape / click outside / "Dismiss" button):**
 1. `setFormState(null)` — form unmounts, no annotation created
 2. `resetTextSelection()` — `selection-lock` Highlight cleared
 
@@ -232,7 +238,7 @@ annotationCounts?: Map<string, number>
 2. Pencil icon appears in expanded bubble
 3. User clicks pencil → Shell sets `editingId = annotation.id`; `CommentPane` receives `editingId`
 4. CommentBubble with matching `annotation.id` receives `isEditing: true` → displays textarea instead of `<p>`
-5. User edits text; submits via Save button or `Cmd+Enter`
+5. User edits text; submits via "Save Changes" button or `Cmd+Enter`
 6. `onEdit(newComment)` prop is called → Shell calls `editAnnotation(annotation.id, newComment)` from `useAnnotations`
 7. Shell sets `editingId = null` → bubble returns to expanded display mode
 
@@ -274,9 +280,10 @@ Source: CONTEXT.md decisions + REQUIREMENTS.md COMMENT-04, COMMENT-05, OUTLINE-0
 
 | Element | Copy |
 |---------|------|
-| Primary CTA | "Submit" — annotation creation form submit button |
-| Cancel action | "Cancel" — annotation creation form cancel button |
-| Edit save CTA | "Save" — inline edit mode save button inside CommentBubble |
+| Primary CTA | "Post Comment" — annotation creation form submit button |
+| Creation form cancel | "Dismiss" — annotation creation form cancel button |
+| Edit save CTA | "Save Changes" — inline edit mode save button inside CommentBubble |
+| Edit mode cancel | "Discard Changes" — inline edit mode cancel button inside CommentBubble |
 | Textarea placeholder | "Add a comment…" (shown only for "Comment" type with empty prefill) |
 | Textarea pre-fill: Delete | "Delete" |
 | Textarea pre-fill: Replace | "Replace" |
@@ -302,7 +309,7 @@ Note: "Delete" textarea pre-fill matches the `QUICK_ACTIONS` pattern where the l
 - Annotation creation form: `role="dialog"` not required (it is a popover, not a modal — content behind it remains interactive); `aria-label="Add annotation"` on the container `<div>`
 - Textarea: `aria-label="Comment text"` (no visible `<label>` in compact form); `aria-required="false"` (empty submit permitted for non-empty pre-fill types)
 - Submit button: `type="submit"` within a `<form onSubmit={...}>` or `type="button"` with explicit onClick — either is acceptable; Cmd+Enter must work regardless
-- Cancel button: `type="button"`, `aria-label="Cancel annotation"` if icon-only (text label is present, so aria-label not strictly needed)
+- "Dismiss" button: `type="button"`, `aria-label="Dismiss annotation form"` if icon-only (text label "Dismiss" is present, so aria-label not strictly needed)
 - Pencil icon button: `type="button"`, `aria-label="Edit comment"`, `aria-pressed` not required (it toggles mode, not a toggle state)
 - Delete icon button: `type="button"`, `aria-label="Delete comment"`
 - Section badge `<span>`: `aria-label="{count} comments"` so screen readers announce count in context of the outline item
