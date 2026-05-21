@@ -1,12 +1,18 @@
 import { useRef, useState } from 'react'
 import ContentPane from './ContentPane'
 import OutlinePane from './OutlinePane'
+import CommentPane from './CommentPane'
+import { useAnnotations } from './useAnnotations'
 import type { Section } from './types'
 
 export default function ReviewerV2Shell() {
   const mainRef = useRef<HTMLElement>(null)
+  const planRef = useRef<HTMLDivElement>(null)
   const [sections, setSections] = useState<Section[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
+  const { annotations, addAnnotation } = useAnnotations()
+  const [hoveredCommentId, setHoveredCommentId] = useState<string | null>(null)
+  const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null)
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -66,11 +72,19 @@ export default function ReviewerV2Shell() {
             padding: 0,
           }}
         >
-          <ContentPane onSectionsFound={setSections} />
+          <ContentPane
+            onSectionsFound={setSections}
+            onAddAnnotation={addAnnotation}
+            hoveredCommentId={hoveredCommentId}
+            annotations={annotations}
+            planRef={planRef}
+            onHoverCommentId={setHoveredCommentId}
+          />
         </main>
 
         {/* Right column: Comments */}
         <aside
+          aria-label="Comments"
           style={{
             width: 280,
             flexShrink: 0,
@@ -80,15 +94,15 @@ export default function ReviewerV2Shell() {
             padding: 16,
           }}
         >
-          <span
-            style={{
-              fontSize: 14,
-              fontWeight: 400,
-              color: 'var(--color-text-secondary)',
-            }}
-          >
-            Comments
-          </span>
+          <CommentPane
+            annotations={annotations}
+            hoveredCommentId={hoveredCommentId}
+            focusedCommentId={focusedCommentId}
+            mainRef={mainRef}
+            planRef={planRef}
+            onHover={setHoveredCommentId}
+            onFocus={setFocusedCommentId}
+          />
         </aside>
       </div>
     </div>
