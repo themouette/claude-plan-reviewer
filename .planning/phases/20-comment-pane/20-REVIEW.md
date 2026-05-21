@@ -2,27 +2,28 @@
 phase: 20-comment-pane
 reviewed: 2026-05-21T00:00:00Z
 depth: standard
-files_reviewed: 14
+files_reviewed: 15
 files_reviewed_list:
-  - ui/src/reviewer-v2/CommentBubble.tsx
-  - ui/src/reviewer-v2/CommentBubble.test.ts
-  - ui/src/reviewer-v2/CommentPane.tsx
-  - ui/src/reviewer-v2/CommentPane.test.ts
-  - ui/src/reviewer-v2/ContentPane.tsx
-  - ui/src/reviewer-v2/ContentPane.test.ts
-  - ui/src/reviewer-v2/ReviewerV2Shell.tsx
-  - ui/src/reviewer-v2/ReviewerV2Shell.test.ts
-  - ui/src/reviewer-v2/hooks/offsetFromPoint.ts
-  - ui/src/reviewer-v2/hooks/offsetFromPoint.test.ts
   - ui/src/reviewer-v2/hooks/useCommentLayout.ts
   - ui/src/reviewer-v2/hooks/useCommentLayout.test.ts
   - ui/src/reviewer-v2/types.ts
   - ui/src/reviewer-v2/useAnnotations.test.ts
+  - ui/src/index.css
+  - ui/src/reviewer-v2/CommentBubble.tsx
+  - ui/src/reviewer-v2/CommentBubble.test.ts
+  - ui/src/reviewer-v2/CommentPane.tsx
+  - ui/src/reviewer-v2/CommentPane.test.ts
+  - ui/src/reviewer-v2/ReviewerV2Shell.test.ts
+  - ui/src/reviewer-v2/hooks/offsetFromPoint.ts
+  - ui/src/reviewer-v2/hooks/offsetFromPoint.test.ts
+  - ui/src/reviewer-v2/ReviewerV2Shell.tsx
+  - ui/src/reviewer-v2/ContentPane.tsx
+  - ui/src/reviewer-v2/ContentPane.test.ts
 findings:
   critical: 2
-  warning: 5
+  warning: 4
   info: 3
-  total: 10
+  total: 9
 status: issues_found
 ---
 
@@ -30,127 +31,37 @@ status: issues_found
 
 **Reviewed:** 2026-05-21
 **Depth:** standard
-**Files Reviewed:** 14
+**Files Reviewed:** 15
 **Status:** issues_found
 
 ## Summary
 
-Phase 20 delivers CommentPane, CommentBubble, ContentPane annotation wiring, and the
-`computeCommentLayout` / `offsetFromPoint` pure functions. The architecture is clean and
-the source-file tests (read-file-and-grep pattern) verify the structural contracts
-well. However, two blocking correctness bugs were found — one in `computeCommentLayout`
-that causes the focused bubble to collide with items that precede it, and one in
-`CommentPane` where `planRef` is passed as a `useEffect` dependency but is a
-`React.RefObject` whose identity never changes, meaning the effect never re-runs when
-the element itself is reassigned. Beyond those blockers there are five warnings covering
-logic errors (incorrect `baseStyle` border override, uncleared CSS highlight on
-unmount, `comment` field set to `anchorText` stub with no removal guard) and two
-quality-level findings.
+Phase 20 delivers `CommentPane`, `CommentBubble`, the `computeCommentLayout` and `offsetFromPoint` pure functions, the bidirectional hover system wired through `ContentPane` and `ReviewerV2Shell`, and `index.css` CSS Custom Highlight registrations. The data-flow architecture is sound: annotation state is owned by `useAnnotations`, anchor positions are recomputed on scroll/resize via `ResizeObserver`, and the CSS Highlight API is used correctly for both selection persistence and comment-hover feedback.
+
+Two blockers prevent correct visual output. `CommentBubble` has a CSS shorthand collision that silently erases the annotation-type colour indicator on every bubble. `CommentPane` always passes the compact height for every annotation, including the focused/expanded one, causing the layout algorithm to under-estimate `previousBottom` and place following items on top of the expanded bubble. Beyond those, four warnings cover stale-highlight lifecycle, an irrecoverable expanded state, a D-07 stub with no serialization guard, and a duplicated constant that can silently skew layout.
 
 ---
 
 ## Critical Issues
 
-### CR-01: `computeCommentLayout` — expanded item can collide with preceding compact items
+### CR-01: `borderLeft` overwritten by `border` shorthand in `CommentBubble` — type indicator never renders
 
-**File:** `ui/src/reviewer-v2/hooks/useCommentLayout.ts:24-39`
+**File:** `ui/src/reviewer-v2/CommentBubble.tsx:39-40`
 
-**Issue:** The loop processes items in `anchorY` order. When an expanded (focused) item
-appears, it unconditionally snaps `top = item.anchorY` and resets `previousBottom` to
-`item.anchorY + item.height + GAP`. It does **not** check whether `item.anchorY` is
-already below `previousBottom`. If the preceding compact items have been pushed down
-such that `previousBottom > item.anchorY`, the expanded bubble overlaps the tail of the
-preceding chain.
+**Issue:** Inside `baseStyle`, `borderLeft` is assigned first (line 39) and then immediately overwritten by the shorthand `border` (line 40). React applies inline style object keys in their declaration order by setting individual `element.style` properties in iteration order. Because `borderLeft` appears before `border` in the object literal, React sets `element.style.borderLeft` first, then sets `element.style.border`, which is a CSS shorthand that resets all four border sub-properties including `borderLeft`. The result: every annotation bubble renders with a uniform 1px grey border on all sides; the annotation-type colour stripe on the left is never visible.
 
-Concrete repro:
-- Item A: anchorY=100, compact, height=48 → top=100, previousBottom=156
-- Item B: anchorY=110, compact, height=48 → pushed to top=156, previousBottom=212
-- Item C: anchorY=120, expanded, height=120 → snaps to top=120 — **overlaps B**
+The existing test suite does not catch this because `CommentBubble.test.ts` only asserts that the string `'borderLeft'` appears somewhere in the source, not that it is applied after the shorthand.
 
-The test suite does not cover a focused item that is squeezed by preceding pushes
-because the test fixture for the focused-item case (anchorY=130) has item A sitting at
-100 with no cascaded push, so previousBottom=156 and anchorY=130 < 156. The test
-**passes but hides the bug** in the other ordering.
+**Fix:** Move `borderLeft` after the shorthand declaration so it applies last:
 
-**Fix:**
-```typescript
-if (item.isExpanded) {
-  // Snap to anchorY but never overlap the previous item
-  const top = Math.max(item.anchorY, previousBottom)
-  previousBottom = top + item.height + GAP
-  result.push({ id: item.id, top, isCompact: false })
-}
-```
-
----
-
-### CR-02: `CommentPane` effect dependency on `planRef` / `mainRef` never re-runs when `.current` changes
-
-**File:** `ui/src/reviewer-v2/CommentPane.tsx:28-57`
-
-**Issue:** The `useEffect` lists `[mainRef, planRef, annotations]` as dependencies. Both
-refs are `React.RefObject` objects whose **identity** is stable across renders — React
-never creates a new ref object when the DOM element is attached. Mutating `.current`
-does not trigger a re-run. The effect captures `mainRef.current` and `planRef.current`
-at the top as `el` / `content`, then returns a cleanup that uses those same snapshots.
-This means:
-
-1. If either ref attaches its element **after** the first render (e.g., the element is
-   conditionally rendered), the effect captures `null` and never re-runs.
-2. If the content element is replaced (remount), the ResizeObserver continues watching
-   the old node and the scroll listener is attached to the old element.
-
-In practice, `ReviewerV2Shell` renders `<main ref={mainRef}>` and
-`<div ref={planRef}>` unconditionally, so the first render does attach them. The bug
-is latent but will surface in any test or usage that renders `CommentPane` before the
-parent DOM is ready (SSR, StrictMode double-invoke, or deferred mounting).
-
-**Fix:** Use a callback ref pattern or an effect that depends on `.current` being
-non-null, with a `MutationObserver`/callback ref to detect late attachment:
-
-```typescript
-// Minimal safe fix: accept el/content as direct props instead of refs,
-// OR ensure the effect re-runs when the element is assigned by depending
-// on a state variable that is set by a callback ref in ReviewerV2Shell.
-```
-
-Alternatively, add an explicit `null` guard early-return that is **not** silently
-swallowed — currently the `if (!el || !content) return` on line 31 silently no-ops
-rather than scheduling a retry, so callers have no signal that layout is broken.
-
----
-
-## Warnings
-
-### WR-01: `CommentBubble` — `borderLeft` override silently lost due to shorthand `border`
-
-**File:** `ui/src/reviewer-v2/CommentBubble.tsx:34-46`
-
-**Issue:** `baseStyle` sets `borderLeft` on line 39, then immediately overrides it with
-the shorthand `border: '1px solid var(--color-border)'` on line 40. CSS-in-JS inline
-style objects are plain JS objects; later duplicate keys overwrite earlier ones. The
-`borderLeft` property is written first but the shorthand `border` key comes second —
-**the shorthand wins** and the colored left border is never applied.
-
-```typescript
-const baseStyle: React.CSSProperties = {
-  // ...
-  borderLeft: `3px solid ${borderColor}`,  // line 39 — set
-  border: '1px solid var(--color-border)', // line 40 — overwrites borderLeft
-```
-
-This is a visual bug: the annotation type color indicator on the bubble's left edge
-will never render.
-
-**Fix:**
-```typescript
+```tsx
 const baseStyle: React.CSSProperties = {
   position: 'absolute',
   top,
   left: 0,
   right: 0,
-  border: '1px solid var(--color-border)',
-  borderLeft: `3px solid ${borderColor}`, // must come AFTER the shorthand
+  border: '1px solid var(--color-border)',     // shorthand first
+  borderLeft: `3px solid ${borderColor}`,      // specific override after
   borderRadius: 6,
   padding: '8px 12px',
   background: 'var(--color-surface)',
@@ -161,163 +72,163 @@ const baseStyle: React.CSSProperties = {
 
 ---
 
-### WR-02: CSS `comment-hover` highlight not deleted on `ContentPane` unmount
+### CR-02: `CommentPane` passes `height: COMPACT_HEIGHT` for all items including the focused one — following items overlap the expanded bubble
+
+**File:** `ui/src/reviewer-v2/CommentPane.tsx:86-93`
+
+**Issue:** The `layoutItems` array is built by mapping over annotations and always setting `height: COMPACT_HEIGHT` (48). This value is passed into `computeCommentLayout`, which uses `item.height` for the expanded item to compute `previousBottom` (line 28 of `useCommentLayout.ts`: `previousBottom = top + item.height + GAP`). Because `COMPACT_HEIGHT = 48` is far smaller than the actual rendered height of an expanded bubble (which shows full comment text plus a type badge — typically 100–180px), the `previousBottom` after the focused item is severely under-estimated. Every annotation that follows the focused one will be positioned to start roughly 56px below the focused anchor, overlapping the expanded bubble's body.
+
+The unit tests in `useCommentLayout.test.ts` pass `height: 120` for expanded items — this discrepancy means the algorithm is tested correctly but the call site is broken.
+
+**Fix:** Pass the actual expanded height. If it is not yet measured, use a representative estimate for the focused item:
+
+```tsx
+const EXPANDED_HEIGHT_ESTIMATE = 160   // temporary until Phase 21 layout measurement
+
+const layoutItems = annotations
+  .filter((ann) => anchorYMap.has(ann.id))
+  .map((ann) => {
+    const isExpanded = focusedCommentId === ann.id
+    return {
+      id: ann.id,
+      anchorY: anchorYMap.get(ann.id)!,
+      isExpanded,
+      height: isExpanded ? EXPANDED_HEIGHT_ESTIMATE : COMPACT_HEIGHT,
+    }
+  })
+```
+
+---
+
+## Warnings
+
+### WR-01: `focusedCommentId` can never be cleared — the expanded bubble is permanently locked open
+
+**File:** `ui/src/reviewer-v2/CommentPane.tsx:112` and `ui/src/reviewer-v2/ReviewerV2Shell.tsx`
+
+**Issue:** `onClick` always calls `onFocus(ann.id)`. If the user clicks the already-focused annotation, the same id is set again — the bubble never collapses. There is no document-level click handler, Escape-key handler, or any other code path in `ReviewerV2Shell` that calls `setFocusedCommentId(null)`. Once any bubble is clicked, the expanded state is permanent for the lifetime of the page.
+
+**Fix:** Toggle off on re-click, and add an Escape handler in `ReviewerV2Shell`:
+
+```tsx
+// CommentPane.tsx line 112 — toggle off when already focused:
+onClick={() => onFocus(focusedCommentId === ann.id ? null : ann.id)}
+
+// ReviewerV2Shell.tsx — Escape key to collapse:
+useEffect(() => {
+  function onKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Escape') setFocusedCommentId(null)
+  }
+  document.addEventListener('keydown', onKeyDown)
+  return () => document.removeEventListener('keydown', onKeyDown)
+}, [])
+```
+
+---
+
+### WR-02: CSS `comment-hover` highlight not cleared when `rangeFromOffsets` returns `null` and not deleted on unmount
 
 **File:** `ui/src/reviewer-v2/ContentPane.tsx:65-80`
 
-**Issue:** The `useEffect` that manages `CSS.highlights.set/delete` for the
-`comment-hover` highlight has **no cleanup function**. If `ContentPane` unmounts while
-`hoveredCommentId` is non-null, the `Highlight` object remains registered in
-`CSS.highlights` and will continue to visually highlight text in any other component
-that shares the same document. Since the app renders a single `ContentPane` this is
-low-risk today, but it is an observable resource leak.
+**Issue:** Two related gaps in the `hoveredCommentId` effect:
+
+1. When `rangeFromOffsets` returns `null` (lines 76-79), the highlight is not deleted. If a previous hover established a highlight and `hoveredCommentId` then changes to an annotation whose offsets cannot be resolved (e.g., during a plan content reload), the old highlight remains visible.
+2. The effect has no cleanup function. If `ContentPane` unmounts while `hoveredCommentId` is non-null, the `Highlight` entry stays registered in the global `CSS.highlights` registry.
 
 **Fix:**
-```typescript
+
+```tsx
 useEffect(() => {
   if (!supportsHighlights) return
-  // ... existing set/delete logic ...
-  return () => {
+  if (!hoveredCommentId || !planRef.current) {
     CSS.highlights.delete(COMMENT_HOVER_HIGHLIGHT)
+    return () => { CSS.highlights.delete(COMMENT_HOVER_HIGHLIGHT) }
   }
+  const annotation = annotations?.find((a) => a.id === hoveredCommentId)
+  if (!annotation) {
+    CSS.highlights.delete(COMMENT_HOVER_HIGHLIGHT)
+    return () => { CSS.highlights.delete(COMMENT_HOVER_HIGHLIGHT) }
+  }
+  const range = rangeFromOffsets(planRef.current, annotation.anchorStart, annotation.anchorEnd)
+  if (range) {
+    CSS.highlights.set(COMMENT_HOVER_HIGHLIGHT, new Highlight(range))
+  } else {
+    CSS.highlights.delete(COMMENT_HOVER_HIGHLIGHT)   // clear stale highlight
+  }
+  return () => { CSS.highlights.delete(COMMENT_HOVER_HIGHLIGHT) }
 }, [hoveredCommentId, annotations, planRef])
 ```
 
 ---
 
-### WR-03: `ContentPane` stub sets `comment: anchorText` with no guard preventing it from reaching the backend
+### WR-03: D-07 stub `comment: anchorText` will reach the Rust backend with wrong content if the user submits before Phase 21
 
 **File:** `ui/src/reviewer-v2/ContentPane.tsx:97`
 
-**Issue:** The D-07 stub assigns `comment: anchorText` (the raw selected text) as the
-annotation's comment field. The comment in the source says "Phase 21 replaces with
-textarea form." However, there is no runtime guard preventing this annotation from
-being serialized and submitted to the hook payload before Phase 21 lands. If a user
-clicks "Approve" after adding annotations, `serializeAnnotations` (which exists in the
-module directory) will include `comment: anchorText` verbatim in the JSON sent to the
-Rust backend, meaning the annotation comment will duplicate the anchor text rather than
-contain any user-authored feedback.
+**Issue:** Annotations are created with `comment: anchorText` as an explicit stub. The comment in the source says Phase 21 will replace this with a textarea form, but there is no guard preventing a user from clicking the submit/approve action before Phase 21 ships. `serializeAnnotations` (present in `ui/src/reviewer-v2/serializeAnnotations.ts`) will include `comment: anchorText` verbatim in the JSON payload sent to the Rust hook, meaning the user's annotation will carry the selected text as both `anchorText` and `comment` rather than any authored feedback. This is a silent data-correctness issue — the backend will accept the payload, the user will receive no error, and the comment field in the hook output will be meaningless.
 
-This is a data-correctness bug for the phase boundary: the annotation comment field
-arriving at the backend will be wrong content, silently, with no indication to the
-user.
+**Fix:** Mark stub annotations at creation and filter them before serialization, or block submission when any annotation has an empty/stub comment:
 
-**Fix:** Either block the "Approve" / "Submit" action when any annotation has
-`comment === anchorText` (or `comment === ''`), or explicitly mark stub annotations
-as drafts and filter them before serialization.
-
----
-
-### WR-04: `CommentPane` — annotations without a resolved `anchorY` are silently dropped from layout but still in the `annotations` array
-
-**File:** `ui/src/reviewer-v2/CommentPane.tsx:86-101`
-
-**Issue:** `layoutItems` is built by filtering to only annotations that appear in
-`anchorYMap` (line 87: `.filter((ann) => anchorYMap.has(ann.id))`). Annotations that
-fail `rangeFromOffsets` (e.g., because `anchorStart`/`anchorEnd` point past the current
-DOM content) are silently excluded. The parent `annotations.map(...)` on line 99 then
-calls `layout.find((l) => l.id === ann.id)` and returns `null` for those items. React
-will render `null` — which is fine — but:
-
-1. There is no empty-state fallback for the case where `annotations.length > 0` but all
-   resolved to `null`. The `if (annotations.length === 0)` guard (line 59) will not
-   fire, the wrapper `<div>` will render with zero children, and the user will see a
-   blank comment pane with no explanation.
-2. A stale annotation whose offsets are outside the current DOM (possible after plan
-   content reloads) will produce this silent blank pane indefinitely.
-
-**Fix:** Add a secondary empty-state guard after layout resolution:
 ```tsx
-const visibleCount = annotations.filter((ann) => layout.find((l) => l.id === ann.id)).length
-if (visibleCount === 0) {
-  return <div style={{ position: 'relative', minHeight: '100%' }}>
-    <p style={{ ... }}>Comments are not yet visible — the plan content may still be loading.</p>
-  </div>
-}
+// At creation in handleAction — tag as draft:
+comment: '',  // cleared stub; Phase 21 replaces with textarea value
+
+// In serializeAnnotations or submission handler:
+const submittable = annotations.filter((a) => a.comment.trim().length > 0)
 ```
 
 ---
 
-### WR-05: `offsetFromPoint` — `caretPositionFromPoint` fallback type cast is incorrect for Firefox's actual API shape
+### WR-04: `COMPACT_HEIGHT = 48` duplicated across `CommentPane` and `useCommentLayout` — silent skew if they diverge
 
-**File:** `ui/src/reviewer-v2/hooks/offsetFromPoint.ts:27-30`
+**File:** `ui/src/reviewer-v2/CommentPane.tsx:7` and `ui/src/reviewer-v2/hooks/useCommentLayout.ts:1`
 
-**Issue:** The Firefox fallback casts `document` to a type with a `caretPositionFromPoint` that returns `{ offsetNode: Node; offset: number } | null`. The actual Firefox `CaretPosition` object has `offsetNode` and `offset` properties but also a `getClientRect()` method — the cast itself is harmless. However, the `typeof` guard on line 27 casts to a type that **also describes `caretPositionFromPoint` as a function** in the `typeof` check. The cast on line 27 is evaluated before the check passes, meaning the expression always evaluates the cast, even on browsers where neither path should apply. If `document` does not have `caretPositionFromPoint`, TypeScript's narrowing is satisfied by the cast but the runtime `typeof` check is on `(document as T).caretPositionFromPoint` — the cast does not add the property, it only suppresses the type error. This is functionally correct at runtime because `typeof undefined === 'function'` is false, but the cast is semantically misleading and could mask a future refactor that accidentally removes the runtime `typeof` guard and calls the method unconditionally.
+**Issue:** Both files independently define `const COMPACT_HEIGHT = 48`. The layout algorithm in `useCommentLayout.ts` uses its own copy as the height of non-expanded items (line 34: `const height = COMPACT_HEIGHT`). `CommentPane` passes its own copy as the `height` input. If either value is changed in isolation the layout positions will silently diverge — items will either overlap or carry unexpected gaps with no error thrown.
 
-More importantly: the same cast object is defined inline on both lines 27 and 28, duplicating the verbose type. If this path ever needs to be updated (e.g., to support the full `CaretPosition` interface), the developer must update two identical inline casts.
+**Fix:** Export the constant from `useCommentLayout.ts` and import it in `CommentPane.tsx`:
 
-**Fix:** Extract a typed accessor:
 ```typescript
-type DocWithCaretPosition = typeof document & {
-  caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null
-}
-const docExt = document as DocWithCaretPosition
-if (typeof docExt.caretPositionFromPoint === 'function') {
-  const cp = docExt.caretPositionFromPoint(clientX, clientY)
-  node = cp?.offsetNode ?? null
-  nodeOffset = cp?.offset ?? 0
-}
+// useCommentLayout.ts — add export
+export const COMPACT_HEIGHT = 48
+
+// CommentPane.tsx — replace local declaration with import
+import { computeCommentLayout, COMPACT_HEIGHT } from './hooks/useCommentLayout'
 ```
 
 ---
 
 ## Info
 
-### IN-01: Test suite uses source-file string scanning instead of rendering — behavioral regressions are not caught
+### IN-01: `aria-expanded` on `<article>` is non-standard ARIA — screen readers will not announce it
 
-**File:** `ui/src/reviewer-v2/CommentBubble.test.ts`, `CommentPane.test.ts`, `ContentPane.test.ts`, `ReviewerV2Shell.test.ts`
+**File:** `ui/src/reviewer-v2/CommentBubble.tsx:85-88`
 
-**Issue:** Every test in these four files follows the pattern: read the source file as a
-string and assert that it `toContain(...)` a substring. This verifies static structure
-(API contracts, import presence) but does **not** execute any component logic. For
-example, the `CommentBubble` test confirms that `aria-expanded` appears somewhere in
-the source, but does not verify that the rendered output actually sets
-`aria-expanded="true"` when `isFocused=true`. The WR-01 `borderLeft`/`border`
-collision bug in `CommentBubble` would pass all existing tests because the erroneous
-code is present in the source.
+**Issue:** `aria-expanded` is valid only on ARIA widget roles that own collapsible sub-trees (`button`, `combobox`, `listbox`, `treeitem`, etc.). The `<article>` element carries implicit role `article`, which does not support `aria-expanded`. Screen readers will not surface the expanded/collapsed state. The attribute is also always emitted — even as `aria-expanded="false"` when not focused — which is non-standard; the attribute should be absent when the element does not control a disclosure.
 
-This is an accepted pattern in the codebase (phase 20 plan appears to require it), but
-it means any logic bug inside JSX expressions or computed styles is invisible to the
-test suite.
-
-**Fix:** No immediate action required if source-scanning is the project's intentional
-test pattern for this phase. Future phases should add at least one render-level test
-(using `@testing-library/react`) per component to catch behavioral regressions.
+**Fix:** Move the expand/collapse semantics to a `<button>` element inside the bubble, or apply `role="button"` with `tabIndex={0}` to the `<article>` if it must remain the interactive element.
 
 ---
 
-### IN-02: `handleAdd` in `ContentPane` is dead code
+### IN-02: Test suite scans source text — behavioral regressions not caught
+
+**Files:** `ui/src/reviewer-v2/CommentBubble.test.ts`, `CommentPane.test.ts`, `ContentPane.test.ts`, `ReviewerV2Shell.test.ts`
+
+**Issue:** All tests in these files read the `.tsx` source as a raw string and assert substring presence. This pattern detects deletion of structural contracts but cannot detect logic errors. The CR-01 `borderLeft`/`border` collision and CR-02 height mismatch are both invisible to the current test suite because the test only checks that the tokens appear somewhere in the source, not that they produce correct output. Any correct refactoring that renames a token (e.g., replacing inline `borderLeft` with a CSS variable) would also break tests without breaking behaviour.
+
+**Fix:** Progressively migrate key assertions to render-level tests using `@testing-library/react`. Priority: a render test for `CommentBubble` verifying `borderLeft` style value, and a snapshot or layout test for `CommentPane` verifying bubble positions for a two-annotation, one-focused scenario.
+
+---
+
+### IN-03: `handleAdd` in `ContentPane` is dead abstraction
 
 **File:** `ui/src/reviewer-v2/ContentPane.tsx:108-110`
 
-**Issue:** `handleAdd` calls only `resetTextSelection()` and is passed as `onAdd` to
-`PlanContent`. The Phase 18 comment says it will be wired in Phase 21. In the current
-implementation it is purely a passthrough — the same `resetTextSelection` could be
-passed directly. This is not harmful, but it is dead abstraction.
+**Issue:** `handleAdd` contains only `resetTextSelection()` and is passed as the `onAdd` prop to `PlanContent`. It adds no logic over passing `resetTextSelection` directly. The Phase 18 comment states Phase 21 will expand it; until then it is unnecessary indirection.
 
-**Fix:** Leave as-is if Phase 21 will expand `handleAdd`; otherwise replace with:
+**Fix:** If Phase 21 will genuinely expand the function, leave it. Otherwise collapse to:
+
 ```tsx
 <PlanContent onAdd={resetTextSelection} ... />
-```
-
----
-
-### IN-03: Magic number `COMPACT_HEIGHT = 48` duplicated across `CommentPane` and `useCommentLayout`
-
-**File:** `ui/src/reviewer-v2/CommentPane.tsx:7`, `ui/src/reviewer-v2/hooks/useCommentLayout.ts:1`
-
-**Issue:** `COMPACT_HEIGHT` is defined as `48` in both modules independently. If the
-value is changed in one, it silently diverges in the other. The layout algorithm in
-`useCommentLayout` uses `COMPACT_HEIGHT` as the height of non-expanded items; `CommentPane`
-passes `height: COMPACT_HEIGHT` in the `layoutItems` array. They must agree.
-
-**Fix:** Export `COMPACT_HEIGHT` from `useCommentLayout.ts` and import it in `CommentPane.tsx`:
-```typescript
-// useCommentLayout.ts
-export const COMPACT_HEIGHT = 48
-
-// CommentPane.tsx
-import { computeCommentLayout, COMPACT_HEIGHT } from './hooks/useCommentLayout'
 ```
 
 ---
