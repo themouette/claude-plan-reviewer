@@ -76,3 +76,46 @@ describe('ReviewerV2Shell', () => {
     expect(matches!.length).toBeGreaterThanOrEqual(2)
   })
 })
+
+describe('ReviewerV2Shell editingId + annotationCounts wiring (Phase 21)', () => {
+  it('source destructures editAnnotation from useAnnotations()', () => {
+    expect(source).toContain('editAnnotation')
+  })
+
+  it('source destructures removeAnnotation from useAnnotations()', () => {
+    expect(source).toContain('removeAnnotation')
+  })
+
+  it('source declares useState<string | null>(null) at least twice (focusedCommentId and editingId)', () => {
+    const matches = source.match(/useState<string \| null>\(null\)/g) ?? []
+    expect(matches.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('source calls useSectionAnnotationCounts(sections, annotations, planRef)', () => {
+    expect(source).toContain('useSectionAnnotationCounts(sections, annotations, planRef)')
+  })
+
+  it('source passes annotationCounts={annotationCounts} to OutlinePane', () => {
+    expect(source).toContain('annotationCounts={annotationCounts}')
+  })
+
+  it('source passes editingId={editingId} to CommentPane', () => {
+    expect(source).toContain('editingId={editingId}')
+  })
+
+  it('source passes onCancelEdit closing over setEditingId(null)', () => {
+    expect(source).toMatch(/onCancelEdit=\{.*setEditingId\(null\).*\}/)
+  })
+
+  it('source calls setEditingId(null) (Escape handler extension)', () => {
+    expect(source).toContain('setEditingId(null)')
+  })
+
+  it('source contains editAnnotation(id, newComment) in the onEdit commit branch', () => {
+    expect(source).toContain('editAnnotation(id, newComment)')
+  })
+
+  it('source imports useSectionAnnotationCounts from ./hooks/useSectionAnnotationCounts', () => {
+    expect(source).toContain("import { useSectionAnnotationCounts } from './hooks/useSectionAnnotationCounts'")
+  })
+})
