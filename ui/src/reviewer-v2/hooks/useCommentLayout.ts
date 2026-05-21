@@ -1,4 +1,4 @@
-const COMPACT_HEIGHT = 48
+export const COMPACT_HEIGHT = 48
 const GAP = 8
 const PUSH_THRESHOLD = 40
 

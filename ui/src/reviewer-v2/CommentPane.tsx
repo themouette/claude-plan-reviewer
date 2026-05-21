@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { Annotation } from './types'
 import { rangeFromOffsets } from './hooks/useTextSelection'
-import { computeCommentLayout } from './hooks/useCommentLayout'
+import { computeCommentLayout, COMPACT_HEIGHT } from './hooks/useCommentLayout'
 import CommentBubble from './CommentBubble'
-
-const COMPACT_HEIGHT = 48
 
 export default function CommentPane({
   annotations,
