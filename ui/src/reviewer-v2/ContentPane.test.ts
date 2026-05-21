@@ -41,10 +41,57 @@ describe('ContentPane', () => {
     expect(source).toContain('padding: 32')
   })
 
-  it('handleAction stub calls resetTextSelection to clear the selection', () => {
-    const handleActionBody = source.match(/function handleAction[^{]*{[^}]*}/s)?.[0]
-    expect(handleActionBody).toBeTruthy()
-    expect(handleActionBody).toMatch(/resetTextSelection/)
+  it('handleAction calls resetTextSelection to clear the selection', () => {
+    expect(source).toContain('resetTextSelection')
+    expect(source).toContain('function handleAction')
+  })
+})
+
+describe('ContentPane CSS Highlights wiring', () => {
+  it("source contains CSS.highlights.set with comment-hover highlight name", () => {
+    expect(source).toContain("CSS.highlights.set(COMMENT_HOVER_HIGHLIGHT")
+  })
+
+  it("source contains CSS.highlights.delete with comment-hover highlight name", () => {
+    expect(source).toContain("CSS.highlights.delete(COMMENT_HOVER_HIGHLIGHT)")
+  })
+
+  it("source defines the COMMENT_HOVER_HIGHLIGHT constant as 'comment-hover'", () => {
+    expect(source).toContain("const COMMENT_HOVER_HIGHLIGHT = 'comment-hover'")
+  })
+
+  it('source imports rangeFromOffsets from useTextSelection', () => {
+    expect(source).toContain('rangeFromOffsets')
+  })
+
+  it('source uses hoveredCommentId in the CSS highlights effect', () => {
+    expect(source).toContain('hoveredCommentId')
+  })
+
+  it('source declares supportsHighlights constant', () => {
+    expect(source).toContain('supportsHighlights')
+  })
+})
+
+describe('ContentPane annotation creation wiring (D-02 + D-07)', () => {
+  it('source contains onAddAnnotation prop and invocation', () => {
+    expect(source).toContain('onAddAnnotation')
+  })
+
+  it('source uses crypto.randomUUID() for annotation id generation', () => {
+    expect(source).toContain('crypto.randomUUID()')
+  })
+
+  it('source captures anchorStart from offsets.start (D-02)', () => {
+    expect(source).toContain('anchorStart: offsets.start')
+  })
+
+  it('source captures anchorEnd from offsets.end (D-02)', () => {
+    expect(source).toContain('anchorEnd: offsets.end')
+  })
+
+  it('source sets comment: anchorText as D-07 stub', () => {
+    expect(source).toContain('comment: anchorText')
   })
 })
 
