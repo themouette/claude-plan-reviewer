@@ -45,4 +45,12 @@ describe('PlanContent', () => {
     expect(source).toContain('e.currentTarget.contains(relatedTarget)')
     expect(source).not.toContain('onMouseLeave')
   })
+
+  it('onAdd prop type accepts HTMLElement argument (Phase 21 Task 1)', () => {
+    expect(source).toContain('(el: HTMLElement) => void')
+  })
+
+  it('GutterIcon receives a closure that passes hoveredParagraph (Phase 21 Task 1)', () => {
+    expect(source).toContain('onAdd(hoveredParagraph)')
+  })
 })
