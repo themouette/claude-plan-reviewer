@@ -62,3 +62,41 @@ describe('CommentPane', () => {
     expect(source).toContain('No comments yet')
   })
 })
+
+describe('CommentPane editingId + sticky wrapper (Phase 21)', () => {
+  it('accepts editingId prop', () => {
+    expect(source).toContain('editingId')
+  })
+
+  it('uses editingId === ann.id to determine editing state', () => {
+    expect(source).toContain('editingId === ann.id')
+  })
+
+  it("uses position: 'sticky' for the editing bubble wrapper", () => {
+    expect(source).toContain("position: 'sticky'")
+  })
+
+  it('uses top: 16 for sticky pinning', () => {
+    expect(source).toContain('top: 16')
+  })
+
+  it("uses position: 'absolute' for non-editing bubble wrappers", () => {
+    expect(source).toContain("position: 'absolute'")
+  })
+
+  it('passes isEditing={editingId === ann.id} to CommentBubble', () => {
+    expect(source).toContain('isEditing={editingId === ann.id}')
+  })
+
+  it('binds id in onEdit closure: onEdit={(newComment) => onEdit(ann.id, newComment)}', () => {
+    expect(source).toContain('onEdit={(newComment) => onEdit(ann.id, newComment)}')
+  })
+
+  it('binds id in onRemove closure: onRemove={() => onRemove(ann.id)}', () => {
+    expect(source).toContain('onRemove={() => onRemove(ann.id)}')
+  })
+
+  it('passes onCancelEdit={onCancelEdit} directly (no id binding needed)', () => {
+    expect(source).toContain('onCancelEdit={onCancelEdit}')
+  })
+})
