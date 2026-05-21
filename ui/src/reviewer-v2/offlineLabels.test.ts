@@ -14,6 +14,8 @@ describe('buildClipboardPayload (v2 copy)', () => {
       anchorText: 'foo',
       comment: 'fix this',
       type: 'comment',
+      anchorStart: 0,
+      anchorEnd: 3,
     }
     const result = buildClipboardPayload('deny', 'blocked', '', [annotation])
     const parsed = JSON.parse(result) as { behavior: string; message: string }

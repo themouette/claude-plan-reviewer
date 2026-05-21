@@ -24,7 +24,6 @@ describe('offsetFromPoint', () => {
     range.setStart(textNode, 5)
     range.setEnd(textNode, 5)
 
-    // @ts-expect-error jsdom does not have caretRangeFromPoint
     document.caretRangeFromPoint = vi.fn().mockReturnValue(range)
 
     const result = offsetFromPoint(container, 10, 10)
@@ -40,7 +39,6 @@ describe('offsetFromPoint', () => {
     document.body.appendChild(container)
 
     // caretRangeFromPoint not installed — only caretPositionFromPoint available
-    // @ts-expect-error jsdom does not have caretPositionFromPoint
     document.caretPositionFromPoint = vi.fn().mockReturnValue({
       offsetNode: textNode,
       offset: 3,
@@ -66,7 +64,6 @@ describe('offsetFromPoint', () => {
     range.setStart(outsideText, 2)
     range.setEnd(outsideText, 2)
 
-    // @ts-expect-error jsdom does not have caretRangeFromPoint
     document.caretRangeFromPoint = vi.fn().mockReturnValue(range)
 
     const result = offsetFromPoint(container, 10, 10)
@@ -88,7 +85,6 @@ describe('offsetFromPoint', () => {
     range.setStart(textNode2, 2)
     range.setEnd(textNode2, 2)
 
-    // @ts-expect-error jsdom does not have caretRangeFromPoint
     document.caretRangeFromPoint = vi.fn().mockReturnValue(range)
 
     // 3 chars from 'foo' + 2 chars into 'bar' = offset 5
