@@ -8,18 +8,26 @@ export default function CommentPane({
   annotations,
   hoveredCommentId,
   focusedCommentId,
+  editingId,
   mainRef,
   planRef,
   onHover,
   onFocus,
+  onEdit,
+  onRemove,
+  onCancelEdit,
 }: {
   annotations: Annotation[]
   hoveredCommentId: string | null
   focusedCommentId: string | null
+  editingId: string | null
   mainRef: React.RefObject<HTMLDivElement | null>
   planRef: React.RefObject<HTMLDivElement | null>
   onHover: (id: string | null) => void
   onFocus: (id: string | null) => void
+  onEdit: (id: string, newComment?: string) => void
+  onRemove: (id: string) => void
+  onCancelEdit: () => void
 }): React.JSX.Element {
   const [anchorYMap, setAnchorYMap] = useState<Map<string, number>>(new Map())
 
@@ -103,18 +111,27 @@ export default function CommentPane({
       {annotations.map((ann) => {
         const layoutItem = layout.find((l) => l.id === ann.id)
         if (!layoutItem) return null
+        const wrapperStyle: React.CSSProperties =
+          editingId === ann.id
+            ? { position: 'sticky', top: 16, left: 0, right: 0 }
+            : { position: 'absolute', top: layoutItem.top, left: 0, right: 0 }
         return (
-          <CommentBubble
-            key={ann.id}
-            annotation={ann}
-            top={layoutItem.top}
-            isCompact={layoutItem.isCompact}
-            isHovered={hoveredCommentId === ann.id}
-            isFocused={focusedCommentId === ann.id}
-            onMouseEnter={() => onHover(ann.id)}
-            onMouseLeave={() => onHover(null)}
-            onClick={() => onFocus(focusedCommentId === ann.id ? null : ann.id)}
-          />
+          <div key={ann.id} style={wrapperStyle}>
+            <CommentBubble
+              annotation={ann}
+              top={0}
+              isCompact={layoutItem.isCompact}
+              isHovered={hoveredCommentId === ann.id}
+              isFocused={focusedCommentId === ann.id}
+              isEditing={editingId === ann.id}
+              onMouseEnter={() => onHover(ann.id)}
+              onMouseLeave={() => onHover(null)}
+              onClick={() => onFocus(focusedCommentId === ann.id ? null : ann.id)}
+              onEdit={(newComment) => onEdit(ann.id, newComment)}
+              onRemove={() => onRemove(ann.id)}
+              onCancelEdit={onCancelEdit}
+            />
+          </div>
         )
       })}
     </div>
