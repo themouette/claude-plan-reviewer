@@ -66,17 +66,20 @@ export default function ContentPane({
     if (!supportsHighlights) return
     if (!hoveredCommentId || !planRef.current) {
       CSS.highlights.delete(COMMENT_HOVER_HIGHLIGHT)
-      return
+      return () => { CSS.highlights.delete(COMMENT_HOVER_HIGHLIGHT) }
     }
     const annotation = annotations?.find((a) => a.id === hoveredCommentId)
     if (!annotation) {
       CSS.highlights.delete(COMMENT_HOVER_HIGHLIGHT)
-      return
+      return () => { CSS.highlights.delete(COMMENT_HOVER_HIGHLIGHT) }
     }
     const range = rangeFromOffsets(planRef.current, annotation.anchorStart, annotation.anchorEnd)
     if (range) {
       CSS.highlights.set(COMMENT_HOVER_HIGHLIGHT, new Highlight(range))
+    } else {
+      CSS.highlights.delete(COMMENT_HOVER_HIGHLIGHT)
     }
+    return () => { CSS.highlights.delete(COMMENT_HOVER_HIGHLIGHT) }
   }, [hoveredCommentId, annotations, planRef])
 
   // Inline getOffsets() call — synchronous snapshot of stored offsets.
