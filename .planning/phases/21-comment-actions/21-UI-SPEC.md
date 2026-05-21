@@ -121,7 +121,7 @@ Components modified or introduced in Phase 21:
 - Container: `position: fixed`, same `top`/`left` calculation as SelectionToolbar (reuse `lastRect`)
 - `background: var(--color-surface)`, `border: 1px solid var(--color-border)`, `border-radius: 6px`, `padding: 8px`, `box-shadow: 0 2px 8px rgba(0,0,0,0.3)`, `z-index: 20`
 - Width: 280px (matches `TOOLBAR_WIDTH` constant — reuse it)
-- Textarea: `width: 100%`, `min-height: 64px`, `font-size: 14px`, `font-family: inherit`, `background: transparent`, `color: var(--color-text-primary)`, `border: 1px solid var(--color-border)`, `border-radius: 4px`, `padding: 6px 8px`, `resize: vertical`
+- Textarea: `width: 100%`, `min-height: 64px`, `font-size: 14px`, `font-family: inherit`, `background: transparent`, `color: var(--color-text-primary)`, `border: 1px solid var(--color-border)`, `border-radius: 4px`, `padding: 8px`, `resize: vertical`
 - Textarea `placeholder`: "Add a comment…" for Comment type; for Delete/Replace/predefined actions, textarea is pre-filled (placeholder not shown)
 - Button row: `display: flex`, `justify-content: flex-end`, `gap: 8px`, `margin-top: 8px`
 - "Post Comment" button: `font-size: 13px`, `font-weight: 600`, `height: 28px`, `padding: 0 12px`, `border-radius: 4px`, `background: var(--color-focus)`, `color: #fff` (or `var(--color-bg)`), `border: none`, `cursor: pointer`, `min-width: 44px`
@@ -156,7 +156,7 @@ onRemove: () => void
 
 **Edit mode visual spec (when `isEditing === true`):**
 - The `<p>` comment body is replaced by a `<textarea>` pre-filled with `annotation.comment`
-- Same textarea styling as the Annotation Creation Form (14px, 64px min-height, `var(--color-border)` border)
+- Same textarea styling as the Annotation Creation Form (14px, 64px min-height, `var(--color-border)` border, `padding: 8px`)
 - Focal point: The `<textarea>` is the primary visual anchor in edit mode — it receives `autoFocus` on mount and is the largest interactive element within the bubble
 - Same button row below: "Save Changes" button (same style as "Post Comment": `var(--color-focus)` background) + "Discard Changes" link-button (same style as "Dismiss": `var(--color-text-secondary)` color, transparent background)
 - `autoFocus` on textarea mount
