@@ -90,8 +90,89 @@ describe('ContentPane annotation creation wiring (D-02 + D-07)', () => {
     expect(source).toContain('anchorEnd: offsets.end')
   })
 
-  it('source sets comment: anchorText as D-07 stub', () => {
-    expect(source).toContain('comment: anchorText')
+  it('source routes comment through handleFormSubmit (not anchorText stub)', () => {
+    expect(source).toContain('handleFormSubmit')
+  })
+
+  it('source uses formState.anchorText (not comment: anchorText stub)', () => {
+    expect(source).toContain('formState.anchorText')
+  })
+})
+
+describe('ContentPane annotation form wiring (Phase 21)', () => {
+  it('source imports AnnotationForm from ./AnnotationForm', () => {
+    expect(source).toContain("from './AnnotationForm'")
+  })
+
+  it('source imports FormState type from ./AnnotationForm', () => {
+    expect(source).toContain('FormState')
+  })
+
+  it('source declares useState<FormState | null>', () => {
+    expect(source).toMatch(/useState<FormState \| null>/)
+  })
+
+  it('source declares latestFormValueRef with useRef', () => {
+    expect(source).toContain('latestFormValueRef')
+  })
+
+  it('source declares handleAction with prefillComment optional arg', () => {
+    expect(source).toContain('function handleAction(type: AnnotationType, anchorText: string, prefillComment?: string)')
+  })
+
+  it('source declares handleFormSubmit', () => {
+    expect(source).toContain('function handleFormSubmit(')
+  })
+
+  it('source declares handleFormCancel', () => {
+    expect(source).toContain('function handleFormCancel(')
+  })
+
+  it('source uses latestFormValueRef for auto-submit (D-03)', () => {
+    expect(source).toContain('latestFormValueRef.current')
+  })
+
+  it('source renders <AnnotationForm conditionally on formState', () => {
+    expect(source).toContain('<AnnotationForm')
+  })
+
+  it('source guards SelectionToolbar with !formState', () => {
+    expect(source).toMatch(/!formState/)
+  })
+
+  it('source prefill has Delete literal', () => {
+    expect(source).toContain("'Delete'")
+  })
+
+  it('source prefill has Replace literal', () => {
+    expect(source).toContain("'Replace'")
+  })
+
+  it('source uses selectNodeContents for programmatic paragraph selection (D-06)', () => {
+    expect(source).toContain('selectNodeContents')
+  })
+
+  it('source uses window.getSelection() in handleAdd', () => {
+    expect(source).toContain('window.getSelection()')
+  })
+
+  it('source uses addRange( in handleAdd', () => {
+    expect(source).toContain('addRange(')
+  })
+
+  it('handleAction body does NOT call resetTextSelection (D-04)', () => {
+    const handleActionBody = source.match(/function handleAction[\s\S]*?\n  \}/)?.[0] ?? ''
+    expect(handleActionBody).not.toContain('resetTextSelection')
+  })
+
+  it('handleFormSubmit calls resetTextSelection', () => {
+    const body = source.match(/function handleFormSubmit[\s\S]*?\n  \}/)?.[0] ?? ''
+    expect(body).toContain('resetTextSelection')
+  })
+
+  it('handleFormCancel calls resetTextSelection', () => {
+    const body = source.match(/function handleFormCancel[\s\S]*?\n  \}/)?.[0] ?? ''
+    expect(body).toContain('resetTextSelection')
   })
 })
 

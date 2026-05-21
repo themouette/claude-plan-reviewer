@@ -91,4 +91,12 @@ describe('AnnotationForm', () => {
   it('does not import from @testing-library/react', () => {
     expect(source).not.toContain('@testing-library/react')
   })
+
+  it('accepts optional onTextareaChange prop for D-03 auto-submit tracking (Phase 21)', () => {
+    expect(source).toContain('onTextareaChange')
+  })
+
+  it('textarea has onChange= handler wired to onTextareaChange (Phase 21)', () => {
+    expect(source).toContain('onChange=')
+  })
 })
