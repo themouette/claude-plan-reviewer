@@ -4,6 +4,7 @@ import { offsetFromPoint } from './hooks/offsetFromPoint'
 import { renderMarkdown } from './utils/markdownRenderer'
 import PlanContent from './PlanContent'
 import SelectionToolbar from './SelectionToolbar'
+import AnnotationForm, { type FormState } from './AnnotationForm'
 import type { Annotation, AnnotationType, Section } from './types'
 
 const COMMENT_HOVER_HIGHLIGHT = 'comment-hover'
@@ -30,6 +31,8 @@ export default function ContentPane({
   const [planHtml, setPlanHtml] = useState<string>('')
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [selectedText, resetTextSelection, getOffsets] = useTextSelection(planRef)
+  const [formState, setFormState] = useState<FormState | null>(null)
+  const latestFormValueRef = useRef<string>('')
 
   useEffect(() => {
     fetch('/api/plan')
@@ -89,27 +92,88 @@ export default function ContentPane({
   // position: fixed toolbar (unlike App.tsx's scroll-relative positioning).
   const offsets = selectedText ? getOffsets() : null
 
-  // Dispatch annotation from toolbar action — getOffsets() MUST be called before
-  // resetTextSelection() to capture the current selection synchronously (D-02).
-  function handleAction(type: AnnotationType, anchorText: string) {
+  // Replace toolbar with AnnotationForm — getOffsets() is called from stored offsets
+  // (not the live DOM selection) per RESEARCH.md Pitfall 1.
+  // CRITICAL: Do NOT call resetTextSelection() here — keep selection-lock highlight
+  // active while form is open (D-04). Only handleFormSubmit and handleFormCancel
+  // call resetTextSelection().
+  function handleAction(type: AnnotationType, anchorText: string, prefillComment?: string) {
     const offsets = getOffsets()
-    if (onAddAnnotation && offsets) {
+    if (!offsets || !planRef.current) return
+
+    // Reconstruct range from stored offsets (not live selection — Pitfall 1)
+    const range = rangeFromOffsets(planRef.current, offsets.start, offsets.end)
+    const rects = range?.getClientRects() ?? []
+    const lastRect = rects.length > 0 ? rects[rects.length - 1] : range?.getBoundingClientRect()
+    const formTop = (lastRect?.bottom ?? 0) + 6
+    const formLeft = Math.min(lastRect?.right ?? 0, window.innerWidth - 280)
+
+    // Determine prefill from pill type or explicit prefillComment override
+    let prefill: string
+    if (prefillComment !== undefined) {
+      prefill = prefillComment
+    } else if (type === 'delete') {
+      prefill = 'Delete'
+    } else if (type === 'replace') {
+      prefill = 'Replace'
+    } else {
+      prefill = ''
+    }
+
+    // D-03: auto-submit any pending form before opening the new one
+    if (formState !== null && onAddAnnotation) {
       onAddAnnotation({
         id: crypto.randomUUID(),
-        anchorText,
-        comment: anchorText, // D-07 stub: Phase 21 replaces with textarea form
-        type,
-        anchorStart: offsets.start,
-        anchorEnd: offsets.end,
+        anchorText: formState.anchorText,
+        comment: latestFormValueRef.current,
+        type: formState.type,
+        anchorStart: formState.anchorStart,
+        anchorEnd: formState.anchorEnd,
+      })
+      latestFormValueRef.current = ''
+    }
+
+    setFormState({
+      type,
+      anchorText,
+      anchorStart: offsets.start,
+      anchorEnd: offsets.end,
+      prefill,
+      rect: { top: formTop, left: formLeft },
+    })
+  }
+
+  function handleFormSubmit(comment: string) {
+    if (formState !== null && onAddAnnotation) {
+      onAddAnnotation({
+        id: crypto.randomUUID(),
+        anchorText: formState.anchorText,
+        comment,
+        type: formState.type,
+        anchorStart: formState.anchorStart,
+        anchorEnd: formState.anchorEnd,
       })
     }
+    setFormState(null)
+    latestFormValueRef.current = ''
     resetTextSelection()
   }
 
-  // Phase 18 stub — clears selection after gutter-icon click (idempotent). Phase 21
-  // will wire this to an annotation creation flow.
-  function handleAdd() {
+  function handleFormCancel() {
+    setFormState(null)
+    latestFormValueRef.current = ''
     resetTextSelection()
+  }
+
+  // D-06: Programmatic paragraph selection — fires selectionchange which useTextSelection
+  // picks up via its captureKeyboard listener, causing SelectionToolbar to appear.
+  function handleAdd(paragraphElement: HTMLElement) {
+    const selection = window.getSelection()
+    if (!selection) return
+    selection.removeAllRanges()
+    const range = document.createRange()
+    range.selectNodeContents(paragraphElement)
+    selection.addRange(range)
   }
 
   // COMMENT-02 direction 2 (anchor -> bubble): resolve cursor position to a character
@@ -148,12 +212,20 @@ export default function ContentPane({
             selectedText={selectedText}
             onAdd={handleAdd}
           />
-          {selectedText && offsets && (
+          {selectedText && offsets && !formState && (
             <SelectionToolbar
               offsets={offsets}
               selectedText={selectedText}
               containerRef={planRef}
               onAction={handleAction}
+            />
+          )}
+          {formState && (
+            <AnnotationForm
+              formState={formState}
+              onSubmit={handleFormSubmit}
+              onCancel={handleFormCancel}
+              onTextareaChange={(v) => { latestFormValueRef.current = v }}
             />
           )}
         </>

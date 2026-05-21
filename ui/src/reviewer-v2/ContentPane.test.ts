@@ -161,17 +161,17 @@ describe('ContentPane annotation form wiring (Phase 21)', () => {
   })
 
   it('handleAction body does NOT call resetTextSelection (D-04)', () => {
-    const handleActionBody = source.match(/function handleAction[\s\S]*?\n  \}/)?.[0] ?? ''
+    const handleActionBody = source.match(/function handleAction[\s\S]*?\n {2}\}/)?.[0] ?? ''
     expect(handleActionBody).not.toContain('resetTextSelection')
   })
 
   it('handleFormSubmit calls resetTextSelection', () => {
-    const body = source.match(/function handleFormSubmit[\s\S]*?\n  \}/)?.[0] ?? ''
+    const body = source.match(/function handleFormSubmit[\s\S]*?\n {2}\}/)?.[0] ?? ''
     expect(body).toContain('resetTextSelection')
   })
 
   it('handleFormCancel calls resetTextSelection', () => {
-    const body = source.match(/function handleFormCancel[\s\S]*?\n  \}/)?.[0] ?? ''
+    const body = source.match(/function handleFormCancel[\s\S]*?\n {2}\}/)?.[0] ?? ''
     expect(body).toContain('resetTextSelection')
   })
 })

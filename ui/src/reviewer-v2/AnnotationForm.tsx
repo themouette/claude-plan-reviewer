@@ -14,10 +14,12 @@ export default function AnnotationForm({
   formState,
   onSubmit,
   onCancel,
+  onTextareaChange,
 }: {
   formState: FormState
   onSubmit: (comment: string) => void
   onCancel: () => void
+  onTextareaChange?: (value: string) => void
 }): React.JSX.Element {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -70,6 +72,7 @@ export default function AnnotationForm({
         placeholder={formState.prefill === '' ? 'Add a comment…' : undefined}
         aria-label="Comment text"
         onKeyDown={handleKeyDown}
+        onChange={(e) => onTextareaChange?.(e.target.value)}
         onMouseDown={(e) => e.stopPropagation()}
         style={{
           width: '100%',
