@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ContentPane from './ContentPane'
 import OutlinePane from './OutlinePane'
 import CommentPane from './CommentPane'
@@ -13,6 +13,14 @@ export default function ReviewerV2Shell() {
   const { annotations, addAnnotation } = useAnnotations()
   const [hoveredCommentId, setHoveredCommentId] = useState<string | null>(null)
   const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null)
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setFocusedCommentId(null)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">

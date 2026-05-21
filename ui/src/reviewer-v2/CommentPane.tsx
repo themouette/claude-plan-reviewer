@@ -112,7 +112,7 @@ export default function CommentPane({
             isFocused={focusedCommentId === ann.id}
             onMouseEnter={() => onHover(ann.id)}
             onMouseLeave={() => onHover(null)}
-            onClick={() => onFocus(ann.id)}
+            onClick={() => onFocus(focusedCommentId === ann.id ? null : ann.id)}
           />
         )
       })}
