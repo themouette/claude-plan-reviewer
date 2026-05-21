@@ -86,6 +86,36 @@ export function rangeFromOffsets(
   return r
 }
 
+/**
+ * Return the character offset of `targetElement`'s first text content within `container`.
+ *
+ * This is the inverse of `rangeFromOffsets`: given a DOM element, it returns the
+ * absolute character position at which that element's text begins, measured from the
+ * start of `container`'s text node walk.
+ *
+ * IMPORTANT: `.contains()` is required (NOT `node.parentElement === targetElement`)
+ * because headings may contain inline elements (e.g. `<h2><code>foo</code></h2>`).
+ * Using strict parent equality would miss text nodes inside nested inline children.
+ *
+ * When `targetElement` is not a descendant of `container`, returns the total character
+ * length of `container` (documented fallback per T-21-03 threat register).
+ */
+export function getElementCharOffset(
+  container: HTMLElement,
+  targetElement: HTMLElement,
+): number {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
+  let charCount = 0
+  let node: Node | null
+  while ((node = walker.nextNode())) {
+    if (targetElement.contains(node)) {
+      return charCount
+    }
+    charCount += (node.textContent ?? '').length
+  }
+  return charCount
+}
+
 export function useTextSelection(
   containerRef: RefObject<HTMLDivElement | null>,
 ): [string, () => void, () => { start: number; end: number } | null] {
