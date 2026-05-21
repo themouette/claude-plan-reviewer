@@ -81,14 +81,19 @@ export default function CommentPane({
     )
   }
 
+  const EXPANDED_HEIGHT_ESTIMATE = 160 // temporary until Phase 21 layout measurement
+
   const layoutItems = annotations
     .filter((ann) => anchorYMap.has(ann.id))
-    .map((ann) => ({
-      id: ann.id,
-      anchorY: anchorYMap.get(ann.id)!,
-      isExpanded: focusedCommentId === ann.id,
-      height: COMPACT_HEIGHT,
-    }))
+    .map((ann) => {
+      const isExpanded = focusedCommentId === ann.id
+      return {
+        id: ann.id,
+        anchorY: anchorYMap.get(ann.id)!,
+        isExpanded,
+        height: isExpanded ? EXPANDED_HEIGHT_ESTIMATE : COMPACT_HEIGHT,
+      }
+    })
 
   const layout = computeCommentLayout(layoutItems)
 
