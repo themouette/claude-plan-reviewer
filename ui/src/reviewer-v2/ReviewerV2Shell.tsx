@@ -3,6 +3,7 @@ import ContentPane from './ContentPane'
 import OutlinePane from './OutlinePane'
 import CommentPane from './CommentPane'
 import { useAnnotations } from './useAnnotations'
+import { useSectionAnnotationCounts } from './hooks/useSectionAnnotationCounts'
 import type { Section } from './types'
 
 export default function ReviewerV2Shell() {
@@ -10,13 +11,18 @@ export default function ReviewerV2Shell() {
   const planRef = useRef<HTMLDivElement>(null)
   const [sections, setSections] = useState<Section[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
-  const { annotations, addAnnotation } = useAnnotations()
+  const { annotations, addAnnotation, editAnnotation, removeAnnotation } = useAnnotations()
   const [hoveredCommentId, setHoveredCommentId] = useState<string | null>(null)
   const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const annotationCounts = useSectionAnnotationCounts(sections, annotations, planRef)
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setFocusedCommentId(null)
+      if (e.key === 'Escape') {
+        setFocusedCommentId(null)
+        setEditingId(null)
+      }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
@@ -66,6 +72,7 @@ export default function ReviewerV2Shell() {
             activeId={activeId}
             mainRef={mainRef}
             onActiveIdChange={setActiveId}
+            annotationCounts={annotationCounts}
           />
         </aside>
 
@@ -101,10 +108,21 @@ export default function ReviewerV2Shell() {
               annotations={annotations}
               hoveredCommentId={hoveredCommentId}
               focusedCommentId={focusedCommentId}
+              editingId={editingId}
               mainRef={mainRef}
               planRef={planRef}
               onHover={setHoveredCommentId}
               onFocus={setFocusedCommentId}
+              onEdit={(id, newComment) => {
+                if (newComment !== undefined) {
+                  editAnnotation(id, newComment)
+                  setEditingId(null)
+                } else {
+                  setEditingId(id)
+                }
+              }}
+              onRemove={removeAnnotation}
+              onCancelEdit={() => setEditingId(null)}
             />
           </aside>
         </div>
