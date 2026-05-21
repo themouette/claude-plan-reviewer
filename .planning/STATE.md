@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.6.0
 milestone_name: Markdown Annotator v2
 status: executing
-stopped_at: Phase 20 UI-SPEC approved
-last_updated: "2026-05-20T22:40:19.559Z"
-last_activity: 2026-05-20 -- Phase 20 planning complete
+stopped_at: Phase 20 Plan 01 complete
+last_updated: "2026-05-21T08:00:00.000Z"
+last_activity: 2026-05-21 -- Phase 20 Plan 01 complete (type foundation + computeCommentLayout)
 progress:
   total_phases: 9
   completed_phases: 8
   total_plans: 18
-  completed_plans: 19
+  completed_plans: 20
   percent: 89
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 20 — comment pane
+**Current focus:** Phase 20 — comment-pane
 
 ## Current Position
 
-Phase: 20
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-05-20 -- Phase 20 planning complete
+Phase: 20 (comment-pane) — EXECUTING
+Plan: 2 of 3 (Wave 2 — CommentBubble + CommentPane)
+Status: Phase 20 Plan 01 complete; ready for Plan 02
+Last activity: 2026-05-21 -- Phase 20 Plan 01 complete (type foundation + computeCommentLayout)
 
 Progress: [░░░░░░░░░░] 0% (v0.6.0 milestone)
 
@@ -72,6 +72,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-20T22:03:36.176Z
-Stopped at: Phase 20 UI-SPEC approved
-Resume file: .planning/phases/20-comment-pane/20-UI-SPEC.md
+Last session: 2026-05-21T08:00:00.000Z
+Stopped at: Phase 20 Plan 01 complete
+Resume file: .planning/phases/20-comment-pane/20-02-PLAN.md

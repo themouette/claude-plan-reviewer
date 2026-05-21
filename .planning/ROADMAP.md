@@ -508,11 +508,11 @@ Plans:
   3. When two or more comments would overlap vertically, non-focused comments collapse to a 2-line preview; the focused (last-clicked) comment expands to full height and snaps to its anchor Y position
   4. All comments remain reachable by scrolling the comment column — no comment is permanently hidden behind another
 
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 Plans:
 **Wave 1**
 
-- [ ] 20-01-PLAN.md — Annotation type extension, computeCommentLayout pure function (TDD), comment-hover CSS highlight rule
+- [x] 20-01-PLAN.md — Annotation type extension, computeCommentLayout pure function (TDD), comment-hover CSS highlight rule
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -596,7 +596,7 @@ Plans:
 | 17. Foundation & Isolation | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 18. Content Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 19. Outline Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
-| 20. Comment Pane | v0.6.0 | 0/3 | Planned | - |
+| 20. Comment Pane | v0.6.0 | 1/3 | In Progress|  |
 | 21. Comment Actions | v0.6.0 | 0/? | Not started | - |
 | 22. Submit & Clipboard | v0.6.0 | 0/? | Not started | - |
 | 23. Regression Tests | v0.6.0 | 0/? | Not started | - |
