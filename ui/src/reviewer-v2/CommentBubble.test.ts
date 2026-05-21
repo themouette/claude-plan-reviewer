@@ -54,3 +54,81 @@ describe('CommentBubble', () => {
     expect(source).toContain('onClick')
   })
 })
+
+describe('CommentBubble edit/delete affordances (Phase 21)', () => {
+  it('accepts isEditing prop', () => {
+    expect(source).toContain('isEditing')
+  })
+
+  it('accepts onEdit prop', () => {
+    expect(source).toContain('onEdit')
+  })
+
+  it('accepts onRemove prop', () => {
+    expect(source).toContain('onRemove')
+  })
+
+  it('accepts onCancelEdit prop', () => {
+    expect(source).toContain('onCancelEdit')
+  })
+
+  it('renders aria-label="Edit comment" pencil button', () => {
+    expect(source).toContain('aria-label="Edit comment"')
+  })
+
+  it('renders aria-label="Delete comment" × button', () => {
+    expect(source).toContain('aria-label="Delete comment"')
+  })
+
+  it('applies bubble-icon-btn className to icon buttons', () => {
+    expect(source).toContain('bubble-icon-btn')
+  })
+
+  it('renders Save Changes button in edit mode', () => {
+    expect(source).toContain('Save Changes')
+  })
+
+  it('renders Discard Changes button in edit mode', () => {
+    expect(source).toContain('Discard Changes')
+  })
+
+  it('uses defaultValue={annotation.comment} on textarea (uncontrolled)', () => {
+    expect(source).toContain('defaultValue={annotation.comment}')
+  })
+
+  it('declares textareaRef for reading textarea value on save', () => {
+    expect(source).toContain('textareaRef')
+  })
+
+  it('handles Cmd+Enter / Ctrl+Enter via e.metaKey || e.ctrlKey', () => {
+    expect(source).toContain('e.metaKey || e.ctrlKey')
+  })
+
+  it("handles Enter key via e.key === 'Enter'", () => {
+    expect(source).toContain("=== 'Enter'")
+  })
+
+  it("handles Escape key via e.key === 'Escape'", () => {
+    expect(source).toContain("=== 'Escape'")
+  })
+
+  it('calls e.stopPropagation() in icon button onClick to prevent article onClick', () => {
+    expect(source).toContain('e.stopPropagation()')
+  })
+
+  it('uses var(--color-accent-deny) for × button hover color', () => {
+    expect(source).toContain('var(--color-accent-deny)')
+  })
+
+  it('renders pencil ✎ unicode character', () => {
+    expect(source).toContain('✎')
+  })
+
+  it('renders × unicode character (already present)', () => {
+    expect(source).toContain('×')
+  })
+
+  it('applies autoFocus to textarea so keyboard is immediately active', () => {
+    expect(source).toContain('autoFocus')
+  })
+})
