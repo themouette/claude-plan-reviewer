@@ -260,3 +260,8 @@ details > summary::-webkit-details-marker {
 [data-theme="light"] .paragraph-hover-overlay {
   background: rgba(0, 0, 0, 0.05);
 }
+
+/* Phase 21: CommentBubble edit/delete icon buttons — transition on hover */
+.bubble-icon-btn {
+  transition: color 0.1s ease;
+}
