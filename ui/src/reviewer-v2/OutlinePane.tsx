@@ -6,11 +6,13 @@ export default function OutlinePane({
   activeId,
   mainRef,
   onActiveIdChange,
+  annotationCounts,
 }: {
   sections: Section[]
   activeId: string | null
   mainRef: React.RefObject<HTMLDivElement | null>
   onActiveIdChange: (id: string) => void
+  annotationCounts?: Map<string, number>
 }): React.JSX.Element {
   const activeItemRef = useRef<HTMLLIElement>(null)
 
@@ -89,6 +91,29 @@ export default function OutlinePane({
               }}
             >
               {section.text}
+              {(annotationCounts?.get(section.id) ?? 0) > 0 && (
+                <span
+                  aria-label={`${annotationCounts!.get(section.id)} comments`}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    lineHeight: 1,
+                    minWidth: 16,
+                    height: 16,
+                    padding: '0 4px',
+                    borderRadius: 8,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginLeft: 8,
+                    background:
+                      section.id === activeId ? 'var(--color-focus)' : 'rgba(59, 130, 246, 0.25)',
+                    color: section.id === activeId ? '#fff' : 'var(--color-focus)',
+                  }}
+                >
+                  {annotationCounts!.get(section.id)}
+                </span>
+              )}
             </button>
           </li>
         ))}

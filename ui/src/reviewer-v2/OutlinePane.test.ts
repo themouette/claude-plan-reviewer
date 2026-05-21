@@ -53,3 +53,37 @@ describe('OutlinePane', () => {
     expect(source).not.toContain('history.push')
   })
 })
+
+describe('OutlinePane annotation count badge (Phase 21)', () => {
+  it('source contains annotationCounts prop', () => {
+    expect(source).toContain('annotationCounts')
+  })
+
+  it('source contains annotationCounts?.get(section.id) count lookup', () => {
+    expect(source).toContain('annotationCounts?.get(section.id)')
+  })
+
+  it('source contains aria-label with "comments" text', () => {
+    expect(source).toMatch(/aria-label=.*comments/)
+  })
+
+  it('source contains var(--color-focus) for badge active background', () => {
+    expect(source).toContain('var(--color-focus)')
+  })
+
+  it('source contains rgba(59, 130, 246, 0.25) for badge inactive background', () => {
+    expect(source).toContain('rgba(59, 130, 246, 0.25)')
+  })
+
+  it('source contains borderRadius: 8 for badge pill radius', () => {
+    expect(source).toContain('borderRadius: 8')
+  })
+
+  it('source contains minWidth: 16 for badge min size', () => {
+    expect(source).toContain('minWidth: 16')
+  })
+
+  it('source contains marginLeft: 8 for badge spacing from section text', () => {
+    expect(source).toContain('marginLeft: 8')
+  })
+})
