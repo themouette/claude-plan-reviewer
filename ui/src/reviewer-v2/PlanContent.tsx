@@ -26,7 +26,7 @@ export default function PlanContent({
   planHtml: string
   planRef: RefObject<HTMLDivElement | null>
   selectedText: string
-  onAdd: () => void
+  onAdd: (el: HTMLElement) => void
 }) {
   const [hoveredParagraph, setHoveredParagraph] = useState<HTMLElement | null>(null)
 
@@ -73,7 +73,7 @@ export default function PlanContent({
               zIndex: 0,
             }}
           />
-          <GutterIcon paragraph={hoveredParagraph} containerRef={planRef} onAdd={onAdd} />
+          <GutterIcon paragraph={hoveredParagraph} containerRef={planRef} onAdd={() => onAdd(hoveredParagraph)} />
         </>
       )}
     </div>
