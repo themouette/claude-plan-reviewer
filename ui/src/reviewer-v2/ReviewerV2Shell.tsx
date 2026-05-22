@@ -3,6 +3,9 @@ import ContentPane from './ContentPane'
 import OutlinePane from './OutlinePane'
 import CommentPane from './CommentPane'
 import { useAnnotations } from './useAnnotations'
+import { useHeartbeat } from './useHeartbeat'
+import SubmitControls from './SubmitControls'
+import { OFFLINE_BANNER_LINE_1, OFFLINE_BANNER_LINE_2 } from './offlineLabels'
 import { useSectionAnnotationCounts } from './hooks/useSectionAnnotationCounts'
 import type { Section } from './types'
 
@@ -12,6 +15,7 @@ export default function ReviewerV2Shell() {
   const [sections, setSections] = useState<Section[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const { annotations, addAnnotation, editAnnotation, removeAnnotation } = useAnnotations()
+  const connectivity = useHeartbeat()
   const [hoveredCommentId, setHoveredCommentId] = useState<string | null>(null)
   const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -39,20 +43,26 @@ export default function ReviewerV2Shell() {
           borderBottom: '1px solid var(--color-border)',
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'space-between',
           paddingLeft: 16,
           paddingRight: 16,
         }}
       >
-        <span
-          style={{
-            fontSize: 14,
-            fontWeight: 400,
-            color: 'var(--color-text-secondary)',
-          }}
-        >
-          Reviewer v2
-        </span>
+        <div>
+          <span
+            style={{
+              fontSize: 14,
+              fontWeight: 400,
+              color: 'var(--color-text-secondary)',
+            }}
+          >
+            Reviewer v2
+          </span>
+        </div>
+        <SubmitControls annotations={annotations} connectivity={connectivity} />
       </header>
+
+      {connectivity === 'offline' && <OfflineBanner />}
 
       {/* 3-column body row — occupies the remaining viewport height */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' }}>
@@ -131,6 +141,29 @@ export default function ReviewerV2Shell() {
           </aside>
         </div>
       </div>
+    </div>
+  )
+}
+
+function OfflineBanner() {
+  return (
+    <div
+      role="status"
+      style={{
+        background: 'var(--color-banner-bg)',
+        color: 'var(--color-banner-text)',
+        padding: '8px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        fontSize: 14,
+        fontWeight: 400,
+        lineHeight: 1.5,
+        flexShrink: 0,
+      }}
+    >
+      <div>{OFFLINE_BANNER_LINE_1}</div>
+      <div>{OFFLINE_BANNER_LINE_2}</div>
     </div>
   )
 }

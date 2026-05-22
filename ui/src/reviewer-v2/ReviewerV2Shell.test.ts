@@ -119,3 +119,56 @@ describe('ReviewerV2Shell editingId + annotationCounts wiring (Phase 21)', () =>
     expect(source).toContain("import { useSectionAnnotationCounts } from './hooks/useSectionAnnotationCounts'")
   })
 })
+
+describe('ReviewerV2Shell Phase 22 wiring', () => {
+  it("imports useHeartbeat from './useHeartbeat'", () => {
+    expect(source).toMatch(/from ['"]\.\/useHeartbeat['"]/)
+  })
+
+  it("imports SubmitControls from './SubmitControls'", () => {
+    expect(source).toMatch(/import SubmitControls from ['"]\.\/SubmitControls['"]/)
+  })
+
+  it("imports both banner constants from './offlineLabels'", () => {
+    expect(source).toContain('OFFLINE_BANNER_LINE_1')
+    expect(source).toContain('OFFLINE_BANNER_LINE_2')
+    expect(source).toMatch(/from ['"]\.\/offlineLabels['"]/)
+  })
+
+  it("captures useHeartbeat return value as 'connectivity'", () => {
+    expect(source).toMatch(/const\s+connectivity\s*=\s*useHeartbeat\(\)/)
+  })
+
+  it("renders <SubmitControls annotations={annotations} connectivity={connectivity}", () => {
+    expect(source).toMatch(/<SubmitControls\s+annotations=\{annotations\}\s+connectivity=\{connectivity\}/)
+  })
+
+  it("header style declares justifyContent: 'space-between'", () => {
+    expect(source).toContain("justifyContent: 'space-between'")
+  })
+
+  it('defines an OfflineBanner sub-component', () => {
+    expect(source).toMatch(/function OfflineBanner\(\)/)
+  })
+
+  it('OfflineBanner uses role="status"', () => {
+    const bannerIdx = source.indexOf('function OfflineBanner()')
+    const bannerBody = source.slice(bannerIdx)
+    expect(bannerBody).toContain('role="status"')
+  })
+
+  it('OfflineBanner renders both banner lines', () => {
+    expect(source).toContain('{OFFLINE_BANNER_LINE_1}')
+    expect(source).toContain('{OFFLINE_BANNER_LINE_2}')
+  })
+
+  it("conditionally renders OfflineBanner on connectivity === 'offline'", () => {
+    expect(source).toMatch(/connectivity\s*===\s*['"]offline['"]\s*&&\s*<OfflineBanner/)
+  })
+
+  it('preserves existing OutlinePane / ContentPane / CommentPane wiring', () => {
+    expect(source).toContain('<OutlinePane')
+    expect(source).toContain('<ContentPane')
+    expect(source).toContain('<CommentPane')
+  })
+})
