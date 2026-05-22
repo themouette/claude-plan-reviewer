@@ -174,12 +174,40 @@ export default function ContentPane({
 
   // D-06: Programmatic paragraph selection — fires selectionchange which useTextSelection
   // picks up via its captureKeyboard listener, causing SelectionToolbar to appear.
+  // Uses a text-node-anchored range so getRangeOffsets can match boundary containers
+  // and return non-null offsets (root cause fix for UAT failure 4).
   function handleAdd(paragraphElement: HTMLElement) {
+    // Auto-submit any open form before selecting the new paragraph (D-03 pattern).
+    if (formState !== null && onAddAnnotation) {
+      onAddAnnotation({
+        id: crypto.randomUUID(),
+        anchorText: formState.anchorText,
+        comment: latestFormValueRef.current || formState.prefill,
+        type: formState.type,
+        anchorStart: formState.anchorStart,
+        anchorEnd: formState.anchorEnd,
+      })
+      latestFormValueRef.current = ''
+      setFormState(null)
+    }
+
+    // Build a text-node-anchored range so getRangeOffsets can match boundary nodes.
+    const walker = document.createTreeWalker(paragraphElement, NodeFilter.SHOW_TEXT)
+    let firstNode: Text | null = null
+    let lastNode: Text | null = null
+    let node: Node | null
+    while ((node = walker.nextNode())) {
+      if (firstNode === null) firstNode = node as Text
+      lastNode = node as Text
+    }
+    if (!firstNode || !lastNode) return
+
     const selection = window.getSelection()
     if (!selection) return
-    selection.removeAllRanges()
     const range = document.createRange()
-    range.selectNodeContents(paragraphElement)
+    range.setStart(firstNode, 0)
+    range.setEnd(lastNode, (lastNode.textContent ?? '').length)
+    selection.removeAllRanges()
     selection.addRange(range)
   }
 
@@ -218,6 +246,7 @@ export default function ContentPane({
             planRef={planRef}
             selectedText={selectedText}
             onAdd={handleAdd}
+            formOpen={formState !== null}
           />
           {selectedText && offsets && !formState && (
             <SelectionToolbar

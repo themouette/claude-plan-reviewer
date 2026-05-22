@@ -148,8 +148,9 @@ describe('ContentPane annotation form wiring (Phase 21)', () => {
     expect(source).toContain("'Replace'")
   })
 
-  it('source uses selectNodeContents for programmatic paragraph selection (D-06)', () => {
-    expect(source).toContain('selectNodeContents')
+  it('source uses TreeWalker (NodeFilter.SHOW_TEXT) for programmatic paragraph selection (D-06 fix)', () => {
+    expect(source).toContain('NodeFilter.SHOW_TEXT')
+    expect(source).not.toContain('selectNodeContents')
   })
 
   it('source uses window.getSelection() in handleAdd', () => {

@@ -14,16 +14,20 @@ describe('PlanContent', () => {
     expect(typeof PlanContent).toBe('function')
   })
 
-  it('short-circuits hover state when selectedText is non-empty', () => {
-    expect(source).toMatch(/if \(selectedText\) return/)
+  it('short-circuits hover state when selectedText is non-empty AND form is not open', () => {
+    expect(source).toMatch(/if \(selectedText && !formOpen\) return/)
   })
 
   it('delegates hover detection to the correct element selector', () => {
     expect(source).toContain("target.closest('p, pre, li, blockquote, h1, h2, h3, h4, h5, h6')")
   })
 
-  it('suppresses GutterIcon when text is selected', () => {
-    expect(source).toContain('hoveredParagraph && !selectedText')
+  it('shows GutterIcon when no text selected OR form is open', () => {
+    expect(source).toContain('!selectedText || formOpen')
+  })
+
+  it('accepts formOpen prop to keep hover tracking active during form', () => {
+    expect(source).toContain('formOpen')
   })
 
   it('injects markdown HTML via dangerouslySetInnerHTML', () => {

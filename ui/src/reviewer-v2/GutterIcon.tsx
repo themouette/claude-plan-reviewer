@@ -16,6 +16,7 @@ export default function GutterIcon({
   return (
     <button
       aria-label="Add comment to paragraph"
+      data-gutter-icon=""
       // CRITICAL (Pitfall 1): prevent mousedown from clearing selection before click fires
       onMouseDown={(e) => e.preventDefault()}
       onClick={onAdd}
