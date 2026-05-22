@@ -38,6 +38,7 @@ Source: inherited from Phase 21 UI-SPEC. No new spacing tokens introduced.
 |-------|-------|---------------------|
 | xs | 4px | Gap between Approve and Ask for Changes buttons; icon-to-label gap inside buttons |
 | sm | 8px | Submit bar vertical padding; gap between overall-message textarea and button row; gap between offline banner lines |
+| compact | 12px | Vertical component of expanded ask-for-changes container padding (`padding: 12px 16px`); clipboard error payload textarea padding (`padding: 12px`). Inherited from Phase 21 annotation bubble textarea padding — project-standard token. |
 | md | 16px | Submit bar horizontal padding; overall-message textarea horizontal padding; confirmation view left/right padding |
 | lg | 24px | n/a this phase |
 | xl | 32px | Confirmation view full padding (matches existing ConfirmationView in App.tsx) |
@@ -49,7 +50,6 @@ Exceptions:
 - Overall-message textarea: `min-height: 64px` (4 lines × 16px line-height) — same minimum as Phase 21 annotation form textarea
 - Touch target minimum: 44px height for Approve and Ask for Changes buttons (accessibility requirement)
 - Button height: 44px — satisfies touch-target minimum while fitting within the 56px bar
-- Compact form padding: 12px — used as the vertical component of the expanded ask-for-changes container (`padding: 12px 16px`) and the clipboard error payload textarea (`padding: 12px`). Justified: these are dense, inline form contexts where 8px is visually tight and 16px creates excessive height. 12px is the midpoint and matches the established annotation bubble textarea padding from Phase 21.
 
 ---
 
@@ -75,10 +75,15 @@ Note: The existing App.tsx ConfirmationView uses 28px for the confirmation headi
 
 Source: `ui/src/index.css` `:root` block. No new tokens introduced in this phase.
 
+**Primary focal point:** The green Approve and red Ask for Changes buttons in the submit bar, distinguished by semantic color to direct the user's eye to the action zone.
+
+**60/30/10 split:**
+
 | Role | Token | Dark value | Light value | Usage |
 |------|-------|------------|-------------|-------|
 | Dominant (60%) | `--color-bg` | `#0f1117` | `#f8fafc` | Page background |
 | Secondary (30%) | `--color-surface` | `#1a1d27` | `#f1f5f9` | Submit bar background; overall-message textarea background; offline banner container background (see exception below) |
+| Accent (10%) | approve/deny/focus tokens | see below | see below | Reserved for the 7 specific elements listed below |
 | Border | `--color-border` | `#2d3148` | `#cbd5e1` | Submit bar top border (1px); overall-message textarea border |
 | Text primary | `--color-text-primary` | `#f1f5f9` | `#0f172a` | Button labels; overall-message textarea text; confirmation heading (approve case) |
 | Text secondary | `--color-text-secondary` | `#94a3b8` | `#64748b` | Submit bar helper text; offline banner body line 2; "You can close this tab." confirmation body |
