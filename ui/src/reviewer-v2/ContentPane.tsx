@@ -137,7 +137,11 @@ export default function ContentPane({
     const range = rangeFromOffsets(planRef.current, offsets.start, offsets.end)
     const rects = range?.getClientRects() ?? []
     const lastRect = rects.length > 0 ? rects[rects.length - 1] : range?.getBoundingClientRect()
-    const formTop = (lastRect?.bottom ?? 0) + 6
+    const FORM_HEIGHT_ESTIMATE = 140 // textarea 64 + buttons 36 + padding ~40
+    const formTop = Math.min(
+      (lastRect?.bottom ?? 0) + 6,
+      window.innerHeight - FORM_HEIGHT_ESTIMATE - 8,
+    )
     const formLeft = Math.min(lastRect?.right ?? 0, window.innerWidth - 280)
 
     setFormState({

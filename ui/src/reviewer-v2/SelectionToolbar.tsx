@@ -59,7 +59,9 @@ export default function SelectionToolbar({
   const rects = range.getClientRects()
   const lastRect = rects.length > 0 ? rects[rects.length - 1] : range.getBoundingClientRect()
   // position: fixed — avoids all scroll-offset math
-  const top = lastRect.bottom + 6
+  const TOOLBAR_HEIGHT_ESTIMATE = 44 // pill buttons ~32 + padding ~12
+  // Clamp top against viewport bottom edge so toolbar is always visible
+  const top = Math.min(lastRect.bottom + 6, window.innerHeight - TOOLBAR_HEIGHT_ESTIMATE - 8)
   // Clamp left against viewport right edge (Pitfall 5 mitigation)
   const left = Math.min(lastRect.right, window.innerWidth - TOOLBAR_WIDTH)
 
