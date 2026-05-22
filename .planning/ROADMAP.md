@@ -632,4 +632,4 @@ Plans:
 | 20. Comment Pane | v0.6.0 | 3/3 | Complete   | 2026-05-21 |
 | 21. Comment Actions | v0.6.0 | 7/7 | Complete   | 2026-05-22 |
 | 22. Submit & Clipboard | v0.6.0 | 3/4 | In Progress|  |
-| 23. Replace v1 with v2 | v0.6.0 | 1/1 | Complete   | 2026-05-22 |
+| 23. Replace v1 with v2 | v0.6.0 | 1/1 | Complete    | 2026-05-22 |
