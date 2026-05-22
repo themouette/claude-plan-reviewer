@@ -99,6 +99,7 @@ export default function CommentBubble({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       onClick={onClick}
+      onDoubleClick={(e) => { e.stopPropagation(); onEdit() }}
     >
       <header>
         <strong
