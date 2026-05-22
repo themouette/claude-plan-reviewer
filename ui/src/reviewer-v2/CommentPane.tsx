@@ -58,8 +58,12 @@ export default function CommentPane({
     ro.observe(content)
     recompute()
 
+    const scroller = el
+    scroller.addEventListener('scroll', recompute, { passive: true })
+
     return () => {
       ro.disconnect()
+      scroller.removeEventListener('scroll', recompute)
     }
   }, [mainRef, planRef, annotations])
 
