@@ -265,3 +265,8 @@ details > summary::-webkit-details-marker {
 .bubble-icon-btn {
   transition: color 0.1s ease;
 }
+
+/* Phase 22: SubmitControls button transitions */
+.submit-btn {
+  transition: background 0.1s ease, opacity 0.1s ease;
+}
