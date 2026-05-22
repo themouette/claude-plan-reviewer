@@ -33,14 +33,15 @@ offline banner → clipboard submit → slash command fallback.
 
 ## Current State
 
-v0.5.0 shipped 2026-05-07.
+v0.5.0 shipped 2026-05-07. v0.6.0 milestone (Markdown Annotator v2) complete 2026-05-22.
 
-- **Binary**: `plan-reviewer` — single static Rust binary, ~5,307 Rust LOC + ~3,220 TypeScript/TSX LOC (React+TS)
+- **Binary**: `plan-reviewer` — single static Rust binary, ~5,307 Rust LOC + ~3,175 TypeScript/TSX LOC (React+TS, v1 deleted)
 - **Subcommands**: `install [integration]`, `uninstall [integration]`, `update [--check] [--version X] [-y]`, `review <file>`, `review-hook`
 - **Supported integrations**: Claude Code (full plugin model — hook + slash command), opencode (JS plugin), Gemini CLI (extension directory)
 - **Distribution**: cargo-dist releases for darwin-arm64, darwin-x64, linux-musl-arm64, linux-musl-x64
 - **Offline resilience**: heartbeat polling, offline banner, clipboard submit path, slash command paste fallback — all complete
-- **Known tech debt**: `install_returns_err_when_binary_path_is_none` pre-existing test failure; 4 code review warnings (WR-01–WR-04 across prior milestones)
+- **ReviewerV2**: single renderer at root URL (`/`) — v1 codepath fully removed as of Phase 23
+- **Known tech debt**: 4 code review warnings (WR-01–WR-04 across prior milestones)
 
 ## Requirements
 
@@ -148,4 +149,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-19 after v0.6.0 milestone start (Markdown Annotator v2)*
+*Last updated: 2026-05-22 after Phase 23 complete — v0.6.0 milestone (Markdown Annotator v2) finalized*
