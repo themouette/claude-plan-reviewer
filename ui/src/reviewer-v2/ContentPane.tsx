@@ -246,6 +246,7 @@ export default function ContentPane({
             planRef={planRef}
             selectedText={selectedText}
             onAdd={handleAdd}
+            formOpen={formState !== null}
           />
           {selectedText && offsets && !formState && (
             <SelectionToolbar
