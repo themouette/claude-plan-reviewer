@@ -78,8 +78,9 @@ fn read_server_port(child: &mut Child) -> u16 {
     std::thread::spawn(move || {
         let reader = std::io::BufReader::new(stderr);
         for line in reader.lines().flatten() {
-            if let Some(port_str) = line.strip_prefix("Review UI: http://127.0.0.1:") {
-                if let Ok(port) = port_str.trim().parse::<u16>() {
+            if let Some(rest) = line.strip_prefix("Review UI: http://127.0.0.1:") {
+                let port_str = rest.split('/').next().unwrap_or("").trim();
+                if let Ok(port) = port_str.parse::<u16>() {
                     let _ = tx.send(port);
                 }
             }
