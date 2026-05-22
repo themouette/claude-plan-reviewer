@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 23 — regression tests
+**Current focus:** Phase 23 — replace v1 with v2
 
 ## Current Position
 
 Phase: 22 (submit-clipboard) — COMPLETE
-Phase: 23 (regression-tests) — READY TO PLAN/EXECUTE
+Phase: 23 (replace-v1-with-v2) — READY TO PLAN
 Status: Phase 22 verified and closed; Phase 23 is the final phase of v0.6.0
 Last activity: 2026-05-23 -- Phase 22 complete
 

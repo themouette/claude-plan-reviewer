@@ -67,7 +67,7 @@ Full archive: `.planning/milestones/v0.5.0-ROADMAP.md`
 - [x] **Phase 20: Comment Pane** - Anchored comment bubbles that follow scroll, bidirectional hover linking, overlap/collapse handling (completed 2026-05-21)
 - [x] **Phase 21: Comment Actions** - Three quick actions (comment/delete/replace), expandable predefined-action menu, edit/delete per bubble (completed 2026-05-22)
 - [ ] **Phase 22: Submit & Clipboard** - Approve/ask-for-changes validation gates, clipboard fallback in degraded mode
-- [ ] **Phase 23: Regression Tests** - Existing annotation flow regression suite covering App.tsx review cycle with `/v2` routing in place
+- [ ] **Phase 23: Replace v1 with v2** - Delete App.tsx and all v1-only files; make ReviewerV2 the sole renderer; open browser at `/` instead of `/v2`
 
 ## Phase Details
 
@@ -583,16 +583,18 @@ Plans:
 
 **UI hint**: yes
 
-### Phase 23: Regression Tests
+### Phase 23: Replace v1 with v2
 
-**Goal**: A Vitest regression suite covers the existing annotation flow (App.tsx review → approve/deny/annotate cycle) with assertions that would fail if the `/v2` routing change in `main.tsx` broke or regressed any existing behavior
-**Depends on**: Phase 17
-**Requirements**: TEST-01
+**Goal**: Delete App.tsx and all v1-only source files; make ReviewerV2 the sole renderer at `/`; open the browser at `/` instead of `/v2`; clean up v1 tests
+**Depends on**: Phase 22
+**Requirements**: TEST-01 (repurposed — no v1 code left to regress)
 **Success Criteria** (what must be TRUE):
 
-  1. `npm test` includes at least one test file explicitly covering the existing App.tsx flow (not just v2 components)
-  2. The regression tests assert the approve path, deny path, and annotation submission path all produce the correct JSON payloads — tests would fail if any of these paths were broken by the v2 routing change
-  3. All regression tests pass after the `/v2` routing switch in `main.tsx` is in place — the existing flow is verified to be unaffected
+  1. `main.tsx` renders `<ReviewerV2 />` unconditionally — no `isV2` branch, no `import App`
+  2. `src/main.rs` opens the browser at `http://127.0.0.1:{port}/` (not `/v2`)
+  3. `ui/src/App.tsx` is deleted along with all v1-only files (`ui/src/components/`, `ui/src/hooks/`, `ui/src/utils/`)
+  4. `npm test` and `cargo test` pass with zero failures after deletion
+  5. No remaining source file imports from the deleted v1 paths
 
 **Plans**: TBD
 
