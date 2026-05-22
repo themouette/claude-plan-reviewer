@@ -4,7 +4,7 @@ milestone: v0.6.0
 milestone_name: Markdown Annotator v2
 status: executing
 stopped_at: Phase 21 UI-SPEC approved
-last_updated: "2026-05-22T14:34:11.717Z"
+last_updated: "2026-05-22T15:34:22.855Z"
 last_activity: 2026-05-22 -- Phase 21 planning complete
 progress:
   total_phases: 9
