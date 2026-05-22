@@ -46,7 +46,7 @@ New 3-column annotation reviewer built alongside the existing UI, architecturall
 
 ### Tests & Regression Safety
 
-- [ ] **TEST-01**: Regression test suite covers the existing annotation flow (App.tsx review → approve/deny/annotate cycle) with zero regressions introduced by the `/v2` routing change in `main.tsx`
+- [x] **TEST-01**: Regression test suite covers the existing annotation flow (App.tsx review → approve/deny/annotate cycle) with zero regressions introduced by the `/v2` routing change in `main.tsx`
 - [ ] **TEST-02**: `vitest.setup.ts` includes jsdom mocks for `IntersectionObserver`, `ResizeObserver`, and `CSS.highlights` before any v2 component code is written
 - [ ] **TEST-03**: An ESLint rule (`no-restricted-imports` or equivalent) enforces the ARCH-01 coupling constraint automatically — violation is a lint error, not just a convention
 
@@ -101,7 +101,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SUBMIT-02 | Phase 22 | Pending |
 | ARCH-01 | Phase 17 | Pending |
 | ARCH-02 | Phase 17 | Pending |
-| TEST-01 | Phase 23 | Pending |
+| TEST-01 | Phase 23 | Complete |
 | TEST-02 | Phase 17 | Pending |
 | TEST-03 | Phase 17 | Pending |
 
