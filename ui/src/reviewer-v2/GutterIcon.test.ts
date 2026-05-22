@@ -25,4 +25,8 @@ describe('GutterIcon source contract', () => {
   it('right edge anchored at -8 (UI-SPEC column overlap)', () => {
     expect(source).toContain('right: -8')
   })
+
+  it('has data-gutter-icon attribute (used by AnnotationForm click-outside exemption)', () => {
+    expect(source).toContain('data-gutter-icon')
+  })
 })
