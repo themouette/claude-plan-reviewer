@@ -49,6 +49,7 @@ Exceptions:
 - Overall-message textarea: `min-height: 64px` (4 lines × 16px line-height) — same minimum as Phase 21 annotation form textarea
 - Touch target minimum: 44px height for Approve and Ask for Changes buttons (accessibility requirement)
 - Button height: 44px — satisfies touch-target minimum while fitting within the 56px bar
+- Compact form padding: 12px — used as the vertical component of the expanded ask-for-changes container (`padding: 12px 16px`) and the clipboard error payload textarea (`padding: 12px`). Justified: these are dense, inline form contexts where 8px is visually tight and 16px creates excessive height. 12px is the midpoint and matches the established annotation bubble textarea padding from Phase 21.
 
 ---
 
@@ -61,9 +62,9 @@ Source: `index.css` body rules + existing components. No new type scales introdu
 | Body | 16px | 400 | 1.6 | Confirmation view body paragraph text (inherited from `<body>`) |
 | Label | 14px | 400 | 1.5 | Overall-message textarea input text + placeholder; offline banner text; clipboard error body |
 | Heading | 20px | 600 | 1.2 | Confirmation view heading ("Approve — done", "Ask for changes — done", "Copied to clipboard — paste into Claude", "Clipboard write failed") |
-| Caption | 13px | 400 | 1.4 | Submit bar helper text ("Add comments before asking for changes." / "Remove all comments to approve."); clipboard error monospace payload textarea |
+| Caption | 12px | 400 | 1.4 | Submit bar helper text ("Add comments before asking for changes." / "Remove all comments to approve."); clipboard error monospace payload textarea |
 
-Exactly 4 distinct sizes in this phase: 20px (confirmation heading), 16px (body), 14px (label), 13px (caption/helper).
+Exactly 4 distinct sizes in this phase: 20px (confirmation heading), 16px (body), 14px (label), 12px (caption/helper).
 Exactly 2 weights: 400 (regular) + 600 (semibold — button labels, confirmation headings).
 
 Note: The existing App.tsx ConfirmationView uses 28px for the confirmation heading. Phase 22 uses 20px because the v2 confirmation is an inline band within the submit bar (not a full-screen overlay). If the planner decides on a full-screen confirmation overlay instead, bump heading to 28px to match App.tsx.
@@ -133,7 +134,7 @@ The offline banner appears between the header and the 3-column body — consiste
 - Ask for Changes button: same dimensions as Approve; `background: var(--color-accent-deny)`, `color: #fff`
   - Hover: `background: rgba(239, 68, 68, 0.85)` (dark) / `rgba(220, 38, 38, 0.85)` (light)
   - Disabled: `opacity: 0.4`, `cursor: default`, `disabled` HTML attribute
-- Helper text (caption): `fontSize: 13px`, `color: var(--color-text-secondary)`, `flexGrow: 1` (takes remaining left-side space); shown only when a button is disabled to explain why; content defined in Copywriting Contract below
+- Helper text (caption): `fontSize: 12px`, `color: var(--color-text-secondary)`, `flexGrow: 1` (takes remaining left-side space); shown only when a button is disabled to explain why; content defined in Copywriting Contract below
 
 **Visual spec — ask-for-changes expanded state:**
 When the user clicks "Ask for Changes" and the button is enabled, the submit bar expands to show an overall-message textarea above the button row:
@@ -145,8 +146,8 @@ When the user clicks "Ask for Changes" and the button is enabled, the submit bar
   - `placeholder`: "Add an overall message (optional)…"
   - `autoFocus` on mount
 - Button row below textarea: `display: flex`, `justifyContent: flex-end`, `gap: 8px`, `marginTop: 8px`
-- "Submit" button: same visual as "Ask for Changes" (red); `type="button"`, always enabled (no gate; at least one comment exists to reach this state)
-- "Cancel" link-button: `fontSize: 13px`, `fontWeight: 400`, `height: 44px`, `paddingLeft: 8px`, `paddingRight: 8px`, `background: transparent`, `color: var(--color-text-secondary)`, `border: none`, `cursor: pointer`
+- "Send Feedback" button: same visual as "Ask for Changes" (red); `type="button"`, always enabled (no gate; at least one comment exists to reach this state)
+- "Discard" link-button: `fontSize: 12px`, `fontWeight: 400`, `height: 44px`, `paddingLeft: 8px`, `paddingRight: 8px`, `background: transparent`, `color: var(--color-text-secondary)`, `border: none`, `cursor: pointer`
 
 **Visual spec — confirmation inline band (after successful submit):**
 The submit bar transitions to a narrow confirmation band — it does NOT take over the full screen. This is the key difference from App.tsx's full-screen ConfirmationView.
@@ -164,7 +165,7 @@ The submit bar transitions to a narrow confirmation band — it does NOT take ov
 - Container: auto height (grows to show manual payload textarea)
 - Heading: "Clipboard write failed", `color: var(--color-accent-deny)`, `fontSize: 20px`, `fontWeight: 600`
 - Body: "Your browser denied clipboard access. Copy the JSON below and paste it into your Claude conversation.", `fontSize: 14px`, `color: var(--color-text-secondary)`
-- Payload textarea (read-only): `width: 100%`, `maxWidth: 600px`, `height: 120px`, `fontFamily: ui-monospace, monospace`, `fontSize: 13px`, `padding: 12px`, `borderRadius: 6px`, `border: 1px solid var(--color-border)`, `background: var(--color-bg)`, `color: var(--color-text-primary)`, `resize: vertical`, `cursor: text`; click selects all (`onClick={(e) => e.target.select()}`)
+- Payload textarea (read-only): `width: 100%`, `maxWidth: 600px`, `height: 120px`, `fontFamily: ui-monospace, monospace`, `fontSize: 12px`, `padding: 12px`, `borderRadius: 6px`, `border: 1px solid var(--color-border)`, `background: var(--color-bg)`, `color: var(--color-text-primary)`, `resize: vertical`, `cursor: text`; click selects all (`onClick={(e) => e.target.select()}`)
 
 **Props interface:**
 ```typescript
@@ -187,7 +188,7 @@ const canAskChange = annotations.length > 0      // Ask for Changes disabled whe
 type SubmitState = 'idle' | 'ask_form' | 'confirmed_allow' | 'confirmed_deny' | 'clipboard_confirmed' | 'clipboard_error'
 ```
 - `idle`: default bar with Approve + Ask for Changes buttons
-- `ask_form`: expanded bar showing overall-message textarea + Submit + Cancel
+- `ask_form`: expanded bar showing overall-message textarea + Send Feedback + Discard
 - `confirmed_allow`: inline band showing "Approve — done"
 - `confirmed_deny`: inline band showing "Ask for changes — done"
 - `clipboard_confirmed`: inline band showing clipboard success copy
@@ -254,7 +255,7 @@ Add `useHeartbeat()` call to capture `connectivity`. Pass `connectivity` and `an
 1. User has ≥1 annotations. Ask for Changes button is enabled.
 2. User clicks "Ask for Changes" → `submitState` → `ask_form`. Overall-message textarea appears with `autoFocus`.
 3. User types optional message (may remain empty).
-4. User clicks "Submit" (or `Cmd+Enter` / `Ctrl+Enter` in textarea).
+4. User clicks "Send Feedback" (or `Cmd+Enter` / `Ctrl+Enter` in textarea).
 5. `shouldUseClipboard(connectivity)` returns `false` → online path.
 6. `serializeAnnotations(overallMessage, '', annotations)` produces the `message` string.
 7. `POST /api/decide` with `{ behavior: 'deny', message }`.
@@ -270,18 +271,18 @@ Add `useHeartbeat()` call to capture `connectivity`. Pass `connectivity` and `an
    - `.then()`: `submitState` → `clipboard_confirmed`
    - `.catch()`: store JSON in `clipboardJson` state, `submitState` → `clipboard_error`
 
-### Cancel Ask-for-Changes Form
+### Discard Ask-for-Changes Form
 
 1. User clicked Ask for Changes, `ask_form` state is active.
-2. User clicks "Cancel" or presses `Escape`.
+2. User clicks "Discard" or presses `Escape`.
 3. `submitState` → `idle`. Overall-message textarea clears. Focus returns to Ask for Changes button.
 
 ### Keyboard Contract (Submit Bar)
 
 | Key | Context | Action |
 |-----|---------|--------|
-| `Escape` | `ask_form` state (textarea focused) | Cancel → return to `idle` |
-| `Cmd+Enter` / `Ctrl+Enter` | `ask_form` state (textarea focused) | Submit ask-for-changes |
+| `Escape` | `ask_form` state (textarea focused) | Discard → return to `idle` |
+| `Cmd+Enter` / `Ctrl+Enter` | `ask_form` state (textarea focused) | Send Feedback (submit ask-for-changes) |
 | `Tab` | Any submit bar state | Natural focus order within bar |
 | No "Enter to approve" shortcut | n/a | The v2 shell has many interactive elements — an Enter-to-approve global shortcut is too dangerous in this context. Approve requires explicit button click only. |
 
@@ -310,8 +311,8 @@ Source: REQUIREMENTS.md SUBMIT-01, SUBMIT-02 + existing App.tsx copy patterns.
 |---------|------|
 | Primary CTA (approve path) | "Approve" |
 | Primary CTA (deny path) | "Ask for Changes" |
-| Deny form submit | "Submit" |
-| Deny form cancel | "Cancel" |
+| Deny form submit | "Send Feedback" |
+| Deny form cancel | "Discard" |
 | Overall message placeholder | "Add an overall message (optional)…" |
 | Helper text — approve disabled | "Remove all comments to approve." |
 | Helper text — ask-for-changes disabled | "Add comments before asking for changes." |
