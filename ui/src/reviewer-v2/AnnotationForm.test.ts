@@ -99,4 +99,9 @@ describe('AnnotationForm', () => {
   it('textarea has onChange= handler wired to onTextareaChange (Phase 21)', () => {
     expect(source).toContain('onChange=')
   })
+
+  it('click-outside handler exempts data-gutter-icon targets (auto-submit path)', () => {
+    const src = readFileSync(resolve(__dirname, './AnnotationForm.tsx'), 'utf-8')
+    expect(src).toContain("closest('[data-gutter-icon]')")
+  })
 })
