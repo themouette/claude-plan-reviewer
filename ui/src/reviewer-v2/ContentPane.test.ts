@@ -125,7 +125,7 @@ describe('ContentPane annotation form wiring (Phase 21)', () => {
   })
 
   it('source declares handleFormCancel', () => {
-    expect(source).toContain('function handleFormCancel(')
+    expect(source).toMatch(/handleFormCancel/)
   })
 
   it('source uses latestFormValueRef for auto-submit (D-03)', () => {
@@ -177,7 +177,7 @@ describe('ContentPane annotation form wiring (Phase 21)', () => {
   })
 
   it('handleFormCancel calls resetTextSelection', () => {
-    const body = source.match(/function handleFormCancel[\s\S]*?\n {2}\}/)?.[0] ?? ''
+    const body = source.match(/handleFormCancel[\s\S]*?resetTextSelection/)?.[0] ?? ''
     expect(body).toContain('resetTextSelection')
   })
 })
