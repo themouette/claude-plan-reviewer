@@ -9,7 +9,6 @@ export interface SubmitPopoverProps {
 
 export default function SubmitPopover({ open, messageRequired, onDismiss, onSubmit }: SubmitPopoverProps): React.JSX.Element | null {
   const rootRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [message, setMessage] = useState('')
 
   useEffect(() => {
@@ -49,6 +48,7 @@ export default function SubmitPopover({ open, messageRequired, onDismiss, onSubm
     <div
       ref={rootRef}
       role="dialog"
+      aria-modal="true"
       aria-label="Send feedback"
       style={{
         position: 'absolute',
@@ -64,7 +64,6 @@ export default function SubmitPopover({ open, messageRequired, onDismiss, onSubm
       }}
     >
       <textarea
-        ref={textareaRef}
         aria-label={messageRequired ? 'Overall message (required)' : 'Overall message (optional)'}
         placeholder={messageRequired ? 'Leave a message (required — no comments added)' : 'Leave a message (optional)'}
         autoFocus

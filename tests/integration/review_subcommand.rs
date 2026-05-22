@@ -19,9 +19,8 @@ fn binary_path() -> std::path::PathBuf {
 ///
 /// Returns (child, port). The server is guaranteed to be listening on port
 /// by the time this function returns.
-fn spawn_review_flow(file_path: &str) -> (Child, u16) {
+fn spawn_review_flow(file_path: &str) -> (Child, u16, tempfile::TempDir) {
     let home = tempfile::TempDir::new().unwrap();
-    let home = Box::leak(Box::new(home));
     let mut child = Command::new(binary_path())
         .env("HOME", home.path())
         .args(["--no-browser", "--port", "0", "review", file_path])
@@ -32,7 +31,7 @@ fn spawn_review_flow(file_path: &str) -> (Child, u16) {
         .expect("failed to spawn plan-reviewer review");
 
     let port = read_server_port(&mut child);
-    (child, port)
+    (child, port, home)
 }
 
 /// Spawn the binary with custom --approve-label and --deny-label flags.
@@ -40,9 +39,8 @@ fn spawn_review_flow_with_labels(
     file_path: &str,
     approve_label: &str,
     deny_label: &str,
-) -> (Child, u16) {
+) -> (Child, u16, tempfile::TempDir) {
     let home = tempfile::TempDir::new().unwrap();
-    let home = Box::leak(Box::new(home));
     let mut child = Command::new(binary_path())
         .env("HOME", home.path())
         .args([
@@ -63,7 +61,7 @@ fn spawn_review_flow_with_labels(
         .expect("failed to spawn plan-reviewer review with labels");
 
     let port = read_server_port(&mut child);
-    (child, port)
+    (child, port, home)
 }
 
 /// Read the "Review UI: http://127.0.0.1:{port}" line from child stderr.
@@ -100,7 +98,7 @@ fn review_approve() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# Test Plan\n\n1. Step one\n2. Step two").expect("write");
 
-    let (child, port) = spawn_review_flow(tmp.path().to_str().unwrap());
+    let (child, port, _home) = spawn_review_flow(tmp.path().to_str().unwrap());
 
     // POST allow decision
     let response = ureq::post(&format!("http://127.0.0.1:{port}/api/decide"))
@@ -135,7 +133,7 @@ fn review_deny_with_message() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# Test Plan\n\n1. Step one\n2. Step two").expect("write");
 
-    let (child, port) = spawn_review_flow(tmp.path().to_str().unwrap());
+    let (child, port, _home) = spawn_review_flow(tmp.path().to_str().unwrap());
 
     // POST deny decision with message
     let response = ureq::post(&format!("http://127.0.0.1:{port}/api/decide"))
@@ -180,7 +178,7 @@ fn review_serves_plan_content() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# My Review Content").expect("write");
 
-    let (child, port) = spawn_review_flow(tmp.path().to_str().unwrap());
+    let (child, port, _home) = spawn_review_flow(tmp.path().to_str().unwrap());
 
     // GET /api/plan — should return rendered HTML containing plan content
     let mut response = ureq::get(&format!("http://127.0.0.1:{port}/api/plan"))
@@ -210,7 +208,7 @@ fn review_config_default_labels() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# Test").expect("write");
 
-    let (child, port) = spawn_review_flow(tmp.path().to_str().unwrap());
+    let (child, port, _home) = spawn_review_flow(tmp.path().to_str().unwrap());
 
     let mut response = ureq::get(&format!("http://127.0.0.1:{port}/api/config"))
         .call()
@@ -233,7 +231,7 @@ fn review_config_custom_labels() {
     let tmp = tempfile::NamedTempFile::new().expect("create temp file");
     std::fs::write(tmp.path(), "# Test").expect("write");
 
-    let (child, port) =
+    let (child, port, _home) =
         spawn_review_flow_with_labels(tmp.path().to_str().unwrap(), "No issues", "Leave feedback");
 
     let mut response = ureq::get(&format!("http://127.0.0.1:{port}/api/config"))

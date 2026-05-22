@@ -106,6 +106,7 @@ export default function SubmitControls({ annotations, connectivity }: SubmitCont
         <>
           <button
             type="button"
+            className="submit-btn"
             disabled={!canApprove}
             title={!canApprove ? 'Cannot approve while comments exist' : undefined}
             onClick={handleApprove}
@@ -139,8 +140,10 @@ export default function SubmitControls({ annotations, connectivity }: SubmitCont
           </button>
           <button
             type="button"
+            className="submit-btn"
             aria-haspopup="true"
             aria-expanded={submitState === 'popover_open'}
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={() => setSubmitState((s) => s === 'popover_open' ? 'idle' : 'popover_open')}
             style={{
               height: 32,
@@ -197,7 +200,24 @@ export default function SubmitControls({ annotations, connectivity }: SubmitCont
       )}
       {submitState === 'clipboard_error' && (
         <div role="status" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-accent-deny)' }}>Clipboard write failed</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-accent-deny)' }}>Clipboard write failed</span>
+            <button
+              type="button"
+              onClick={() => setSubmitState('idle')}
+              style={{
+                fontSize: 12,
+                padding: '2px 8px',
+                borderRadius: 4,
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-surface)',
+                color: 'var(--color-text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
           <textarea
             readOnly
             value={clipboardJson}
