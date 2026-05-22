@@ -256,6 +256,7 @@ export default function CommentBubble({
           </button>
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => { e.stopPropagation(); onEdit(textareaRef.current?.value ?? '') }}
             style={{
               height: 28,
