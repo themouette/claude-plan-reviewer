@@ -68,7 +68,7 @@ export function rangeFromOffsets(
   let node: Node | null
   while ((node = walker.nextNode())) {
     const len = (node.textContent ?? '').length
-    if (startNode === null && charCount + len > start) {
+    if (startNode === null && charCount + len >= start) {
       startNode = node
       startNodeOffset = start - charCount
     }
