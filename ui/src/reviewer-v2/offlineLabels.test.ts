@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { buildClipboardPayload, shouldUseClipboard } from './offlineLabels'
+import {
+  buildClipboardPayload,
+  shouldUseClipboard,
+  OFFLINE_BANNER_LINE_1,
+  OFFLINE_BANNER_LINE_2,
+} from './offlineLabels'
 import type { Annotation } from './types'
 
 describe('buildClipboardPayload (v2 copy)', () => {
@@ -32,5 +37,15 @@ describe('shouldUseClipboard (v2 copy)', () => {
 
   it('returns false when status is online', () => {
     expect(shouldUseClipboard('online')).toBe(false)
+  })
+})
+
+describe('banner constants (v2 copy)', () => {
+  it('OFFLINE_BANNER_LINE_1 equals the exact UI-SPEC value with em-dash', () => {
+    expect(OFFLINE_BANNER_LINE_1).toBe('Server connection lost — working offline.')
+  })
+
+  it('OFFLINE_BANNER_LINE_2 equals the exact UI-SPEC value', () => {
+    expect(OFFLINE_BANNER_LINE_2).toBe('Clipboard submit is available.')
   })
 })
