@@ -36,6 +36,8 @@ export default function AnnotationForm({
     return () => document.removeEventListener('mousedown', handler)
   }, [onCancel])
 
+  const submitBg = formState.type === 'replace' ? '#f59e0b' : 'var(--color-focus)'
+
   function handleSubmit() {
     onSubmit(textareaRef.current?.value ?? '')
   }
@@ -124,7 +126,7 @@ export default function AnnotationForm({
           }}
           onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
           style={{
-            background: 'var(--color-focus)',
+            background: submitBg,
             color: '#fff',
             height: 28,
             padding: '0 12px',

@@ -16,10 +16,10 @@ export const QUICK_ACTIONS = [
   'search codebase',
 ] as const
 
-const pills: { type: AnnotationType; label: string; bg: string; color: string }[] = [
-  { type: 'comment', label: 'Comment', bg: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6' },
-  { type: 'delete',  label: 'Delete',  bg: 'rgba(239, 68, 68, 0.2)',  color: '#ef4444' },
-  { type: 'replace', label: 'Replace', bg: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b' },
+const pills: { type: AnnotationType; label: string; bg: string; hoverBg: string; color: string }[] = [
+  { type: 'comment', label: 'Comment', bg: 'rgba(59, 130, 246, 0.2)', hoverBg: 'rgba(59, 130, 246, 0.38)', color: '#3b82f6' },
+  { type: 'delete',  label: 'Delete',  bg: 'rgba(239, 68, 68, 0.2)',  hoverBg: 'rgba(239, 68, 68, 0.38)',  color: '#ef4444' },
+  { type: 'replace', label: 'Replace', bg: 'rgba(245, 158, 11, 0.2)', hoverBg: 'rgba(245, 158, 11, 0.38)', color: '#f59e0b' },
 ]
 
 export default function SelectionToolbar({
@@ -89,6 +89,8 @@ export default function SelectionToolbar({
           // CRITICAL (Pitfall 1): prevent mousedown from clearing selection before click fires
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => { onAction(pill.type, selectedText); window.getSelection()?.removeAllRanges() }}
+          onMouseOver={(e) => { e.currentTarget.style.background = pill.hoverBg }}
+          onMouseOut={(e) => { e.currentTarget.style.background = pill.bg }}
           style={{
             fontSize: '13px',
             fontWeight: 600,
@@ -102,7 +104,7 @@ export default function SelectionToolbar({
             outline: 'none',
           }}
           onFocus={(e) => {
-            e.currentTarget.style.outline = '2px solid var(--color-focus)'
+            e.currentTarget.style.outline = `2px solid ${pill.color}`
             e.currentTarget.style.outlineOffset = '2px'
           }}
           onBlur={(e) => { e.currentTarget.style.outline = 'none' }}

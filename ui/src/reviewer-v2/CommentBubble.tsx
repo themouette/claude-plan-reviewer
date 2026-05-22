@@ -99,7 +99,7 @@ export default function CommentBubble({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       onClick={onClick}
-      onDoubleClick={(e) => { e.stopPropagation(); onEdit() }}
+      onDoubleClick={annotation.type !== 'delete' ? (e) => { e.stopPropagation(); onEdit() } : undefined}
     >
       <header>
         <strong
@@ -178,7 +178,7 @@ export default function CommentBubble({
             {annotation.type}
           </span>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 8 }}>
-            <button
+            {annotation.type !== 'delete' && <button
               type="button"
               className="bubble-icon-btn"
               aria-label="Edit comment"
@@ -204,7 +204,7 @@ export default function CommentBubble({
               }}
             >
               ✎
-            </button>
+            </button>}
             <button
               type="button"
               className="bubble-icon-btn"

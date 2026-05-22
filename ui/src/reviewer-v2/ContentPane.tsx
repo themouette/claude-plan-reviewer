@@ -11,6 +11,12 @@ const COMMENT_HOVER_HIGHLIGHT = 'comment-hover'
 const supportsHighlights =
   typeof CSS !== 'undefined' && typeof CSS.highlights !== 'undefined'
 
+const ANNOTATION_HIGHLIGHT_NAMES: Record<string, string> = {
+  comment: 'annotation-comment',
+  delete: 'annotation-delete',
+  replace: 'annotation-replace',
+}
+
 export default function ContentPane({
   onSectionsFound,
   onAddAnnotation,
@@ -62,6 +68,29 @@ export default function ContentPane({
     }))
     onSectionsFound(sections)
   }, [planHtml, onSectionsFound, planRef])
+
+  // Persistent annotation highlights — always-on colored underlays by type.
+  // Re-runs when annotations change or when planHtml changes (new DOM after markdown render).
+  useEffect(() => {
+    if (!supportsHighlights || !planRef.current) return
+    const container = planRef.current
+    for (const [type, name] of Object.entries(ANNOTATION_HIGHLIGHT_NAMES)) {
+      const ranges = (annotations ?? [])
+        .filter((a) => a.type === type)
+        .map((a) => rangeFromOffsets(container, a.anchorStart, a.anchorEnd))
+        .filter((r): r is Range => r !== null)
+      if (ranges.length > 0) {
+        CSS.highlights.set(name, new Highlight(...ranges))
+      } else {
+        CSS.highlights.delete(name)
+      }
+    }
+    return () => {
+      CSS.highlights.delete('annotation-comment')
+      CSS.highlights.delete('annotation-delete')
+      CSS.highlights.delete('annotation-replace')
+    }
+  }, [annotations, planHtml, planRef])
 
   // When hoveredCommentId changes, set/clear the CSS comment-hover highlight
   // on the corresponding anchor text (COMMENT-02 direction 1: bubble -> anchor).
