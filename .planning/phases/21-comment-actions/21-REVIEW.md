@@ -1,6 +1,6 @@
 ---
 phase: 21-comment-actions
-reviewed: 2026-05-22T10:00:00Z
+reviewed: 2026-05-22T00:00:00Z
 depth: standard
 files_reviewed: 23
 files_reviewed_list:
@@ -28,8 +28,8 @@ files_reviewed_list:
   - ui/src/reviewer-v2/SelectionToolbar.test.ts
   - ui/src/reviewer-v2/SelectionToolbar.tsx
 findings:
-  critical: 2
-  warning: 7
+  critical: 3
+  warning: 6
   info: 3
   total: 12
 status: issues_found
@@ -37,37 +37,98 @@ status: issues_found
 
 # Phase 21: Code Review Report
 
-**Reviewed:** 2026-05-22T10:00:00Z
+**Reviewed:** 2026-05-22T00:00:00Z
 **Depth:** standard
 **Files Reviewed:** 23
 **Status:** issues_found
 
 ## Summary
 
-Phase 21 adds comment edit/remove actions, wires `editingId` through `CommentPane` and `ReviewerV2Shell`, introduces sticky/absolute bubble positioning for the editing bubble, and adds `annotationCounts` badges to `OutlinePane`. The end-to-end prop-wiring chain is correct, and the CSS Custom Highlight API usage is consistent. `markdownRenderer.ts` already applies DOMPurify sanitization (so the XSS concern from a prior pass is resolved).
+Phase 21 adds comment edit/delete affordances to `CommentBubble`, wires `editingId` through
+`CommentPane` and `ReviewerV2Shell`, introduces sticky/absolute bubble positioning during edit
+mode, adds annotation-count badges to `OutlinePane`, and introduces an `AnnotationForm` popup
+with auto-submit tracking via `latestFormValueRef`. The end-to-end prop-wiring chain is
+consistent and the CSS Custom Highlight API usage is correct.
 
-Two critical issues remain: the "Save Changes" button in `CommentBubble` is missing the `onMouseDown preventDefault` guard that all other action buttons carry, allowing the article's `onClick` to fire before the save commits; and annotations newly added to the list are silently invisible until the `ResizeObserver` fires its first callback, because `CommentPane` filters them out of layout until `anchorYMap` is populated. Seven warnings cover state cleanup gaps when annotations are deleted, fragile form positioning, accessibility gaps on the article element, a redundant ref in a `useMemo` dependency array, and non-null assertion patterns. Three info items cover a magic constant, test coverage depth, and an unbounded `useLayoutEffect`.
+Three critical correctness bugs were found: a boundary condition in `rangeFromOffsets` that silently
+drops annotations whose anchor lands at a text-node boundary; missing `onMouseDown preventDefault`
+on the "Save Changes" button that allows the article `onClick` to fire before the save commits;
+and a dangling `editingId` when an annotation is deleted without clearing the editing state.
+Six quality warnings cover scroll-position drift of bubbles, an unstable `onCancel` closure,
+a CWD-relative test path, a missing `focusedCommentId` cleanup on removal, a viewport bottom-edge
+clamp gap, and a stale-container risk in `useSectionAnnotationCounts`.
 
 ---
 
 ## Critical Issues
 
-### CR-01: "Save Changes" button missing `onMouseDown preventDefault` — article `onClick` fires before save commits
+### CR-01: `rangeFromOffsets` drops annotations whose anchor ends exactly at a text-node boundary
+
+**File:** `ui/src/reviewer-v2/hooks/useTextSelection.ts:71-82`
+
+The start-node condition is `charCount + len > start` (strict greater-than). When `start` falls
+exactly at `charCount + len` — i.e., the selection begins at the first character of the *next*
+node — `startNode` is not set for the current node and the loop advances. The end condition
+`charCount + len >= end` is a greater-than-or-equal, so `endNode` is set at the current node.
+After `charCount += len`, the next node satisfies `> start` and sets `startNode`. But `endNode`
+was already set on the previous node and the loop breaks — so `endNode` precedes `startNode` in
+document order. The resulting `Range` has reversed boundary points, which is a spec violation:
+browsers set the range to collapsed at `startNode` instead of spanning both nodes, causing
+`rangeFromOffsets` to return a nonsense range that does not cover the annotation anchor.
+
+For `CommentPane.recompute`, the `getBoundingClientRect()` of such a range returns all-zeros (a
+collapsed range not in the viewport), so `anchorY` is computed as `0 - containerTop`, a negative
+number. `computeCommentLayout` clamps negative values to 0, so the bubble floats to the top of
+the comment pane instead of aligning with its anchor text. This is visible in production with any
+selection that ends at an HTML element boundary (e.g., the end of a `<code>` span inside a `<p>`).
+
+The existing test `'returns a collapsed range when start === end'` only tests within a single text
+node and does not exercise the cross-node boundary case.
+
+**Fix:** Change the `startNode` condition to `>=` to match the `endNode` condition:
+
+```ts
+// useTextSelection.ts line ~71
+if (startNode === null && charCount + len >= start) {
+  startNode = node
+  startNodeOffset = start - charCount
+}
+if (endNode === null && charCount + len >= end) {
+  endNode = node
+  endNodeOffset = end - charCount
+}
+if (startNode !== null && endNode !== null) break
+charCount += len
+```
+
+---
+
+### CR-02: "Save Changes" button missing `onMouseDown preventDefault` — article `onClick` fires before save commits
 
 **File:** `ui/src/reviewer-v2/CommentBubble.tsx:257-273`
 
-**Issue:** Every other action button in this component (Discard Changes, Edit pencil, Delete ×) carries `onMouseDown={(e) => e.preventDefault()}` to prevent the `mousedown` event from propagating to the `<article>` and triggering `onClick` (which calls `onFocus` to toggle the focused state) before the button's own `click` fires. The "Save Changes" button has no `onMouseDown` handler at all:
+Every other action button in `CommentBubble` carries `onMouseDown={(e) => e.preventDefault()}`:
+the "Discard Changes" button (line 241), the Edit pencil button (line 184), and the Delete button
+(line 210). This guard prevents the `mousedown` event from propagating to `<article>` and
+triggering `onClick` (which calls `onFocus` to toggle `focusedCommentId`) before the button's
+own `click` fires. The "Save Changes" button has no `onMouseDown` handler:
 
 ```tsx
-// line 257 — missing onMouseDown
 <button
   type="button"
   onClick={(e) => { e.stopPropagation(); onEdit(textareaRef.current?.value ?? '') }}
 ```
 
-In browsers, `mousedown` fires before `click`. Because `<article>` has `onClick={onClick}` and no `onMouseDown stopPropagation`, a mousedown on "Save Changes" propagates to `<article>`, calling `onClick()` which toggles `focusedCommentId` (potentially setting it to null) before the button's own `click` handler fires and calls `onEdit(...)`. Result: the save fires on a now-unfocused annotation, and the edit mode may close erroneously.
+In the browser event sequence, `mousedown` fires before `click`. Without `preventDefault`,
+`mousedown` on "Save Changes" propagates up to `<article onClick={onClick}>`. `onClick` calls
+the `onFocus` toggle, which in `ReviewerV2Shell` calls `setFocusedCommentId(ann.id ? null : ann.id)`.
+If `focusedCommentId` was already `ann.id` (it must be, since the Save button is only visible
+when `isFocused`), this sets it to `null` — collapsing the bubble — before the button's `click`
+fires and calls `onEdit`. The save still executes (the `click` does fire), but the parent state
+has already been modified: the annotation is saved, and the bubble is simultaneously toggled
+off. The user sees a flash where the editing state appears to reset.
 
-**Fix:** Add `onMouseDown={(e) => e.preventDefault()}` to the "Save Changes" button, matching the established pattern:
+**Fix:**
 
 ```tsx
 <button
@@ -82,69 +143,32 @@ In browsers, `mousedown` fires before `click`. Because `<article>` has `onClick=
 
 ---
 
-### CR-02: Newly added annotations are silently invisible until `ResizeObserver` fires — can prevent sticky edit wrapper from rendering
-
-**File:** `ui/src/reviewer-v2/CommentPane.tsx:96-113`
-
-**Issue:** The `layoutItems` array is built from annotations that have an entry in `anchorYMap`:
-
-```tsx
-// line 96-105
-const layoutItems = annotations
-  .filter((ann) => anchorYMap.has(ann.id))
-  ...
-```
-
-`anchorYMap` is populated by a `useEffect` that runs asynchronously after each render. When a new annotation is added, the render that displays it fires before the effect has run, so the new annotation's id is absent from `anchorYMap`. The annotation is filtered out of `layoutItems`, and `layout.find((l) => l.id === ann.id)` on line 112 returns `undefined`, causing line 113 to return `null` for that annotation's slot. The bubble is invisible for one render cycle (normally brief), but:
-
-1. If `setEditingId` were called in the same event batch that calls `addAnnotation` (e.g. a future "add and immediately open edit" feature), the sticky-position wrapper would never render because `layoutItem` is null on the first render.
-2. If a `ResizeObserver` callback is slow (large plan, slow machine), the visibility gap extends.
-
-The pattern `anchorYMap.has(ann.id)` as a gate is overly strict. A fallback `anchorY = 0` is safe and keeps the bubble in the DOM from the first render.
-
-**Fix:**
-
-```tsx
-// Replace lines 96-105 in CommentPane.tsx
-const layoutItems = annotations.map((ann) => {
-  const isExpanded = focusedCommentId === ann.id
-  return {
-    id: ann.id,
-    anchorY: anchorYMap.get(ann.id) ?? 0,  // 0 is a safe fallback for new annotations
-    isExpanded,
-    height: isExpanded ? EXPANDED_HEIGHT_ESTIMATE : COMPACT_HEIGHT,
-  }
-})
-```
-
-Remove the null guard on line 113 — `layout.find` will always find the item since all annotations are now in `layoutItems`.
-
----
-
-## Warnings
-
-### WR-01: `editingId` is not cleared when the annotation being edited is deleted
+### CR-03: `editingId` is not cleared when the annotation being edited is deleted — dangling state
 
 **File:** `ui/src/reviewer-v2/ReviewerV2Shell.tsx:124`
 
-**Issue:** `onRemove={removeAnnotation}` passes the raw dispatch directly. If the annotation currently in `editingId` is deleted (the Delete button is visible when `isFocused && !isEditing`, so this requires first clicking out of edit mode and then clicking Delete, or a keyboard shortcut path), `editingId` retains the deleted annotation's id. On the next render, `CommentPane` renders a sticky wrapper (`position: 'sticky', top: 16`) for the deleted annotation (which has no `layoutItem`, so it renders `null` at line 113). The sticky wrapper itself does not render in the current code because it's also gated on `layout.find`. But if CR-02's fix is applied (removing that null gate), the sticky wrapper will render indefinitely for the ghost id — an empty sticky element pinned to the top of the comment pane.
-
-**Fix:**
+`onRemove` is wired as:
 
 ```tsx
-onRemove={(id) => {
-  if (editingId === id) setEditingId(null)
-  removeAnnotation(id)
-}}
+onRemove={removeAnnotation}
 ```
 
----
+`removeAnnotation` dispatches `{ type: 'remove', id }` to `annotationReducer`, which removes the
+annotation from the list. It does not clear `editingId`. If `editingId` currently points to that
+annotation (which requires the user to have entered edit mode before clicking Delete — possible
+if the user clicks the pencil, then immediately clicks the × in rapid succession), `editingId`
+retains the deleted id. On the next render `CommentPane` iterates `annotations` (now without that
+id) and the sticky wrapper is never rendered, so there is no visual corruption. However, the
+state is stale. If CR-02's layout fix (or a future refactor) makes `CommentPane` not gate bubble
+rendering on `anchorYMap`, a sticky wrapper `{position:'sticky', top:16}` for a ghost annotation
+will appear at the top of the comment pane and never go away.
 
-### WR-02: `focusedCommentId` is not cleared when the focused annotation is deleted
-
-**File:** `ui/src/reviewer-v2/ReviewerV2Shell.tsx:124`
-
-**Issue:** Same category as WR-01. When an annotation is removed, `focusedCommentId` may still reference its id. In the current layout, this is benign because the annotation is absent from `layout`, so no bubble renders with `isFocused={true}`. However, `ContentPane`'s hover-highlight effect (`useEffect` at line 68) closes over `annotations` and will attempt to call `rangeFromOffsets` using the deleted annotation's offsets if a concurrent `hoveredCommentId` matches. `hoveredCommentId` is cleared on mouse-leave, but `focusedCommentId` is not. Architecturally, stale IDs in state are a defect.
+Additionally, the delete button is rendered inside `isFocused && !isEditing`, meaning the user
+cannot click Delete while in edit mode in the current UI. But a keyboard `Escape` key exits edit
+mode via `ReviewerV2Shell`'s global keydown handler (line 24: `setEditingId(null)`), so the flow
+"enter edit → press Escape → click ×" does leave `editingId` unset properly. The flow that
+triggers the bug is "enter edit mode on annotation A → the annotation is removed via a future
+programmatic path (batch delete, etc.)".
 
 **Fix:**
 
@@ -158,152 +182,227 @@ onRemove={(id) => {
 
 ---
 
-### WR-03: `AnnotationForm` and `SelectionToolbar` have no viewport bottom-edge clamp
+## Warnings
 
-**File:** `ui/src/reviewer-v2/ContentPane.tsx:140-141`
+### WR-01: `CommentPane` bubbles drift from anchors when content is scrolled — scroll events not handled
 
-**Issue:** `formTop` is computed as `(lastRect?.bottom ?? 0) + 6`. When the selected text is near the bottom of the viewport, `formTop + formHeight` can exceed `window.innerHeight`, clipping the form off-screen. The left-edge clamp exists (`Math.min(..., window.innerWidth - 280)`), but there is no bottom-edge clamp. The same issue exists in `SelectionToolbar.tsx:62` (`top = lastRect.bottom + 6` with no bottom guard). For a `position: fixed` popup this means the bottom half — including the "Post Comment" button — can be invisible if the user selects text in the lower portion of the viewport.
+**File:** `ui/src/reviewer-v2/CommentPane.tsx:34-64`
 
-**Fix:**
+`anchorY` is computed as `rangeRect.top - containerRect.top` inside the `recompute` function.
+The comment in the code (line 51) correctly notes this is "scroll-invariant" because both rects
+shift together when `<main>` scrolls. This is **correct at the moment `recompute` runs**. However,
+`recompute` is only wired to a `ResizeObserver` on the content element. A `ResizeObserver` fires
+on element *size* changes, not scroll position changes. When the user scrolls the main pane,
+`recompute` is not called, so `anchorYMap` values remain from the last resize. But those values
+are viewport-relative at the time they were computed. After scrolling by `delta` pixels, the
+computed `anchorY` values are off by `delta` relative to the new scroll position, so all bubbles
+drift by the scroll delta relative to their anchors.
 
-```typescript
-// ContentPane.tsx handleAction
-const FORM_HEIGHT_ESTIMATE = 140  // 64 textarea + 36 buttons + 40 padding
-const formTop = Math.min(
-  (lastRect?.bottom ?? 0) + 6,
-  window.innerHeight - FORM_HEIGHT_ESTIMATE - 8,
-)
-```
+Concretely: create a comment near the bottom of the plan, then scroll up. The bubble stays at
+`layoutItem.top` (computed when the page was at its initial scroll position) while the anchor
+text has moved to a different visual position.
 
-Apply the same pattern in `SelectionToolbar.tsx`.
-
----
-
-### WR-04: `<article>` in `CommentBubble` is not keyboard-focusable — icon buttons unreachable by keyboard
-
-**File:** `ui/src/reviewer-v2/CommentBubble.tsx:95-101`
-
-**Issue:** The `<article>` element is not in the tab order (no `tabIndex`, and `<article>` is not inherently focusable). Clicking it with a mouse sets `focusedCommentId` via `onClick`, revealing the Edit and Delete icon buttons. A keyboard user cannot reach those buttons because they cannot click the article to expand it, and tabbing through the page will skip the article entirely. The icon buttons are conditionally rendered only when `isFocused`, so they are also absent from the tab order when unfocused.
-
-**Fix:** Add `tabIndex={0}` to the `<article>` element and wire an `onKeyDown` handler for Enter/Space to call `onClick()`:
+**Fix:** Add a `scroll` event listener on `mainRef.current` inside the same `useEffect`:
 
 ```tsx
-<article
-  tabIndex={0}
-  role="button"
-  aria-label={ariaLabel}
-  aria-expanded={isFocused ? 'true' : 'false'}
-  onKeyDown={(e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() }
-  }}
-  ...
->
+const scroller = el   // mainRef.current captured at effect entry
+scroller.addEventListener('scroll', recompute, { passive: true })
+return () => {
+  ro.disconnect()
+  scroller.removeEventListener('scroll', recompute)
+}
 ```
 
 ---
 
-### WR-05: `useSectionAnnotationCounts` includes `planRef` in `useMemo` dependency array — stable ref never triggers recalculation
+### WR-02: `onCancel` in `AnnotationForm` is not memoized — click-outside listener is torn down and re-added on every parent render
 
-**File:** `ui/src/reviewer-v2/hooks/useSectionAnnotationCounts.ts:61`
+**File:** `ui/src/reviewer-v2/AnnotationForm.tsx:27-37` and `ui/src/reviewer-v2/ContentPane.tsx:169-173`
 
-**Issue:** `planRef` is a `RefObject` — a stable object whose identity is constant across all renders. Including it in the `useMemo` dependency array (`[sections, annotations, planRef]`) has no effect: the memo will never re-run solely because `planRef.current` changed (e.g., went from `null` to the mounted DOM node). The early-return guard `if (!container …) return new Map()` can permanently return an empty map if `sections` and `annotations` happen to be populated at mount time before `planRef.current` is set. In practice, `sections` starts as `[]` (populated asynchronously after the plan loads), so this race does not occur today — but the dependency array is misleading and the comment in the code does not explain the exclusion.
+`AnnotationForm.useEffect` has `[onCancel]` as its dependency array. `onCancel` is
+`handleFormCancel`, a plain function declaration in `ContentPane` (not wrapped in `useCallback`).
+Every render of `ContentPane` creates a new `handleFormCancel` reference, causing the effect to
+schedule a cleanup + re-register on every parent render. During the teardown window between
+`removeEventListener` and `addEventListener`, a mousedown event is not covered by the listener.
+This window is theoretically short but it fires on *every* `ContentPane` render (e.g., every
+hover state change in `PlanContent` bubbles up and re-renders `ContentPane`).
 
-**Fix:** Remove `planRef` from the dependency array and add a comment:
-
-```typescript
-return useMemo(() => {
-  const container = planRef.current
-  if (!container || sections.length === 0) return new Map()
-  return computeSectionAnnotationCounts(container, sections, annotations)
-  // planRef is intentionally excluded: RefObject identity is stable; re-runs
-  // are triggered by sections/annotations changes, which always follow plan mount.
-}, [sections, annotations])
-```
-
----
-
-### WR-06: `OutlinePane` uses non-null assertion `annotationCounts!.get(section.id)` inside a conditional that already guards for nullability
-
-**File:** `ui/src/reviewer-v2/OutlinePane.tsx:96` and `114`
-
-**Issue:** Line 94 guards with `(annotationCounts?.get(section.id) ?? 0) > 0`. Inside that branch, lines 96 and 114 use `annotationCounts!.get(section.id)` (non-null assertion). If `annotationCounts` is defined and the count is positive, this is correct. However, the non-null assertion bypasses TypeScript's type safety for refactoring scenarios: if the outer guard is changed, the inner assertion silently becomes unsafe. The `aria-label` on line 96 would produce `"undefined comments"` if the assertion ever fires falsely.
-
-**Fix:** Extract count to a local variable:
+**Fix:** Wrap `handleFormCancel` in `useCallback`:
 
 ```tsx
-{(() => {
-  const count = annotationCounts?.get(section.id) ?? 0
-  if (count === 0) return null
-  return (
-    <span
-      aria-label={`${count} comments`}
-      style={{ ... }}
-    >
-      {count}
-    </span>
-  )
-})()}
+const handleFormCancel = useCallback(() => {
+  setFormState(null)
+  latestFormValueRef.current = ''
+  resetTextSelection()
+}, [resetTextSelection])
 ```
 
 ---
 
-### WR-07: `GutterIcon.test.ts` uses a CWD-relative path for `readFileSync` — breaks when tests run from outside `ui/`
+### WR-03: `GutterIcon.test.ts` uses a CWD-relative path for `readFileSync` — breaks when tests run from any directory other than `ui/`
 
 **File:** `ui/src/reviewer-v2/GutterIcon.test.ts:6`
 
-**Issue:** All other test files use `resolve(__dirname, './Component.tsx')` for source inspection, which is robust regardless of working directory. `GutterIcon.test.ts` uses:
-
-```typescript
+```ts
 const source = readFileSync('src/reviewer-v2/GutterIcon.tsx', 'utf8')
 ```
 
-This is a CWD-relative path. It works when vitest is invoked from `ui/`, but will throw `ENOENT` if tests are run from the project root or from any other directory (e.g., a CI job that uses `npm test --prefix ui` from the root). The `/// <reference types="node" />` triple-slash directive is present, so the intent is correct — only the path construction is inconsistent.
+All other test files in this directory use `resolve(__dirname, './Component.tsx')`, which is
+directory-independent. This file uses a CWD-relative path that resolves against the process
+working directory. Running `npm test` from the repo root or using `--prefix ui` from CI will
+throw `ENOENT` and fail all source-contract assertions in this file.
 
 **Fix:**
 
-```typescript
+```ts
 import { resolve } from 'path'
 const source = readFileSync(resolve(__dirname, './GutterIcon.tsx'), 'utf-8')
 ```
 
 ---
 
+### WR-04: `focusedCommentId` not cleared when a focused annotation is deleted
+
+**File:** `ui/src/reviewer-v2/ReviewerV2Shell.tsx:124`
+
+Same root cause as CR-03. `onRemove={removeAnnotation}` does not clear `focusedCommentId`.
+If `focusedCommentId === id` when a delete fires, the id is stale in state. In the current code
+this is benign because `CommentPane` gates rendering on `layout.find`, which will return
+`undefined` for a deleted annotation. But it is a state invariant violation: after a delete,
+`focusedCommentId` can name a non-existent annotation indefinitely. Combined with CR-03's fix,
+the corrected `onRemove` handler should clear both:
+
+```tsx
+onRemove={(id) => {
+  if (editingId === id) setEditingId(null)
+  if (focusedCommentId === id) setFocusedCommentId(null)
+  removeAnnotation(id)
+}}
+```
+
+(This is the same fix as CR-03; adding here as a separate warning because the `focusedCommentId`
+cleanup is also a required cleanup independent of the editing-state issue.)
+
+---
+
+### WR-05: `AnnotationForm` and `SelectionToolbar` have no viewport bottom-edge clamp
+
+**File:** `ui/src/reviewer-v2/ContentPane.tsx:140-141` and `ui/src/reviewer-v2/SelectionToolbar.tsx:62`
+
+Both popups use `position: fixed` and compute `top = lastRect.bottom + 6`. A left-edge clamp
+exists (`Math.min(..., window.innerWidth - 280)`), but there is no bottom-edge clamp. When the
+user selects text in the lower portion of the viewport, the form or toolbar renders below the
+viewport fold and the "Post Comment" / "Comment" buttons are not visible or clickable.
+
+**Fix:**
+
+```ts
+// ContentPane.tsx handleAction (~line 140)
+const FORM_HEIGHT_ESTIMATE = 140  // textarea 64 + buttons 36 + padding ~40
+const formTop = Math.min(
+  (lastRect?.bottom ?? 0) + 6,
+  window.innerHeight - FORM_HEIGHT_ESTIMATE - 8,
+)
+```
+
+Apply the analogous clamp in `SelectionToolbar.tsx` for the toolbar height.
+
+---
+
+### WR-06: `useSectionAnnotationCounts` captures `planRef.current` outside `useMemo` — stale container if plan HTML is replaced
+
+**File:** `ui/src/reviewer-v2/hooks/useSectionAnnotationCounts.ts:59-63`
+
+```ts
+const container = planRef.current      // captured at render time
+return useMemo(() => {
+  if (!container ...) return new Map()
+  return computeSectionAnnotationCounts(container, ...)
+}, [sections, annotations, container])
+```
+
+`planRef` is a stable `RefObject`. Its identity never changes, so including it in the dependency
+array has no effect. `container` is read at render time and correctly transitions from `null`
+(pre-mount) to the DOM node (post-mount). However, if `planHtml` changes (new plan loaded), React
+unmounts and remounts the `MarkdownView` subtree, replacing `planRef.current` with a new DOM
+node. The old `container` reference in the enclosing render's closure still points to the
+detached node. `getElementCharOffset` walks the detached subtree, returning offsets based on the
+old DOM, which may differ from the new DOM if the plan text changed. `useMemo` only re-runs when
+`sections` or `annotations` change; if neither changes simultaneously, the stale-container path
+persists until the next annotation action.
+
+**Fix:** Move the `planRef.current` read inside the `useMemo` callback:
+
+```ts
+return useMemo(() => {
+  const container = planRef.current
+  if (!container || sections.length === 0) return new Map()
+  return computeSectionAnnotationCounts(container, sections, annotations)
+  // planRef intentionally excluded from deps: RefObject identity is stable;
+  // recomputes are driven by sections/annotations changes.
+}, [sections, annotations, planRef])
+```
+
+---
+
 ## Info
 
-### IN-01: `EXPANDED_HEIGHT_ESTIMATE = 160` magic constant declared inline in render body
+### IN-01: `EXPANDED_HEIGHT_ESTIMATE = 160` magic constant declared inline in render body with a deferred TODO
 
 **File:** `ui/src/reviewer-v2/CommentPane.tsx:93`
 
-**Issue:** `const EXPANDED_HEIGHT_ESTIMATE = 160` is declared inside the component function body with a comment noting it is "temporary until Phase 21 layout measurement." Phase 21 is the current phase. The sibling constant `COMPACT_HEIGHT` is a named export from `useCommentLayout.ts`. Having the expanded height estimate inline in the render body means it cannot be shared with `useCommentLayout.ts`, which already encodes the compact height for gap calculations.
+```tsx
+const EXPANDED_HEIGHT_ESTIMATE = 160 // temporary until Phase 21 layout measurement
+```
 
-**Fix:** Export `EXPANDED_HEIGHT_ESTIMATE` from `useCommentLayout.ts` alongside `COMPACT_HEIGHT`, import it in `CommentPane.tsx`, and remove the "temporary" comment.
+Phase 21 is the current phase. The sibling constant `COMPACT_HEIGHT` is a named export from
+`useCommentLayout.ts`. Having `EXPANDED_HEIGHT_ESTIMATE` inline in the render body means it
+cannot be shared with `computeCommentLayout`. An incorrect height estimate causes layout gaps or
+overlaps in the comment pane.
+
+**Fix:** Export `EXPANDED_HEIGHT_ESTIMATE` from `useCommentLayout.ts` alongside `COMPACT_HEIGHT`,
+import it in `CommentPane.tsx`, and remove the "temporary" comment or replace it with a concrete
+follow-up reference.
 
 ---
 
-### IN-02: Phase 21 test suite uses only source-text string assertions — no behavioral coverage for the new edit/delete flow
+### IN-02: Phase 21 test suite relies entirely on source-text string assertions — no behavioral coverage for the new edit/delete flow
 
-**File:** `ui/src/reviewer-v2/CommentBubble.test.ts`, `ui/src/reviewer-v2/CommentPane.test.ts`, `ui/src/reviewer-v2/ReviewerV2Shell.test.ts`
+**File:** `ui/src/reviewer-v2/CommentBubble.test.ts`, `CommentPane.test.ts`, `ReviewerV2Shell.test.ts`
 
-**Issue:** The entire Phase 21 test suite for the edit/delete feature inspects source text (`expect(source).toContain(...)`) rather than rendering components and asserting on DOM state or callback invocations. Per `CLAUDE.md` test coverage requirements, the `onEdit` callback dispatch path, the sticky vs. absolute positioning logic, and the `editAnnotation`/`removeAnnotation` dispatch wiring are all business logic that require at least one behavioral assertion.
-
-The source-text tests verify the correct *code was written*, but they do not verify it *executes correctly*. Specifically: CR-01 (missing `onMouseDown` on "Save Changes") would not be caught by any existing test — the source still contains `onEdit`, `stopPropagation`, and `Save Changes` strings.
+The Phase 21 tests (describe blocks labeled "Phase 21") check that specific strings exist in the
+source file. They do not render components or assert on callback invocations. Per `CLAUDE.md`
+test coverage requirements, `onEdit` dispatch, the sticky-vs-absolute positioning conditional,
+and `editAnnotation`/`removeAnnotation` wiring are all business logic that require behavioral
+assertions. CR-02 (missing `onMouseDown` on "Save Changes") is not caught by any existing test —
+the source still contains all the required strings even with the bug present.
 
 **Fix:** Add at minimum:
-1. A `@testing-library/react` render test for `CommentBubble` that clicks "Save Changes" and asserts `onEdit` is called with the textarea's value.
-2. A render test for `CommentPane` that passes `editingId` and asserts the wrapper uses `position: sticky`.
+1. A `@testing-library/react` render test for `CommentBubble` that clicks "Save Changes" and
+   asserts `onEdit` is called with the textarea value.
+2. A render test that confirms `onFocus` is NOT called when "Save Changes" is clicked (verifying
+   the `stopPropagation` + `preventDefault` guards work together).
 
 ---
 
-### IN-03: `useTextSelection` `useLayoutEffect` runs on every render (no dependency array)
+### IN-03: `useTextSelection` `useLayoutEffect` runs after every render with no dependency array
 
-**File:** `ui/src/reviewer-v2/hooks/useTextSelection.ts:235-247`
+**File:** `ui/src/reviewer-v2/hooks/useTextSelection.ts:235-248`
 
-**Issue:** The `useLayoutEffect` at line 235 has no dependency array, so it runs after every render of any component that uses this hook. Each invocation calls `rangeFromOffsets`, which performs a full text-node walk of the plan DOM (O(N) in text node count). For a large plan, this walk fires on every hover state change, every annotation list update, and every click. The comment at line 229 explains the intentional design, but the `storedOffsets.current` null-check (`if (!storedOffsets.current ...`) on line 237 already provides a short-circuit when no selection is active. Adding `selectedText` as a dependency would avoid running the walk on renders that cannot have changed the stored offsets.
+The `useLayoutEffect` has no dependency array and therefore runs after every render of any
+component using the hook. Each invocation calls `rangeFromOffsets`, which performs a full
+text-node walk of the plan DOM. The `storedOffsets.current` null-check on line 237 short-circuits
+when no selection is active, making this effectively free in the common case. Flagged for
+awareness: if a large plan is rendered and many components trigger re-renders (hover states,
+annotation list updates), the walk fires on every one of them when a selection is active.
 
-This is intentional design and functionally correct; flagged only because the walk cost grows linearly with plan size.
+The design is intentional (documented comment at line 229: "re-create Range from stored offsets");
+the absence of a dependency array is correct because the effect must run on every render to keep
+the CSS highlight in sync. No immediate fix required, but worth noting for profiling if jank
+occurs on large plans.
 
 ---
 
-_Reviewed: 2026-05-22T10:00:00Z_
+_Reviewed: 2026-05-22T00:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
