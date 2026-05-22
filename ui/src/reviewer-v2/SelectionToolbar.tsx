@@ -12,7 +12,7 @@ export const QUICK_ACTIONS = [
   'needs test',
   'give me an example',
   'out of scope',
-  'search internet',
+  'Search the web',
   'search codebase',
 ] as const
 

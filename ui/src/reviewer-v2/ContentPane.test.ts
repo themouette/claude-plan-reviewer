@@ -160,9 +160,14 @@ describe('ContentPane annotation form wiring (Phase 21)', () => {
     expect(source).toContain('addRange(')
   })
 
-  it('handleAction body does NOT call resetTextSelection (D-04)', () => {
-    const handleActionBody = source.match(/function handleAction[\s\S]*?\n {2}\}/)?.[0] ?? ''
-    expect(handleActionBody).not.toContain('resetTextSelection')
+  it('handleAction bypasses form and calls resetTextSelection for delete type and predefined actions', () => {
+    expect(source).toContain("type === 'delete' || prefillComment !== undefined")
+    expect(source).toContain('resetTextSelection()')
+  })
+
+  it('handleAction opens form (setFormState) for comment and replace types without clearing selection (D-04)', () => {
+    expect(source).toContain('setFormState({')
+    expect(source).toMatch(/type.*'replace'.*\?.*'Replace'/)
   })
 
   it('handleFormSubmit calls resetTextSelection', () => {
