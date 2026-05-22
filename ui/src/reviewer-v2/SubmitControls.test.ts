@@ -45,16 +45,19 @@ describe('SubmitControls — gate logic (SUBMIT-01)', () => {
     expect(source).toContain('annotations.length === 0')
   })
 
-  it('canAskChange gate uses annotations.length > 0', () => {
-    expect(source).toContain('annotations.length > 0')
+  it('messageRequired gate uses annotations.length === 0 (no comments → message required)', () => {
+    expect(source).toContain('messageRequired')
+    expect(source).toContain('annotations.length === 0')
   })
 
-  it('Send Feedback is HTML-disabled when no comments exist (SUBMIT-01)', () => {
-    expect(source).toContain('disabled={!canAskChange}')
+  it('Send Feedback is never HTML-disabled — always clickable (SUBMIT-01 revised)', () => {
+    // Send Feedback button should have no disabled prop; only the popover submit
+    // is gated when messageRequired is true and the textarea is empty.
+    expect(source).not.toContain('disabled={!canAskChange}')
   })
 
-  it('Send Feedback disabled binding appears exactly once', () => {
-    expect((source.match(/disabled=\{!canAskChange\}/g) ?? []).length).toBe(1)
+  it('messageRequired prop is forwarded to SubmitPopover', () => {
+    expect(source).toContain('messageRequired={messageRequired}')
   })
 
   it('Approve disabled binding appears exactly once', () => {
@@ -170,8 +173,8 @@ describe('SubmitControls — accessibility', () => {
     expect(source).toContain('Cannot approve while comments exist')
   })
 
-  it('disabled tooltip explains why Send Feedback is blocked', () => {
-    expect(source).toContain('Add at least one comment to send feedback')
+  it('Send Feedback button has no tooltip (it is always enabled)', () => {
+    expect(source).not.toContain('Add at least one comment to send feedback')
   })
 })
 
