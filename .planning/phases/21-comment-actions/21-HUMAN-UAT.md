@@ -1,47 +1,76 @@
 ---
-status: partial
+status: diagnosed
 phase: 21-comment-actions
 source: [21-VERIFICATION.md]
 started: 2026-05-22T14:45:00Z
-updated: 2026-05-22T14:45:00Z
+updated: 2026-05-22T14:50:00Z
 ---
 
 ## Current Test
 
-[awaiting human testing]
+Completed — 4 failures found.
 
 ## Tests
 
-### 1. All nine behavioral flows from Plan 04 Task 3
+### 1. Comment pill flow (select → Comment → textarea → submit → bubble)
+expected: Popover appears, typing + Cmd+Enter creates a bubble
+result: passed
 
-expected: All 9 steps described in 21-04-PLAN.md Task 3 pass without any failure in a running browser
-result: [pending]
+### 2. Delete / Replace quick actions
+expected: Delete textarea opens pre-filled; Replace uses orange theme
+result: failed — Delete should bypass the textarea entirely and directly create a delete bubble in the comment column. Replace popover must use the orange/replace color theme.
 
-Steps to run (`cd ui && npm run dev` alongside `cargo run -- review fixtures/sample-plan.md`):
-1. Comment pill flow — select text, click Comment, verify popover, type text, Cmd+Enter, verify bubble appears
-2. Delete / Replace pre-fill — verify textarea opens with correct prefill text
-3. Predefined-actions menu — open "more" menu, click a label, verify textarea pre-fill
-4. Gutter-icon paragraph selection — hover paragraph, click +, verify entire paragraph selected and toolbar appears
-5. Auto-submit on conflict (D-03) — open form, start a second without submitting, verify first auto-submits
-6. Edit flow — focus bubble, click pencil, verify inline edit textarea; test Cmd+Enter save and Escape discard
-7. Delete flow — focus bubble, click ×, verify immediate removal with no confirmation dialog
-8. Section count badges — verify count badge appears/increments/disappears correctly
-9. Escape clears edit mode globally
+### 3. Predefined-actions menu
+expected: Clicking a predefined action opens textarea pre-filled with that label
+result: failed — Predefined actions should behave like Delete: no popup, create a comment bubble directly on the sidebar without opening any textarea.
 
-### 2. QUICK_ACTIONS label conflict: "search internet" vs "Search the web"
+### 4. Gutter-icon paragraph selection
+expected: Hover paragraph, click +, entire paragraph selected and action tray appears
+result: failed — Text is selected correctly but the action tray does not appear after gutter-icon click.
 
-expected: Confirm whether `'search internet'` (implemented) or `'Search the web'` (REQUIREMENTS.md/ROADMAP) is the accepted label — or fix the label to match requirements
-result: [pending]
+### 5. Auto-submit on conflict (D-03)
+expected: Opening a second annotation form auto-submits the first
+result: failed — Auto-submit on conflict does not work.
 
-Context: UI-SPEC.md intentionally maps "Search the web" → `"search internet"`. REQUIREMENTS.md COMMENT-04 and ROADMAP success criteria say "Search the web". A product decision is required.
+### 6. Edit flow (pencil → textarea → Cmd+Enter / Escape)
+expected: Pencil reopens textarea with existing text; Cmd+Enter saves; Escape discards
+result: passed
+
+### 7. Delete flow (× → immediate removal)
+expected: Clicking × removes bubble immediately with no confirmation
+result: passed
+
+### 8. Section count badges
+expected: Badges appear/increment/disappear as annotations are added/removed
+result: passed
+
+### 9. Escape clears edit mode globally
+expected: Escape key clears any active edit state
+result: passed
 
 ## Summary
 
-total: 2
-passed: 0
-issues: 0
-pending: 2
+total: 9
+passed: 5
+issues: 4
+pending: 0
 skipped: 0
 blocked: 0
 
 ## Gaps
+
+- status: failed
+  test: "2. Delete quick action"
+  detail: "Delete should directly create a bubble in the comment column without opening a textarea popup. Replace popover should use the orange/replace color theme."
+
+- status: failed
+  test: "3. Predefined actions"
+  detail: "Predefined actions should behave like delete: no popup, create a comment bubble directly on the sidebar."
+
+- status: failed
+  test: "4. Gutter-icon action tray"
+  detail: "Gutter icon click selects text but does not display the action tray."
+
+- status: failed
+  test: "5. Auto-submit on conflict (D-03)"
+  detail: "Opening a second annotation form does not auto-submit the first open form."
