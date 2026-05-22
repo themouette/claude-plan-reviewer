@@ -94,38 +94,17 @@ export default function ContentPane({
 
   // Replace toolbar with AnnotationForm — getOffsets() is called from stored offsets
   // (not the live DOM selection) per RESEARCH.md Pitfall 1.
-  // CRITICAL: Do NOT call resetTextSelection() here — keep selection-lock highlight
-  // active while form is open (D-04). Only handleFormSubmit and handleFormCancel
-  // call resetTextSelection().
   function handleAction(type: AnnotationType, anchorText: string, prefillComment?: string) {
     const offsets = getOffsets()
     if (!offsets || !planRef.current) return
 
-    // Reconstruct range from stored offsets (not live selection — Pitfall 1)
-    const range = rangeFromOffsets(planRef.current, offsets.start, offsets.end)
-    const rects = range?.getClientRects() ?? []
-    const lastRect = rects.length > 0 ? rects[rects.length - 1] : range?.getBoundingClientRect()
-    const formTop = (lastRect?.bottom ?? 0) + 6
-    const formLeft = Math.min(lastRect?.right ?? 0, window.innerWidth - 280)
-
-    // Determine prefill from pill type or explicit prefillComment override
-    let prefill: string
-    if (prefillComment !== undefined) {
-      prefill = prefillComment
-    } else if (type === 'delete') {
-      prefill = 'Delete'
-    } else if (type === 'replace') {
-      prefill = 'Replace'
-    } else {
-      prefill = ''
-    }
-
-    // D-03: auto-submit any pending form before opening the new one
+    // D-03: auto-submit any pending form before opening a new one or bypassing to direct create.
+    // Use latestFormValueRef.current (typed value) or formState.prefill (initial value) as fallback.
     if (formState !== null && onAddAnnotation) {
       onAddAnnotation({
         id: crypto.randomUUID(),
         anchorText: formState.anchorText,
-        comment: latestFormValueRef.current,
+        comment: latestFormValueRef.current || formState.prefill,
         type: formState.type,
         anchorStart: formState.anchorStart,
         anchorEnd: formState.anchorEnd,
@@ -133,12 +112,40 @@ export default function ContentPane({
       latestFormValueRef.current = ''
     }
 
+    // Bypass path: delete type and predefined quick actions skip the form entirely —
+    // they directly create a comment bubble with the known comment text.
+    if (type === 'delete' || prefillComment !== undefined) {
+      if (onAddAnnotation) {
+        onAddAnnotation({
+          id: crypto.randomUUID(),
+          anchorText,
+          comment: type === 'delete' ? 'Delete' : prefillComment!,
+          type,
+          anchorStart: offsets.start,
+          anchorEnd: offsets.end,
+        })
+      }
+      setFormState(null)
+      latestFormValueRef.current = ''
+      resetTextSelection()
+      return
+    }
+
+    // Form path (comment and replace types): reconstruct range for popup positioning,
+    // then open the form. D-04 still applies here — do NOT call resetTextSelection()
+    // in this path so the selection-lock highlight stays active while the form is open.
+    const range = rangeFromOffsets(planRef.current, offsets.start, offsets.end)
+    const rects = range?.getClientRects() ?? []
+    const lastRect = rects.length > 0 ? rects[rects.length - 1] : range?.getBoundingClientRect()
+    const formTop = (lastRect?.bottom ?? 0) + 6
+    const formLeft = Math.min(lastRect?.right ?? 0, window.innerWidth - 280)
+
     setFormState({
       type,
       anchorText,
       anchorStart: offsets.start,
       anchorEnd: offsets.end,
-      prefill,
+      prefill: type === 'replace' ? 'Replace' : '',
       rect: { top: formTop, left: formLeft },
     })
   }
