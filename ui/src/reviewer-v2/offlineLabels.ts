@@ -2,6 +2,9 @@ import type { ConnectivityStatus } from './connectivity'
 import { serializeAnnotations } from './serializeAnnotations'
 import type { Annotation } from './types'
 
+export const OFFLINE_BANNER_LINE_1 = 'Server connection lost — working offline.'
+export const OFFLINE_BANNER_LINE_2 = 'Clipboard submit is available.'
+
 export type ClipboardDecision = 'allow' | 'deny'
 
 export function buildClipboardPayload(
