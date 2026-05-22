@@ -536,7 +536,7 @@ Plans:
   3. Every submitted comment bubble shows a pencil icon (edit) and an × icon (delete); clicking the pencil reopens the textarea with the existing text for inline editing; clicking × removes the bubble immediately with no confirmation dialog
   4. Each outline item shows a badge with the count of comments anchored within that section; a section with no comments shows no badge; adding a comment in the content pane updates its section's count immediately
 
-**Plans:** 5/5 plans complete
+**Plans:** 6/7 plans executed
 Plans:
 **Wave 1**
 
@@ -611,6 +611,6 @@ Plans:
 | 18. Content Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 19. Outline Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 20. Comment Pane | v0.6.0 | 3/3 | Complete   | 2026-05-21 |
-| 21. Comment Actions | v0.6.0 | 5/5 | Complete   | 2026-05-22 |
+| 21. Comment Actions | v0.6.0 | 6/7 | In Progress|  |
 | 22. Submit & Clipboard | v0.6.0 | 0/? | Not started | - |
 | 23. Regression Tests | v0.6.0 | 0/? | Not started | - |
