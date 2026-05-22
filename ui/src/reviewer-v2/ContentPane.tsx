@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTextSelection, rangeFromOffsets } from './hooks/useTextSelection'
 import { offsetFromPoint } from './hooks/offsetFromPoint'
 import { renderMarkdown } from './utils/markdownRenderer'
@@ -166,11 +166,11 @@ export default function ContentPane({
     resetTextSelection()
   }
 
-  function handleFormCancel() {
+  const handleFormCancel = useCallback(() => {
     setFormState(null)
     latestFormValueRef.current = ''
     resetTextSelection()
-  }
+  }, [resetTextSelection])
 
   // D-06: Programmatic paragraph selection — fires selectionchange which useTextSelection
   // picks up via its captureKeyboard listener, causing SelectionToolbar to appear.
