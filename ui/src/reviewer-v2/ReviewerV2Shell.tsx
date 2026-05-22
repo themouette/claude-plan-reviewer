@@ -121,7 +121,11 @@ export default function ReviewerV2Shell() {
                   setEditingId(id)
                 }
               }}
-              onRemove={removeAnnotation}
+              onRemove={(id) => {
+                if (editingId === id) setEditingId(null)
+                if (focusedCommentId === id) setFocusedCommentId(null)
+                removeAnnotation(id)
+              }}
               onCancelEdit={() => setEditingId(null)}
             />
           </aside>
