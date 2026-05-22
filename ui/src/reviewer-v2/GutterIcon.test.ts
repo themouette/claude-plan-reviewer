@@ -1,9 +1,10 @@
 /// <reference types="node" />
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
+import { resolve } from 'path'
 import GutterIcon from './GutterIcon'
 
-const source = readFileSync('src/reviewer-v2/GutterIcon.tsx', 'utf8')
+const source = readFileSync(resolve(__dirname, './GutterIcon.tsx'), 'utf-8')
 
 describe('GutterIcon source contract', () => {
   it('default export is a function', () => {
