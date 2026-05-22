@@ -531,8 +531,8 @@ Plans:
 **Requirements**: COMMENT-04, COMMENT-05, OUTLINE-04
 **Success Criteria** (what must be TRUE):
 
-  1. After hovering a paragraph or selecting text, three quick-action buttons appear: "Comment" (empty textarea), "Delete" (textarea pre-filled with "Delete"), "Replace" (textarea pre-filled with "Replace")
-  2. An expandable menu button reveals six predefined actions — "Clarify this", "Needs test", "Give me an example", "Out of scope", "Search the web", "Search codebase" — each opens a textarea pre-filled with that label
+  1. After hovering a paragraph or selecting text, three quick-action buttons appear: "Comment" (opens textarea), "Delete" (directly creates a delete bubble — no textarea), "Replace" (opens textarea with orange/amber accent border)
+  2. An expandable menu button reveals six predefined actions — "Clarify this", "Needs test", "Give me an example", "Out of scope", "Search the web", "Search codebase" — each directly creates a comment bubble with that label (no textarea)
   3. Every submitted comment bubble shows a pencil icon (edit) and an × icon (delete); clicking the pencil reopens the textarea with the existing text for inline editing; clicking × removes the bubble immediately with no confirmation dialog
   4. Each outline item shows a badge with the count of comments anchored within that section; a section with no comments shows no badge; adding a comment in the content pane updates its section's count immediately
 
