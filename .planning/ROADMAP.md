@@ -67,7 +67,7 @@ Full archive: `.planning/milestones/v0.5.0-ROADMAP.md`
 - [x] **Phase 20: Comment Pane** - Anchored comment bubbles that follow scroll, bidirectional hover linking, overlap/collapse handling (completed 2026-05-21)
 - [x] **Phase 21: Comment Actions** - Three quick actions (comment/delete/replace), expandable predefined-action menu, edit/delete per bubble (completed 2026-05-22)
 - [ ] **Phase 22: Submit & Clipboard** - Approve/ask-for-changes validation gates, clipboard fallback in degraded mode
-- [ ] **Phase 23: Replace v1 with v2** - Delete App.tsx and all v1-only files; make ReviewerV2 the sole renderer; open browser at `/` instead of `/v2`
+- [x] **Phase 23: Replace v1 with v2** - Delete App.tsx and all v1-only files; make ReviewerV2 the sole renderer; open browser at `/` instead of `/v2` (completed 2026-05-22)
 
 ## Phase Details
 
@@ -596,10 +596,10 @@ Plans:
   4. `npm test` and `cargo test` pass with zero failures after deletion
   5. No remaining source file imports from the deleted v1 paths
 
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 
-- [ ] 23-01-PLAN.md — Update main.tsx + src/main.rs (drop /v2 routing), delete v1 source/test files, verify npm/cargo tests pass and no residual v1 imports
+- [x] 23-01-PLAN.md — Update main.tsx + src/main.rs (drop /v2 routing), delete v1 source/test files, verify npm/cargo tests pass and no residual v1 imports
 
 ## Progress
 
@@ -632,4 +632,4 @@ Plans:
 | 20. Comment Pane | v0.6.0 | 3/3 | Complete   | 2026-05-21 |
 | 21. Comment Actions | v0.6.0 | 7/7 | Complete   | 2026-05-22 |
 | 22. Submit & Clipboard | v0.6.0 | 3/4 | In Progress|  |
-| 23. Replace v1 with v2 | v0.6.0 | 0/1 | Planned | - |
+| 23. Replace v1 with v2 | v0.6.0 | 1/1 | Complete   | 2026-05-22 |

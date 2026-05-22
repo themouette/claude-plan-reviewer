@@ -4,8 +4,8 @@ milestone: v0.6.0
 milestone_name: Markdown Annotator v2
 status: executing
 stopped_at: Phase 22 complete — Phase 23 (regression tests) is next
-last_updated: "2026-05-22T22:50:40.036Z"
-last_activity: 2026-05-22 -- Phase 23 planning complete
+last_updated: "2026-05-22T22:52:12.863Z"
+last_activity: 2026-05-22 -- Phase 23 execution started
 progress:
   total_phases: 9
   completed_phases: 8
@@ -21,14 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 23 — replace v1 with v2
+**Current focus:** Phase 23 — replace-v1-with-v2
 
 ## Current Position
 
-Phase: 22 (submit-clipboard) — COMPLETE
+Phase: 23 (replace-v1-with-v2) — EXECUTING
+Plan: 1 of 1
 Phase: 23 (replace-v1-with-v2) — READY TO PLAN
-Status: Ready to execute
-Last activity: 2026-05-22 -- Phase 23 planning complete
+Status: Executing Phase 23
+Last activity: 2026-05-22 -- Phase 23 execution started
 
 Progress: [██████████] 97% (v0.6.0 milestone — Phases 17-22 complete)
 
