@@ -175,10 +175,26 @@ describe('SubmitControls — accessibility', () => {
   })
 })
 
-describe('SubmitControls — auto-close hint', () => {
-  it('schedules window.close() after a confirmed terminal state', () => {
-    // The implementation uses window.setTimeout with window.close() inside the callback
+describe('SubmitControls — auto-close and clipboard reset', () => {
+  it('schedules window.close() after online confirmation states', () => {
     expect(source).toContain('window.setTimeout')
     expect(source).toContain('window.close()')
+  })
+
+  it('confirmed_allow and confirmed_deny are guarded by the auto-close effect', () => {
+    expect(source).toContain("submitState === 'confirmed_allow' || submitState === 'confirmed_deny'")
+  })
+
+  it('clipboard_confirmed is NOT included in the auto-close effect (it resets to idle instead)', () => {
+    // The auto-close block must not contain clipboard_confirmed
+    const closeIdx = source.indexOf("window.close()")
+    expect(closeIdx).toBeGreaterThan(-1)
+    // Find the enclosing if condition before window.close()
+    const nearbySource = source.slice(Math.max(0, closeIdx - 300), closeIdx)
+    expect(nearbySource).not.toContain("clipboard_confirmed")
+  })
+
+  it("clipboard_confirmed resets to 'idle' after a timeout", () => {
+    expect(source).toMatch(/clipboard_confirmed[\s\S]{0,100}setSubmitState\(['"]idle['"]\)/)
   })
 })

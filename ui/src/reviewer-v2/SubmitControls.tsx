@@ -25,16 +25,20 @@ export default function SubmitControls({ annotations, connectivity }: SubmitCont
   const canApprove = annotations.length === 0
   const canAskChange = annotations.length > 0
 
-  // Auto-close hint after terminal confirmation states
+  // Auto-close tab after online submission
   useEffect(() => {
-    if (
-      submitState === 'confirmed_allow' ||
-      submitState === 'confirmed_deny' ||
-      submitState === 'clipboard_confirmed'
-    ) {
+    if (submitState === 'confirmed_allow' || submitState === 'confirmed_deny') {
       const id = window.setTimeout(() => {
         try { window.close() } catch { /* browser may block window.close() — ignore */ }
       }, 500)
+      return () => clearTimeout(id)
+    }
+  }, [submitState])
+
+  // Reset to idle after clipboard copy so buttons reappear
+  useEffect(() => {
+    if (submitState === 'clipboard_confirmed') {
+      const id = window.setTimeout(() => setSubmitState('idle'), 3000)
       return () => clearTimeout(id)
     }
   }, [submitState])
