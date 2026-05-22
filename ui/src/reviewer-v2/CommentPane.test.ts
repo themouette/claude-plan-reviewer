@@ -51,7 +51,7 @@ describe('CommentPane', () => {
   })
 })
 
-describe('CommentPane editingId + sticky wrapper (Phase 21)', () => {
+describe('CommentPane editingId + bubble positioning (Phase 21)', () => {
   it('accepts editingId prop', () => {
     expect(source).toContain('editingId')
   })
@@ -60,16 +60,14 @@ describe('CommentPane editingId + sticky wrapper (Phase 21)', () => {
     expect(source).toContain('editingId === ann.id')
   })
 
-  it("uses position: 'sticky' for the editing bubble wrapper", () => {
-    expect(source).toContain("position: 'sticky'")
-  })
-
-  it('uses top: 16 for sticky pinning', () => {
-    expect(source).toContain('top: 16')
-  })
-
-  it("uses position: 'absolute' for non-editing bubble wrappers", () => {
+  it("uses position: 'absolute' for all bubble wrappers (editing and non-editing)", () => {
     expect(source).toContain("position: 'absolute'")
+    // sticky positioning caused edit-mode bubbles to jump to y=0 (top of comment pane)
+    expect(source).not.toContain("position: 'sticky'")
+  })
+
+  it('uses layoutItem.top for all bubble wrapper positioning (editing bubble keeps anchor position)', () => {
+    expect(source).toContain('top: layoutItem.top')
   })
 
   it('passes isEditing={editingId === ann.id} to CommentBubble', () => {

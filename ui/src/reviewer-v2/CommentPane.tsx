@@ -115,10 +115,12 @@ export default function CommentPane({
       {annotations.map((ann) => {
         const layoutItem = layout.find((l) => l.id === ann.id)
         if (!layoutItem) return null
-        const wrapperStyle: React.CSSProperties =
-          editingId === ann.id
-            ? { position: 'sticky', top: 16, left: 0, right: 0 }
-            : { position: 'absolute', top: layoutItem.top, left: 0, right: 0 }
+        const wrapperStyle: React.CSSProperties = {
+          position: 'absolute',
+          top: layoutItem.top,
+          left: 0,
+          right: 0,
+        }
         return (
           <div key={ann.id} style={wrapperStyle}>
             <CommentBubble
