@@ -1,14 +1,22 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export interface SubmitPopoverProps {
   open: boolean
+  messageRequired: boolean
   onDismiss: () => void
   onSubmit: (message: string) => void
 }
 
-export default function SubmitPopover({ open, onDismiss, onSubmit }: SubmitPopoverProps): React.JSX.Element | null {
+export default function SubmitPopover({ open, messageRequired, onDismiss, onSubmit }: SubmitPopoverProps): React.JSX.Element | null {
   const rootRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    if (!open) setMessage('')
+  }, [open])
+
+  const canSubmit = !messageRequired || message.trim().length > 0
 
   // Escape key + outside-click dismiss handlers
   useEffect(() => {
@@ -57,10 +65,10 @@ export default function SubmitPopover({ open, onDismiss, onSubmit }: SubmitPopov
     >
       <textarea
         ref={textareaRef}
-        aria-label="Overall message (optional)"
-        placeholder="Leave a message (optional)"
+        aria-label={messageRequired ? 'Overall message (required)' : 'Overall message (optional)'}
+        placeholder={messageRequired ? 'Leave a message (required — no comments added)' : 'Leave a message (optional)'}
         autoFocus
-        defaultValue=""
+        value={message}
         rows={4}
         style={{
           width: '100%',
@@ -76,6 +84,7 @@ export default function SubmitPopover({ open, onDismiss, onSubmit }: SubmitPopov
           boxSizing: 'border-box',
           outline: 'none',
         }}
+        onChange={(e) => setMessage(e.target.value)}
         onFocus={(e) => {
           e.currentTarget.style.outline = '2px solid var(--color-focus)'
           e.currentTarget.style.outlineOffset = '2px'
@@ -83,7 +92,7 @@ export default function SubmitPopover({ open, onDismiss, onSubmit }: SubmitPopov
         onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
         onKeyDown={(e) => {
           if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-            onSubmit(textareaRef.current?.value ?? '')
+            if (canSubmit) onSubmit(message)
             e.preventDefault()
           }
         }}
@@ -91,7 +100,8 @@ export default function SubmitPopover({ open, onDismiss, onSubmit }: SubmitPopov
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
         <button
           type="button"
-          onClick={() => onSubmit(textareaRef.current?.value ?? '')}
+          disabled={!canSubmit}
+          onClick={() => { if (canSubmit) onSubmit(message) }}
           style={{
             height: 32,
             paddingLeft: 16,
@@ -102,7 +112,8 @@ export default function SubmitPopover({ open, onDismiss, onSubmit }: SubmitPopov
             color: '#fff',
             fontSize: 14,
             fontWeight: 600,
-            cursor: 'pointer',
+            cursor: canSubmit ? 'pointer' : 'default',
+            opacity: canSubmit ? 1 : 0.4,
           }}
           onFocus={(e) => {
             e.currentTarget.style.outline = '2px solid var(--color-focus)'

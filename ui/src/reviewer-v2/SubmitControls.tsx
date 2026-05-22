@@ -23,7 +23,7 @@ export default function SubmitControls({ annotations, connectivity }: SubmitCont
   const [clipboardJson, setClipboardJson] = useState('')
 
   const canApprove = annotations.length === 0
-  const canAskChange = annotations.length > 0
+  const messageRequired = annotations.length === 0
 
   // Auto-close tab after online submission
   useEffect(() => {
@@ -139,8 +139,6 @@ export default function SubmitControls({ annotations, connectivity }: SubmitCont
           </button>
           <button
             type="button"
-            disabled={!canAskChange}
-            title={!canAskChange ? 'Add at least one comment to send feedback' : undefined}
             aria-haspopup="true"
             aria-expanded={submitState === 'popover_open'}
             onClick={() => setSubmitState((s) => s === 'popover_open' ? 'idle' : 'popover_open')}
@@ -154,8 +152,8 @@ export default function SubmitControls({ annotations, connectivity }: SubmitCont
               color: 'var(--color-text-primary)',
               fontSize: 14,
               fontWeight: 600,
-              cursor: canAskChange ? 'pointer' : 'default',
-              opacity: canAskChange ? 1 : 0.4,
+              cursor: 'pointer',
+              opacity: 1,
               display: 'flex',
               alignItems: 'center',
               gap: 4,
@@ -172,6 +170,7 @@ export default function SubmitControls({ annotations, connectivity }: SubmitCont
           </button>
           <SubmitPopover
             open={submitState === 'popover_open'}
+            messageRequired={messageRequired}
             onDismiss={() => setSubmitState('idle')}
             onSubmit={(message) => { void handleAskForChanges(message) }}
           />
