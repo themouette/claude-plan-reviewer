@@ -343,7 +343,7 @@ const canAskChange = annotations.length > 0
 | A4 | `void useAnnotations()` in ReviewerV2.tsx should be removed in this phase | Common Pitfalls | Leaving it would not break behavior but is confusing debt |
 | A5 | Offline banner showing in v2 header/shell is a "nice to have" implied by the goal sentence, not a hard success criterion | Architecture Patterns | If planner treats it as a separate requirement, an extra task is needed |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Confirm/error state: full-screen view or inline in submit bar?**
    - What we know: App.tsx uses full-screen `ConfirmationView` and `ClipboardConfirmationView`
@@ -351,6 +351,11 @@ const canAskChange = annotations.length > 0
      would need the shell to switch render modes; an inline message in the submit bar is simpler
    - Recommendation: Use inline confirmation state in the SubmitBar (a message band replacing
      the buttons) to avoid needing a new "v2AppState" type and full shell restructuring.
+   - **RESOLVED: inline confirmation state per Plan 22-03** — SubmitControls renders four
+     inline confirmation/error states (`confirmed_allow`, `confirmed_deny`,
+     `clipboard_confirmed`, `clipboard_error`) in place of the button group; no full-screen
+     overlay, no `v2AppState` reshape. See `.planning/phases/22-submit-clipboard/22-03-PLAN.md`
+     §"Render" and the SubmitState state machine literals.
 
 2. **Where does `useHeartbeat` live after Phase 22?**
    - What we know: Currently called in `ReviewerV2.tsx` (void discarded)
@@ -358,6 +363,21 @@ const canAskChange = annotations.length > 0
      ReviewerV2Shell alongside other state?
    - Recommendation: Move the call into `ReviewerV2Shell.tsx` alongside `useAnnotations` —
      this keeps all reactive state in one place and avoids prop-threading through ReviewerV2.
+   - **RESOLVED: useHeartbeat moved to ReviewerV2Shell per Plan 22-04** — `ReviewerV2.tsx`
+     becomes a clean pass-through; `ReviewerV2Shell.tsx` calls `const connectivity =
+     useHeartbeat()` alongside `useAnnotations()` and passes `connectivity` as a prop to
+     `SubmitControls` and as the gate for the conditional `<OfflineBanner />` render. See
+     `.planning/phases/22-submit-clipboard/22-04-PLAN.md` Task 1 (strip ReviewerV2.tsx) and
+     Task 2 Step A (Shell wiring).
+
+3. **Submit bar component name and shape**
+   - **RESOLVED: inline confirmations in submit bar per Plan 22-03** — the component is
+     named `SubmitControls` (default export from `ui/src/reviewer-v2/SubmitControls.tsx`),
+     not `SubmitBar`, and renders the two-button group (Approve + Send Feedback ▾) plus the
+     inline confirmation states. The naming was finalized during UI-SPEC review to align
+     with the GitHub-style split-button + popover pattern adopted for the Send Feedback
+     trigger. References to "SubmitBar" elsewhere in this research document refer to the
+     same component.
 
 ## Environment Availability
 
