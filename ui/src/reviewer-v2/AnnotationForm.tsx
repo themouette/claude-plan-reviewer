@@ -26,6 +26,8 @@ export default function AnnotationForm({
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
+      const target = e.target as Element
+      if (target.closest('[data-gutter-icon]')) return  // gutter click — handleAdd will auto-submit
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         onCancel()
       }
