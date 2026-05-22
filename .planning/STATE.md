@@ -4,14 +4,14 @@ milestone: v0.6.0
 milestone_name: Markdown Annotator v2
 status: executing
 stopped_at: Phase 22 complete — Phase 23 (regression tests) is next
-last_updated: "2026-05-23T00:30:00.000Z"
-last_activity: 2026-05-23 -- Phase 22 complete (submit-clipboard verified)
+last_updated: "2026-05-22T22:50:40.036Z"
+last_activity: 2026-05-22 -- Phase 23 planning complete
 progress:
   total_phases: 9
-  completed_phases: 9
+  completed_phases: 8
   total_plans: 18
-  completed_plans: 23
-  percent: 97
+  completed_plans: 19
+  percent: 89
 ---
 
 # Project State
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 Phase: 22 (submit-clipboard) — COMPLETE
 Phase: 23 (replace-v1-with-v2) — READY TO PLAN
-Status: Phase 22 verified and closed; Phase 23 is the final phase of v0.6.0
-Last activity: 2026-05-23 -- Phase 22 complete
+Status: Ready to execute
+Last activity: 2026-05-22 -- Phase 23 planning complete
 
 Progress: [██████████] 97% (v0.6.0 milestone — Phases 17-22 complete)
 
