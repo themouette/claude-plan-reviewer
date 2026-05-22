@@ -566,12 +566,12 @@ Plans:
   4. The JSON returned by the v2 submit path is identical in format to the existing reviewer's server response — both approve and ask-for-changes cases
   5. When offline, the submit action writes to the clipboard using the same `buildClipboardPayload` utility as the existing reviewer — no separate clipboard implementation exists in v2 code
 
-**Plans:** 4 plans
+**Plans:** 2/4 plans executed
 Plans:
 **Wave 1**
 
-- [ ] 22-01-PLAN.md — OFFLINE_BANNER_LINE_1 / LINE_2 constants added to reviewer-v2/offlineLabels.ts (foundation for v2 OfflineBanner)
-- [ ] 22-02-PLAN.md — SubmitPopover component (controlled open/dismiss, autoFocus textarea, Cmd+Enter submit, source-contract test)
+- [x] 22-01-PLAN.md — OFFLINE_BANNER_LINE_1 / LINE_2 constants added to reviewer-v2/offlineLabels.ts (foundation for v2 OfflineBanner)
+- [x] 22-02-PLAN.md — SubmitPopover component (controlled open/dismiss, autoFocus textarea, Cmd+Enter submit, source-contract test)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -626,5 +626,5 @@ Plans:
 | 19. Outline Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 20. Comment Pane | v0.6.0 | 3/3 | Complete   | 2026-05-21 |
 | 21. Comment Actions | v0.6.0 | 7/7 | Complete   | 2026-05-22 |
-| 22. Submit & Clipboard | v0.6.0 | 0/4 | Planned | - |
+| 22. Submit & Clipboard | v0.6.0 | 2/4 | In Progress|  |
 | 23. Regression Tests | v0.6.0 | 0/? | Not started | - |
