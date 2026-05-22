@@ -62,8 +62,12 @@ export default function SelectionToolbar({
   const TOOLBAR_HEIGHT_ESTIMATE = 44 // pill buttons ~32 + padding ~12
   // Clamp top against viewport bottom edge so toolbar is always visible
   const top = Math.min(lastRect.bottom + 6, window.innerHeight - TOOLBAR_HEIGHT_ESTIMATE - 8)
-  // Clamp left against viewport right edge (Pitfall 5 mitigation)
-  const left = Math.min(lastRect.right, window.innerWidth - TOOLBAR_WIDTH)
+  // Clamp left against the content pane's right edge so the toolbar never
+  // escapes into the right panel or beyond the viewport (handles overflowing
+  // code blocks whose text rect extends past the visible column).
+  const containerRight = containerRef.current.getBoundingClientRect().right
+  const maxLeft = Math.min(containerRight, window.innerWidth) - TOOLBAR_WIDTH
+  const left = Math.min(lastRect.right, maxLeft)
 
   return (
     <div
