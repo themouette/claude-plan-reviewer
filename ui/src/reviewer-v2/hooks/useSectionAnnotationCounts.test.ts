@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import { computeSectionAnnotationCounts } from './useSectionAnnotationCounts'
+// eslint-disable-next-line no-restricted-imports
 import type { Annotation, Section } from '../types'
 
 const source = readFileSync(

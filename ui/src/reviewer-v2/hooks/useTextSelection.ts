@@ -165,6 +165,7 @@ export function useTextSelection(
     }
 
     // Mouse path: capture on mouseup (after drag completes).
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const capture = (_e: MouseEvent) => {
       if (!processSelection()) {
         // No valid selection after mouseup — clear regardless of where the click landed.

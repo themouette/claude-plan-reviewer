@@ -125,7 +125,7 @@ describe('useTextSelection reset contract', () => {
 
 describe('useTextSelection drag guard', () => {
   it('mousedown handler calls removeHighlight but not setSelectedText()', () => {
-    const onMouseDownBody = source.match(/const onMouseDown = \(e: MouseEvent\) => \{[\s\S]*?\n    \}/)?.[0] ?? ''
+    const onMouseDownBody = source.match(/const onMouseDown = \(e: MouseEvent\) => \{[\s\S]*?\n {4}\}/)?.[0] ?? ''
     expect(onMouseDownBody).toContain('removeHighlight()')
     // The comment explains WHY setSelectedText is absent — the call must not be there.
     expect(onMouseDownBody).not.toMatch(/setSelectedText\(/)

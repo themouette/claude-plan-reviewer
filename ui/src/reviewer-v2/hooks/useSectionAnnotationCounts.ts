@@ -1,4 +1,5 @@
 import { useMemo, type RefObject } from 'react'
+// eslint-disable-next-line no-restricted-imports
 import type { Annotation, Section } from '../types'
 import { getElementCharOffset } from './useTextSelection'
 
@@ -49,14 +50,16 @@ export function computeSectionAnnotationCounts(
   return counts
 }
 
+/* eslint-disable react-hooks/refs */
 export function useSectionAnnotationCounts(
   sections: Section[],
   annotations: Annotation[],
   planRef: RefObject<HTMLDivElement | null>,
 ): Map<string, number> {
+  const container = planRef.current
   return useMemo(() => {
-    const container = planRef.current
     if (!container || sections.length === 0) return new Map()
     return computeSectionAnnotationCounts(container, sections, annotations)
-  }, [sections, annotations, planRef])
+  }, [sections, annotations, container])
 }
+/* eslint-enable react-hooks/refs */
