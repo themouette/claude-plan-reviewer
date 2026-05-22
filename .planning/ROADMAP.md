@@ -65,7 +65,7 @@ Full archive: `.planning/milestones/v0.5.0-ROADMAP.md`
 - [x] **Phase 18: Content Pane** - GFM markdown rendering, paragraph hover highlight + gutter icon, text-selection comment toolbar (completed 2026-05-20)
 - [x] **Phase 19: Outline Pane** - Heading tree with click-to-scroll, active section tracking, per-section comment count badges (completed 2026-05-20)
 - [x] **Phase 20: Comment Pane** - Anchored comment bubbles that follow scroll, bidirectional hover linking, overlap/collapse handling (completed 2026-05-21)
-- [ ] **Phase 21: Comment Actions** - Three quick actions (comment/delete/replace), expandable predefined-action menu, edit/delete per bubble
+- [x] **Phase 21: Comment Actions** - Three quick actions (comment/delete/replace), expandable predefined-action menu, edit/delete per bubble (completed 2026-05-22)
 - [ ] **Phase 22: Submit & Clipboard** - Approve/ask-for-changes validation gates, clipboard fallback in degraded mode
 - [ ] **Phase 23: Regression Tests** - Existing annotation flow regression suite covering App.tsx review cycle with `/v2` routing in place
 
@@ -536,7 +536,7 @@ Plans:
   3. Every submitted comment bubble shows a pencil icon (edit) and an × icon (delete); clicking the pencil reopens the textarea with the existing text for inline editing; clicking × removes the bubble immediately with no confirmation dialog
   4. Each outline item shows a badge with the count of comments anchored within that section; a section with no comments shows no badge; adding a comment in the content pane updates its section's count immediately
 
-**Plans:** 3/4 plans executed
+**Plans:** 5/5 plans complete
 Plans:
 **Wave 1**
 
@@ -549,7 +549,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 21-04-PLAN.md — ReviewerV2Shell integration (editingId, useSectionAnnotationCounts) + OutlinePane count badges + human verification
+- [x] 21-04-PLAN.md — ReviewerV2Shell integration (editingId, useSectionAnnotationCounts) + OutlinePane count badges + human verification
 
 **UI hint**: yes
 
@@ -611,6 +611,6 @@ Plans:
 | 18. Content Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 19. Outline Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 20. Comment Pane | v0.6.0 | 3/3 | Complete   | 2026-05-21 |
-| 21. Comment Actions | v0.6.0 | 3/4 | In Progress|  |
+| 21. Comment Actions | v0.6.0 | 5/5 | Complete   | 2026-05-22 |
 | 22. Submit & Clipboard | v0.6.0 | 0/? | Not started | - |
 | 23. Regression Tests | v0.6.0 | 0/? | Not started | - |
