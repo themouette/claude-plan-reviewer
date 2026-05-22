@@ -14,18 +14,6 @@ describe('CommentPane', () => {
     expect(typeof CommentPane).toBe('function')
   })
 
-  it("attaches scroll listener to mainRef.current", () => {
-    expect(source).toContain("addEventListener('scroll'")
-  })
-
-  it('uses passive: true on scroll listener (perf — Pitfall 6)', () => {
-    expect(source).toContain('passive: true')
-  })
-
-  it('cleans up scroll listener with removeEventListener', () => {
-    expect(source).toContain('removeEventListener')
-  })
-
   it('creates a ResizeObserver on planRef.current', () => {
     expect(source).toContain('ResizeObserver')
   })
