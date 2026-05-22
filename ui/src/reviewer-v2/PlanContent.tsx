@@ -22,16 +22,18 @@ export default function PlanContent({
   planRef,
   selectedText,
   onAdd,
+  formOpen = false,
 }: {
   planHtml: string
   planRef: RefObject<HTMLDivElement | null>
   selectedText: string
   onAdd: (el: HTMLElement) => void
+  formOpen?: boolean
 }) {
   const [hoveredParagraph, setHoveredParagraph] = useState<HTMLElement | null>(null)
 
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
-    if (selectedText) return
+    if (selectedText && !formOpen) return
     // No hover updates while a button is held — selection drag would jitter.
     if (e.buttons !== 0) return
     const target = e.target as Element
@@ -57,7 +59,7 @@ export default function PlanContent({
       onMouseOut={handleMouseOut}
     >
       <MarkdownView planHtml={planHtml} planRef={planRef} />
-      {hoveredParagraph && !selectedText && (
+      {hoveredParagraph && (!selectedText || formOpen) && (
         <>
           <div
             aria-hidden="true"
