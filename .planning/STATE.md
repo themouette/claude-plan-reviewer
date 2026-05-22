@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.6.0
 milestone_name: Markdown Annotator v2
 status: executing
-stopped_at: Phase 22 UI-SPEC approved
-last_updated: "2026-05-22T21:08:21.771Z"
-last_activity: 2026-05-22 -- Phase 22 execution started
+stopped_at: Phase 22 complete — Phase 23 (regression tests) is next
+last_updated: "2026-05-23T00:30:00.000Z"
+last_activity: 2026-05-23 -- Phase 22 complete (submit-clipboard verified)
 progress:
   total_phases: 9
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 18
-  completed_plans: 19
-  percent: 89
+  completed_plans: 23
+  percent: 97
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 22 — submit-clipboard
+**Current focus:** Phase 23 — regression tests
 
 ## Current Position
 
-Phase: 22 (submit-clipboard) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 22
-Last activity: 2026-05-22 -- Phase 22 execution started
+Phase: 22 (submit-clipboard) — COMPLETE
+Phase: 23 (regression-tests) — READY TO PLAN/EXECUTE
+Status: Phase 22 verified and closed; Phase 23 is the final phase of v0.6.0
+Last activity: 2026-05-23 -- Phase 22 complete
 
-Progress: [██████████] 100% (v0.6.0 milestone — Phases 17-20 complete)
+Progress: [██████████] 97% (v0.6.0 milestone — Phases 17-22 complete)
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Recent decisions affecting current work:
 - [v0.6.0 research]: ARCH-01 enforced by ESLint no-restricted-imports, not just convention
 - [v0.6.0 research]: SUBMIT-02 reuses buildClipboardPayload + shouldUseClipboard — no reimplementation
 - [v0.6.0]: Frontend is React 19 (not Svelte 5) — CLAUDE.md "Recommended Stack" is aspirational only
+- [Phase 22]: Send Feedback always enabled; popover-level gate (message required when 0 comments) instead of button-level disabled
 
 ### Roadmap Evolution
 
@@ -72,6 +73,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-22T20:29:13.173Z
-Stopped at: Phase 22 UI-SPEC approved
-Resume file: .planning/phases/22-submit-clipboard/22-UI-SPEC.md
+Last session: 2026-05-23T00:30:00.000Z
+Stopped at: Phase 22 complete — Phase 23 (regression tests) is next
+Resume file: none
