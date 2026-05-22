@@ -58,7 +58,7 @@ export default function AnnotationForm({
         left: formState.rect.left,
         zIndex: 20,
         background: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
+        border: formState.type === 'replace' ? '1px solid #f59e0b' : '1px solid var(--color-border)',
         borderRadius: 6,
         padding: 8,
         boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
