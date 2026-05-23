@@ -48,8 +48,9 @@ export default function SelectionToolbar({
 
   /* eslint-disable react-hooks/refs */
   if (!containerRef.current) return null
+  const container = containerRef.current
 
-  const range = rangeFromOffsets(containerRef.current, offsets.start, offsets.end)
+  const range = rangeFromOffsets(container, offsets.start, offsets.end)
   if (!range) return null
   /* eslint-enable react-hooks/refs */
 
@@ -65,7 +66,8 @@ export default function SelectionToolbar({
   // Clamp left against the content pane's right edge so the toolbar never
   // escapes into the right panel or beyond the viewport (handles overflowing
   // code blocks whose text rect extends past the visible column).
-  const containerRight = containerRef.current.getBoundingClientRect().right
+  // eslint-disable-next-line react-hooks/refs
+  const containerRight = container.getBoundingClientRect().right
   const maxLeft = Math.min(containerRight, window.innerWidth) - TOOLBAR_WIDTH
   const left = Math.min(lastRect.right, maxLeft)
 

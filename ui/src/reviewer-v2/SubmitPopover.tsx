@@ -10,10 +10,12 @@ export interface SubmitPopoverProps {
 export default function SubmitPopover({ open, messageRequired, onDismiss, onSubmit }: SubmitPopoverProps): React.JSX.Element | null {
   const rootRef = useRef<HTMLDivElement>(null)
   const [message, setMessage] = useState('')
+  const [prevOpen, setPrevOpen] = useState(open)
 
-  useEffect(() => {
+  if (prevOpen !== open) {
+    setPrevOpen(open)
     if (!open) setMessage('')
-  }, [open])
+  }
 
   const canSubmit = !messageRequired || message.trim().length > 0
 

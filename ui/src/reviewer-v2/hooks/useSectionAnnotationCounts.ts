@@ -50,19 +50,16 @@ export function computeSectionAnnotationCounts(
   return counts
 }
 
-/* eslint-disable react-hooks/refs */
 export function useSectionAnnotationCounts(
   sections: Section[],
   annotations: Annotation[],
   planRef: RefObject<HTMLDivElement | null>,
 ): Map<string, number> {
+  /* eslint-disable react-hooks/refs */
   return useMemo(() => {
     const container = planRef.current
     if (!container || sections.length === 0) return new Map()
     return computeSectionAnnotationCounts(container, sections, annotations)
-    // planRef intentionally excluded from deps: RefObject identity is stable;
-    // recomputes are driven by sections/annotations changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections, annotations, planRef])
+  /* eslint-enable react-hooks/refs */
 }
-/* eslint-enable react-hooks/refs */
