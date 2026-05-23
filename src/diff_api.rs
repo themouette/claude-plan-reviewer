@@ -38,6 +38,14 @@ pub struct CodeReviewState {
     pub repo_path: std::path::PathBuf,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct CommitList {
+    pub commits: Vec<Commit>,
+    pub truncated: bool,
+}
+
+const COMMIT_LIMIT: usize = 500;
+
 // --- Base branch detection ---
 
 /// Find the merge base candidate commit for the current branch.
@@ -206,20 +214,24 @@ fn try_branch_diff(repo_path: &std::path::Path) -> Option<Vec<FileDiff>> {
     Some(build_file_diffs(&diff))
 }
 
-/// GET /api/commits — returns Commit[] for all commits between HEAD and the
-/// detected base branch. Returns an empty array if the repo cannot be opened
-/// or no base branch resolves (D-07).
+/// GET /api/commits — returns `{ commits: Commit[], truncated: bool }` for
+/// commits between HEAD and the detected base branch. Returns an empty list
+/// if the repo cannot be opened or no base branch resolves (D-07).
+/// Capped at COMMIT_LIMIT entries; `truncated: true` when the cap is hit.
 async fn get_commits(State(state): State<Arc<CodeReviewState>>) -> impl IntoResponse {
-    Json(try_list_commits(&state.repo_path).unwrap_or_default())
+    Json(try_list_commits(&state.repo_path).unwrap_or(CommitList {
+        commits: vec![],
+        truncated: false,
+    }))
 }
 
-fn try_list_commits(repo_path: &std::path::Path) -> Option<Vec<Commit>> {
+fn try_list_commits(repo_path: &std::path::Path) -> Option<CommitList> {
     let repo = git2::Repository::open(repo_path).ok()?;
 
     let head = repo.head().ok()?.peel_to_commit().ok()?;
     let head_oid = head.id();
 
-    // D-07: no base branch → return empty array (consistent with get_diff_branch).
+    // D-07: no base branch → return empty list (consistent with get_diff_branch).
     // Without this guard the revwalk would traverse the entire repo history,
     // which hangs or OOMs in large monorepos.
     let base_candidate = find_base_commit(&repo)?;
@@ -232,15 +244,21 @@ fn try_list_commits(repo_path: &std::path::Path) -> Option<Vec<Commit>> {
     // Pitfall 3 — hide must be called before iteration
     let _ = walk.hide(base_oid);
 
-    let commits: Vec<Commit> = walk
+    // Collect up to COMMIT_LIMIT + 1 so we can detect truncation without
+    // walking the full history.
+    let mut commits: Vec<Commit> = walk
         .filter_map(|r| {
             let oid = r.ok()?;
             let c = repo.find_commit(oid).ok()?;
             Some(commit_to_dto(&c))
         })
+        .take(COMMIT_LIMIT + 1)
         .collect();
 
-    Some(commits)
+    let truncated = commits.len() > COMMIT_LIMIT;
+    commits.truncate(COMMIT_LIMIT);
+
+    Some(CommitList { commits, truncated })
 }
 
 /// GET /api/diff/commit/:sha — returns FileDiff[] for the single named commit.
@@ -542,7 +560,8 @@ mod tests {
         let (status, json) = do_get(state, "/api/commits").await;
         assert_eq!(status, StatusCode::OK);
 
-        let arr = json.as_array().expect("expected JSON array");
+        assert_eq!(json["truncated"], false, "truncated must be false");
+        let arr = json["commits"].as_array().expect("expected commits array");
         assert_eq!(arr.len(), 1, "Expected 1 commit, got {}", arr.len());
 
         let entry = &arr[0];
