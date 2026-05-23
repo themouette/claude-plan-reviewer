@@ -11,9 +11,9 @@ Code review mode: inspect, navigate, and annotate agent-generated diffs before a
 ### Diff Viewer
 
 - [x] **DIFF-01**: User can view a full branch diff (all changed files combined, vs main)
-- [ ] **DIFF-02**: User can expand collapsed context lines within a diff hunk
-- [ ] **DIFF-03**: User can toggle between unified and side-by-side layout
-- [ ] **DIFF-04**: User can navigate directly to any changed file via a file list
+- [x] **DIFF-02**: User can expand collapsed context lines within a diff hunk
+- [x] **DIFF-03**: User can toggle between unified and side-by-side layout
+- [x] **DIFF-04**: User can navigate directly to any changed file via a file list
 - [ ] **DIFF-05**: User can select which commits to include in the current diff view
 
 ### Commit Navigation
@@ -100,9 +100,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | DIFF-01 | Phase 24 + 25 | Complete |
-| DIFF-02 | Phase 25 | Pending |
-| DIFF-03 | Phase 25 | Pending |
-| DIFF-04 | Phase 25 | Pending |
+| DIFF-02 | Phase 25 | Complete |
+| DIFF-03 | Phase 25 | Complete |
+| DIFF-04 | Phase 25 | Complete |
 | DIFF-05 | Phase 26 | Pending |
 | COMMIT-01 | Phase 24 + 26 | Complete |
 | COMMIT-02 | Phase 24 + 26 | Complete |
