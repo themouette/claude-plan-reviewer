@@ -4,8 +4,8 @@ milestone: v0.7.0
 milestone_name: Code Review
 status: executing
 stopped_at: Phase 25 UI-SPEC approved
-last_updated: "2026-05-23T22:19:12.503Z"
-last_activity: 2026-05-23 -- Phase 25 planning complete
+last_updated: "2026-05-23T22:21:04.130Z"
+last_activity: 2026-05-23 -- Phase 25 execution started
 progress:
   total_phases: 6
   completed_phases: 1
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 25 — diff viewer ui
+**Current focus:** Phase 25 — diff-viewer-ui
 
 ## Current Position
 
-Phase: 25
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-05-23 -- Phase 25 planning complete
+Phase: 25 (diff-viewer-ui) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 25
+Last activity: 2026-05-23 -- Phase 25 execution started
 
 ## Performance Metrics
 
