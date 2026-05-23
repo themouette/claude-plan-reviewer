@@ -23,6 +23,7 @@ clap = { version = "4", features = ["derive"] }
 webbrowser = "1"
 self_update = { version = "0.44", default-features = false, features = ["archive-tar", "compression-flate2", "reqwest", "rustls"] }
 dialoguer = "0.12"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 tempfile = "3"

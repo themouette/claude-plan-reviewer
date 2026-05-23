@@ -1,3 +1,4 @@
+mod diff_api;
 mod hook;
 mod install;
 mod integrations;
