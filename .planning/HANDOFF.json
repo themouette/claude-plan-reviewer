@@ -1,0 +1,51 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-22T22:01:36.923Z",
+  "phase": "22",
+  "phase_name": "submit-clipboard",
+  "phase_dir": ".planning/phases/22-submit-clipboard",
+  "plan": 4,
+  "task": 3,
+  "total_tasks": 3,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": "22-01", "name": "offlineLabels banner constants", "status": "done", "commit": "93be279"},
+    {"id": "22-02", "name": "SubmitPopover component", "status": "done", "commit": "fca8d28"},
+    {"id": "22-03", "name": "SubmitControls gate logic + submit paths", "status": "done", "commit": "39d26a8"},
+    {"id": "22-04-task1", "name": "Strip ReviewerV2.tsx to clean pass-through", "status": "done", "commit": "35450e8"},
+    {"id": "22-04-task2", "name": "Wire SubmitControls + OfflineBanner into ReviewerV2Shell", "status": "done", "commit": "af4d073"},
+    {"id": "22-04-fix1", "name": "Online submit closes tab; clipboard_confirmed resets to idle after 3s", "status": "done", "commit": "e13fbf9"},
+    {"id": "22-04-fix2", "name": "Binary opens at /v2 so window.close() works after submit", "status": "done", "commit": "5dd54c9"}
+  ],
+  "remaining_tasks": [
+    {"id": "22-04-task3", "name": "Human verification of SUBMIT-01 + SUBMIT-02 user flow (9 gates)", "status": "awaiting_human"},
+    {"id": "post-plan", "name": "Code review (gsd:code-review 22)", "status": "not_started"},
+    {"id": "post-plan", "name": "Regression gate (cargo test + npm test)", "status": "not_started"},
+    {"id": "post-plan", "name": "Phase verification (gsd-verifier)", "status": "not_started"},
+    {"id": "post-plan", "name": "Roadmap / STATE update (phase.complete)", "status": "not_started"},
+    {"id": "post-plan", "name": "PROJECT.md evolution", "status": "not_started"}
+  ],
+  "blockers": [],
+  "human_actions_pending": [
+    {
+      "action": "Run 9 verification gates in the live app and type 'approved' (or describe which gate failed)",
+      "context": "Plan 22-04 is autonomous:false. All code is implemented and committed. Binary now opens at /v2 directly. Build with 'cargo build', run with 'cargo run -- review <file.md>', verify gates 1-9 described in the checkpoint, then type 'approved' to continue.",
+      "blocking": true
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Online submit (Approve/Send Feedback) closes tab after 500ms; clipboard_confirmed shows banner for 3s then resets to idle buttons",
+      "rationale": "User feedback at checkpoint: tab should close on online submit; clipboard offline path should let user re-submit or do something else",
+      "phase": "22"
+    },
+    {
+      "decision": "Binary opens browser at http://127.0.0.1:{port}/v2 instead of root",
+      "rationale": "window.close() only works on tabs with no navigation history. Opening at /v2 directly avoids the root→/v2 navigation that was blocking the close. v0.5 worked because it was already at root.",
+      "phase": "22"
+    }
+  ],
+  "uncommitted_files": [],
+  "next_action": "Present the 9 verification gates checkpoint to the user, wait for 'approved', then run code review → regression gate → phase verification → roadmap update → PROJECT.md update → offer_next",
+  "context_notes": "All 4 plans are implemented. Only human verification of the live UI remains before phase completion. Context was at ~70% when paused — recommend /clear then /gsd:execute-phase 22 to resume, which will spot-check summaries and skip to the post-checkpoint continuation flow."
+}

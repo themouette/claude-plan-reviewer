@@ -1,7 +1,7 @@
 # Pitfalls Research
 
 **Domain:** Multi-tool AI coding agent hook manager (Rust binary + React+TS frontend)
-**Researched:** 2026-04-10, updated 2026-05-05 (v0.5.0 Offline Resilience additions)
+**Researched:** 2026-04-10, updated 2026-05-05 (v0.5.0 Offline Resilience additions), updated 2026-05-19 (v0.6.0 Markdown Annotator v2 additions)
 **Confidence:** HIGH for existing system pitfalls, MEDIUM for opencode/codestral integration pitfalls (config formats still evolving), LOW for codestral as coding agent hook target
 
 ---
@@ -411,6 +411,318 @@ Slash command update phase. Annotate.md must explicitly address the double-resul
 
 ---
 
+## v0.6.0 Critical Pitfalls — Markdown Annotator v2
+
+These pitfalls are specific to adding a standalone 3-column reviewer alongside the existing view.
+
+---
+
+### Pitfall V6-01: Comment Card Position Drift After Layout Changes
+
+**What goes wrong:**
+Comment cards positioned to float at their anchor text level will drift away from their anchors whenever the document layout changes after initial positioning. Common triggers in this project: the markdown is rendered as HTML with `dangerouslySetInnerHTML`, then heading IDs are injected via `useLayoutEffect` — each DOM mutation after the initial render can shift element positions. Cards positioned with values from a stale `getBoundingClientRect()` call will appear correct at first and then visibly jump.
+
+The existing `computeAndApplyLayout()` in App.tsx already addresses this for the current viewer, but v0.6.0 builds a new component. If the new component re-implements card layout without the full set of re-trigger conditions, drift will appear.
+
+**Why it happens:**
+`getBoundingClientRect()` returns viewport-relative coordinates. The same range's rect will differ before and after: heading ID injection, font load completion, code block highlight application (hljs adds `<span>` elements that can change line heights), and window resize. Any of these that happen between the layout pass and the next scroll event will leave cards at the wrong position.
+
+**Consequences:**
+Cards appear at the right position on first load, then snap to a slightly different position after the first scroll. On large documents with many code blocks, the drift can be 20–50px per affected block, causing cards to no longer point at their anchored text.
+
+**Prevention:**
+- Re-run layout after every content mutation: use a `MutationObserver` on the content container or include `planHtml` in the layout effect's deps (already done in App.tsx; the new component must preserve this).
+- Re-run layout after font load: `document.fonts.ready.then(() => computeLayout())`.
+- Debounce layout recomputation on `ResizeObserver` or `window.resize` — subpixel jitter from ResizeObserver can produce infinite loops if not debounced.
+- Prefer `transform: translateY()` for card positioning over `top` to avoid triggering reflow on each position update.
+- Store anchor positions as character offsets, not live `Range` objects — live Ranges are collapsed by React reconciliation. The existing `rangeFromOffsets` / `getRangeOffsets` pattern in `useTextSelection.ts` is the correct model; the new component must use the same approach.
+
+**Detection (warning signs):**
+- Layout effect deps list does not include the content HTML string
+- `computeLayout()` not called in a `ResizeObserver` or `window.resize` handler
+- Storing live `Range` objects in state (instead of character offset pairs)
+- Layout not re-run after `document.fonts.ready`
+
+**Phase to address:**
+COMMENT-01 (Comment sidebar) and CONTENT-01 (Markdown rendering). Layout re-trigger conditions must be set up before any test for card positioning.
+
+---
+
+### Pitfall V6-02: IntersectionObserver Active Section Tracking Fires Multiple Sections Simultaneously
+
+**What goes wrong:**
+The heading tree's active section highlight relies on IntersectionObserver to track which section is currently visible. A naive `threshold: 0` configuration will fire on every heading that enters or leaves the viewport during a fast scroll — including headings that momentarily pass through without settling. During rapid scrolling of a long document, multiple headings can simultaneously have `isIntersecting: true`, causing the active highlight to flicker between sections or highlight the wrong one.
+
+The existing App.tsx uses a scroll-offset approach (`el.offsetTop <= scrollTop + 1`), which is cheaper and less ambiguous. The new component will use IntersectionObserver for the active section tracking (per OUTLINE-01). The naive approach will produce visible jank.
+
+**Why it happens:**
+IntersectionObserver fires asynchronously — entries may be batched, and when multiple headings cross the threshold in the same animation frame, the callback receives them all in a single call. Without careful priority rules (which heading wins when multiple are visible), the last one processed becomes active, which depends on DOM order and callback ordering, not scroll position.
+
+**Consequences:**
+The active heading in the outline tree flickers during scroll. On a document with many H2/H3 headings close together (typical for Claude's plans), the outline appears to select headings randomly during fast scroll.
+
+**Prevention:**
+- Use `rootMargin: "-50% 0px"` to create a virtual "active zone" at the center of the viewport. Only the heading passing through the center line is marked active at any moment, eliminating multi-section conflicts.
+- Track scroll direction separately: when scrolling down, the bottom-most visible heading wins; when scrolling up, the top-most wins. Maintain a `prevScrollTop` ref to determine direction.
+- Process entries in `IntersectionObserverEntry.time` order, not array order.
+- Do not set `threshold: 1` (fully visible required) — headings near the bottom of a short viewport may never achieve 100% visibility.
+- For the outline tree, the existing `updateActiveHeading()` scroll-event approach in App.tsx is already correct and simple. If IntersectionObserver is used instead, the `rootMargin` trick is mandatory.
+
+**Detection (warning signs):**
+- `threshold: 1` in the IntersectionObserver options — will never fire near viewport edges
+- No `rootMargin` configured — entire viewport treated as the active zone
+- Active heading determined by whichever entry is last in the callback's `entries` array
+
+**Phase to address:**
+OUTLINE-01 (Heading tree with active section tracking). Must be addressed before OUTLINE-02 (comment count badges) to avoid building on a flawed active tracking foundation.
+
+---
+
+### Pitfall V6-03: Text Selection Toolbar Position Incorrect After Scroll
+
+**What goes wrong:**
+The selection toolbar is positioned using `getBoundingClientRect()` on the selected `Range`, which returns viewport-relative coordinates. When the toolbar is positioned as `position: absolute` inside the scrollable content container, the viewport coordinates must be adjusted by the container's `scrollTop` and `getBoundingClientRect().top` to get document-relative coordinates. If this conversion is omitted, the toolbar appears at the correct position on first selection but drifts upward by `scrollTop` pixels when the user has scrolled before making a selection.
+
+The existing `FloatingAnnotationAffordance` in App.tsx already handles this correctly via:
+```typescript
+top: rangeRect.bottom - containerRect.top + planTabRef.current.scrollTop + 6
+```
+The new component must replicate this conversion. A common mistake when extracting this logic into a hook or utility is dropping the `scrollTop` term.
+
+**Why it happens:**
+`getBoundingClientRect()` is viewport-relative by spec. Positioning an element at `top: rect.top` inside a scrollable container that has `position: relative` will place it at `rect.top` relative to the container's top edge — but the container's scrolled content starts `scrollTop` pixels from the top of the layout. The result is that the toolbar appears `scrollTop` pixels too high.
+
+**Consequences:**
+On a document with more than one screen of content (typical for a Claude plan), any text selection made after the user has scrolled will show the toolbar at the wrong vertical position — floating above the actual selected text, potentially off-screen at the top.
+
+**Prevention:**
+- Convert viewport coordinates to container-relative document coordinates: `top = rangeRect.bottom - containerRect.top + container.scrollTop`.
+- Never store the raw `DOMRect` object in React state — DOMRect includes non-serializable methods and its values are stale after the next frame. Store only the `{ top, left }` values computed at capture time.
+- On window resize, recompute and clear the toolbar position (the range rect changes when the content reflows).
+
+**Detection (warning signs):**
+- Toolbar positioned using `rangeRect.top` without subtracting the container's `getBoundingClientRect().top`
+- `scrollTop` not added to the computed position
+- `DOMRect` stored directly in `useState` (React will attempt to compare the object, not its values)
+
+**Phase to address:**
+CONTENT-03 (Text selection toolbar). The scroll-offset conversion is a one-line fix that must be verified manually by scrolling before selecting.
+
+---
+
+### Pitfall V6-04: Comment Card Overlap Algorithm Uses Estimated Heights That Diverge From Actual Heights
+
+**What goes wrong:**
+The current `computeAndApplyLayout()` greedy forward-pass uses hardcoded estimated heights (`delete ≈ 100px, comment/replace ≈ 212px`) to push cards apart. When the actual rendered height of a card differs from the estimate — because a comment is long, a replacement text is multi-line, or the user has expanded the predefined actions menu — cards will overlap.
+
+The new component introduces more card states: expanded menus, edit mode, hover states, collapsed/expanded short comments. Each state has a different rendered height that is impossible to know statically.
+
+**Why it happens:**
+Heights are estimated because measuring DOM elements before paint is not possible in the normal React flow. Reading `wrapper.getBoundingClientRect().height` during layout requires the element to be mounted and painted. Estimating avoids the read, but estimates diverge from reality as soon as content exceeds the assumed line count.
+
+**Consequences:**
+A user adds a long comment. The card below it is positioned as if the comment card is still 212px tall, but the card is now 350px tall. The cards overlap. Scrolling the content reveals that the cards are stacked on top of each other, making both unreadable.
+
+**Prevention:**
+- Use `ResizeObserver` on each card element to measure actual heights and re-run the layout algorithm after each measurement.
+- Keep a `Map<string, number>` of measured heights keyed by annotation ID. Initialize with the estimated height; update via the observer callback.
+- Debounce the layout re-run to avoid infinite loops: if a layout pass changes card positions, and that change causes a resize event, the debounce prevents an immediate re-trigger.
+- Alternatively: accept some overlap and provide a "collapse non-focused cards" mechanism (COMMENT-03) so only the active card is fully expanded; other cards show a one-line summary. This trades rendering accuracy for visual simplicity.
+
+**Detection (warning signs):**
+- Card heights hardcoded as constants with no ResizeObserver watching actual dimensions
+- Layout algorithm passes before card components have mounted (initial layout runs in `useLayoutEffect` before child refs are set)
+- Cards with multi-line user input overlap adjacent cards
+
+**Phase to address:**
+COMMENT-01 (sidebar positioning) and COMMENT-03 (overlap handling). Design the collapse-by-default behavior early to reduce the number of cases where height estimation matters.
+
+---
+
+### Pitfall V6-05: Scroll Sync Between Content and Sidebar Introduces Feedback Loops
+
+**What goes wrong:**
+The comment sidebar mirrors the scroll position of the content panel so that cards float at their anchor text level. The current approach in App.tsx reads `planTab.scrollTop` and sets `cardsScroll.scrollTop = planScrollTop` in the scroll handler. If the sidebar scroll container has its own scroll event listener, setting its `scrollTop` programmatically will trigger that listener, which may update content scroll, creating an infinite loop.
+
+The new 3-column layout adds a third pane (the outline tree), whose active section changes on content scroll. If the outline click handler also scrolls the content, the scroll chain becomes: outline click → content scroll → sidebar update → content scroll event re-fires → sidebar update again. Without guards, this produces either an infinite loop or jank from multiple re-renders.
+
+**Why it happens:**
+Programmatic `scrollTop` assignment fires `scroll` events in all browsers. A scroll listener that reads `scrollTop` and sets another element's `scrollTop` will trigger the second element's listener, which will trigger the first element's listener, indefinitely.
+
+**Prevention:**
+- Use a `isScrollingProgrammatically` ref that is set to `true` before any programmatic scroll and cleared in `requestAnimationFrame`. The scroll event handler checks this ref and returns early if set.
+- Alternatively: use `requestAnimationFrame` for all programmatic scrolls and cancel any pending frame before scheduling a new one — this naturally batches rapid scroll updates.
+- For the outline click → content scroll → sidebar sync chain: scroll the content in `handleOutlineClick`, let the content's `onScroll` handler trigger sidebar sync. Never scroll the sidebar directly from the outline click handler.
+
+**Detection (warning signs):**
+- Both the content and sidebar panels have `scroll` event listeners that write to each other's `scrollTop`
+- Outline click handler scrolls both the content and the sidebar independently
+- No `isScrollingProgrammatically` guard in the sync logic
+
+**Phase to address:**
+COMMENT-01 (Comment sidebar scrolls with content). The feedback loop guard must be in place before any cross-pane scroll logic is added.
+
+---
+
+### Pitfall V6-06: CSS Custom Highlights API Not Available in All Target Browsers
+
+**What goes wrong:**
+The existing code uses `CSS.highlights` (the CSS Custom Highlight API) for annotation highlights and the selection lock. This API is available in Chrome/Edge 105+, Safari 17.2+, Firefox 117+. The new component relies on the same API for text highlighting when hovering a comment card (COMMENT-02). If a user opens the reviewer in a browser where `CSS.highlights` is undefined, the `CSS.highlights.set(...)` call throws a TypeError that is currently caught by the `if (!CSS.highlights) return` guard. Hover highlighting silently does nothing.
+
+The new component's XSS surface is larger: the new viewer renders markdown via `dangerouslySetInnerHTML` with comrak output. If comrak's `unsafe` option is enabled or if the markdown source contains embedded HTML, the rendered output can contain `<script>` tags or event handlers. The existing viewer uses `marked.js` client-side; the new design uses comrak server-side.
+
+**Why it happens:**
+Two distinct issues share this pitfall entry because both relate to the new markdown rendering path:
+1. `CSS.highlights` browser support is checked in `useTextSelection.ts` but may not be checked in new code in the new component.
+2. Server-side comrak rendering means the HTML arrives from the Rust backend; if the plan markdown contains HTML, comrak will include it unless the `unsafe` flag is disabled.
+
+**Prevention for CSS.highlights:**
+- Always check `typeof CSS !== 'undefined' && typeof CSS.highlights !== 'undefined'` before calling `CSS.highlights`. The existing `supportsHighlights` constant in `useTextSelection.ts` is the correct pattern.
+- For browsers without Custom Highlights, fall back to a DOM-based highlight approach (add/remove a `<mark>` wrapper or `background-color` on the matching element).
+
+**Prevention for comrak XSS:**
+- Ensure the comrak call in the Rust backend has the `unsafe` flag disabled (the default). The `ComrakOptions.render.unsafe_` field must be `false`.
+- Do NOT add `DOMPurify` client-side and then re-enable `unsafe` server-side as a "belt and suspenders" approach — this creates false confidence and adds bundle weight.
+- The content being reviewed is a plan written by Claude, not user-supplied content — the XSS risk is low, but the practice of never enabling `unsafe_` is worth keeping.
+
+**Detection (warning signs):**
+- New highlight logic in the new component that calls `CSS.highlights.set(...)` without a `typeof CSS.highlights !== 'undefined'` guard
+- `ComrakOptions.render.unsafe_` set to `true` in the Rust backend
+- DOMPurify added to the frontend bundle (indicates `unsafe_` was enabled to "compensate")
+
+**Phase to address:**
+CONTENT-01 (Markdown rendering) for the comrak issue; COMMENT-02 (hover highlights) for the CSS.highlights check.
+
+---
+
+### Pitfall V6-07: Architectural Isolation Violated by Shared State or Event Bus
+
+**What goes wrong:**
+The requirement is that the new reviewer component must not import from or depend on the existing view. The existing App.tsx holds all state: annotations, connectivity, decision, heartbeat, outline, etc. The temptation is to lift shared concerns (e.g., the `useHeartbeat` hook, the `serializeAnnotations` utility, the `Annotation` type) into App.tsx imports that both components consume. This is acceptable only when it flows one direction: existing view imports from new component, never the reverse.
+
+A subtle violation: the new component's submit handler needs access to the `connectivity` state to decide whether to use the clipboard fallback. If it reads `connectivity` from a context provided by App.tsx, the new component now depends on App.tsx's implementation. If App.tsx is later deleted, the new component breaks.
+
+**Why it happens:**
+React state and context are typically managed at the root. When two siblings need the same state, the natural solution is to lift it to the parent (App.tsx). But lifting state to App.tsx means the new component is now coupled to App.tsx's existence.
+
+**Consequences:**
+When the existing App.tsx view is eventually deleted (as planned), the new component breaks because it was importing from or depending on state provided by the old view. The coupling is invisible during development because both views coexist.
+
+**Prevention:**
+- The new component must own its own instances of every hook it needs: its own `useHeartbeat()` call, its own `annotations` state, its own clipboard logic.
+- Shared utilities (`serializeAnnotations`, `rangeFromOffsets`, `Annotation` type) should live in `utils/` or `types.ts` — neutral ground that neither view owns.
+- The `Annotation` type in `types.ts` is already in neutral ground; the new component can import from `types.ts` without coupling to App.tsx.
+- When introducing a new `Tab` value or route for the new component, do not extend the existing `Tab` union in `types.ts` if it would force the existing view to handle the new tab. Add a separate `ReviewerTab` type for the new component.
+- Use a lint rule or architectural decision: any import from `App.tsx` in the new component's file tree is a violation.
+
+**Detection (warning signs):**
+- New component imports from `./App` or from a React context provided by `App.tsx`
+- `useHeartbeat` is called in App.tsx and its result is passed as a prop to the new component
+- New component's submit handler calls a function defined in App.tsx
+
+**Phase to address:**
+ARCH-01 (Architectural isolation). Must be defined before LAYOUT-01 (Layout shell) to establish the boundary. A clear file structure for the new component (e.g., `src/components/AnnotatorV2/`) enforces this boundary by convention.
+
+---
+
+### Pitfall V6-08: Test Suite for Existing Flow Broken by Tab Structure Changes
+
+**What goes wrong:**
+Adding the new reviewer as a new tab (or a new route) changes the tab structure in the existing UI. Existing tests that select elements by tab index (`tabs[0]`, `tabs[1]`) or by text (`getByRole('tab', { name: 'Plan' })`) will pass or fail depending on whether the new tab is added before or after the existing ones. ARIA tests that assert the number of tabs will break.
+
+More critically: if the new reviewer uses the same DOM IDs as the existing tabs (`id="tabpanel-plan"`, `aria-labelledby="tab-plan"`) — because the developer copied the existing tab pattern — tests for the existing view will match the wrong element in the DOM when both views are mounted.
+
+**Why it happens:**
+React Testing Library queries (`getByRole`, `getByText`, `getByLabelText`) are DOM-global within the test's rendered tree. If two components produce elements with the same ARIA roles or IDs, queries become ambiguous.
+
+**Prevention:**
+- Assign a distinct namespace for all IDs in the new component: `id="v2-tabpanel-plan"`, `aria-labelledby="v2-tab-plan"` etc.
+- Add `data-testid` attributes scoped to the new component (`data-testid="annotator-v2-submit"`) rather than reusing the existing component's test IDs.
+- Add a TEST-01 phase before any new component code: write the regression tests for the existing flow first, run them, confirm they pass, then add the new component and confirm they still pass.
+- Use `within()` from Testing Library to scope queries to a specific container, preventing cross-component query leakage.
+
+**Detection (warning signs):**
+- DOM IDs used in new component are the same as existing component's IDs
+- Existing tests start failing after new component is mounted alongside the old one
+- Tests that count `getAllByRole('tab')` break when new tabs are added
+
+**Phase to address:**
+TEST-01 (Regression test suite). Write and run existing tests first; establish ID namespace convention before new component is scaffolded.
+
+---
+
+### Pitfall V6-09: jsdom Missing Browser APIs Required by New Component
+
+**What goes wrong:**
+The new component introduces three browser APIs that jsdom does not implement: `IntersectionObserver` (for active heading tracking), `ResizeObserver` (for card height measurement and layout recomputation), and `CSS.highlights` (for hover and selection highlights). Any test that renders the new component without mocking these APIs will throw:
+
+- `ReferenceError: IntersectionObserver is not defined`
+- `ReferenceError: ResizeObserver is not defined`
+- `TypeError: Cannot read properties of undefined (reading 'set')` (for `CSS.highlights`)
+
+The existing test setup in `useHeartbeat.test.ts` already mocks `fetch` but does not set up observer mocks. If the test setup file does not add these mocks before the new component's tests run, every test for the new component fails with the same environment error, masking the actual test logic.
+
+**Why it happens:**
+jsdom is a DOM simulation, not a browser. It does not implement layout-dependent APIs (`IntersectionObserver`, `ResizeObserver`) or painting APIs (`CSS.highlights`). These APIs are considered "too complex to simulate accurately" by the jsdom maintainers and are left undefined.
+
+**Prevention:**
+Add all three mocks to `vitest.setup.ts` (or the equivalent setup file) before any component tests run:
+```typescript
+// IntersectionObserver mock
+global.IntersectionObserver = vi.fn().mockImplementation(() => ({
+  observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn(), takeRecords: vi.fn(),
+}))
+
+// ResizeObserver mock
+global.ResizeObserver = vi.fn().mockImplementation(() => ({
+  observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn(),
+}))
+
+// CSS.highlights mock (use Object.defineProperty — assigning to CSS directly throws)
+Object.defineProperty(globalThis, 'CSS', {
+  value: { highlights: { set: vi.fn(), delete: vi.fn(), has: vi.fn() } },
+  writable: true,
+})
+```
+
+Additionally: the `ResizeObserver` callback never fires in tests unless manually triggered. Use `jsdom-testing-mocks` for tests that need to assert behavior on resize — it provides `triggerResize(element, { width, height })` to manually dispatch resize callbacks. Do not write tests that assert layout positions calculated from zero-sized elements (jsdom returns 0 for all `getBoundingClientRect()` values).
+
+**Detection (warning signs):**
+- `ReferenceError: IntersectionObserver is not defined` in test output
+- Tests that assert `scrollTop` values or pixel positions (these will always be 0 in jsdom)
+- `matchMedia` not mocked (required alongside `ResizeObserver` when using media-query-aware components)
+- Vitest `globals: true` not set (required for lifecycle hooks in setup files)
+
+**Phase to address:**
+TEST-01 (Regression tests). Set up the mocks in the setup file before any new component test is written. The missing-mock errors will appear immediately when the first component test runs.
+
+---
+
+### Pitfall V6-10: Clipboard Fallback Omitted or Misconnected in the New Reviewer
+
+**What goes wrong:**
+The existing viewer's clipboard fallback (SUBMIT-02) is a fully wired feature: `useHeartbeat()` → `connectivity` state → `shouldUseClipboard()` → `buildClipboardPayload()` → `navigator.clipboard.writeText()` → success/error state. The new reviewer must preserve this full chain. A common mistake when building the new reviewer is to implement the submit button without the offline branch — testing only the happy path (server is alive, fetch to `/api/decide` succeeds) and leaving the offline path untested until a user reports it.
+
+The clipboard API has an additional constraint in this project's deployment context: the plan reviewer runs on `http://localhost`. While `localhost` is treated as a secure context by Chrome and Firefox, the custom hostname case (if a user proxies via `/etc/hosts`) does not qualify. The new component must use the same `window.isSecureContext` guard that the existing code uses, not assume `navigator.clipboard` is always available.
+
+**Why it happens:**
+The offline fallback path is never triggered in local development testing because the server is always running during development. Developers write and test the online submit path, mark the feature done, and the offline path is only tested (and found broken) in production.
+
+**Prevention:**
+- Mirror the existing `approve()` and `deny()` logic exactly for the new reviewer's submit handlers, including the `shouldUseClipboard(connectivity)` guard.
+- Write a test for the offline clipboard path in the new reviewer's test file using the same mock pattern as the existing `useHeartbeat.test.ts`.
+- `buildClipboardPayload()` should be extracted to `utils/offlineLabels.ts` (already exists) and imported by the new component rather than re-implemented.
+
+**Detection (warning signs):**
+- New reviewer's submit button calls `fetch('/api/decide')` unconditionally without checking `shouldUseClipboard(connectivity)`
+- `navigator.clipboard` called without a `window.isSecureContext` guard or `try/catch`
+- No test for the new reviewer's offline submit path
+
+**Phase to address:**
+SUBMIT-02 (Clipboard fallback preserved). Must be implemented in the same phase as the submit button, not deferred.
+
+---
+
 ## Moderate Pitfalls
 
 ### Pitfall 6: FOUC (Flash of Unstyled Content) on Theme Load
@@ -534,6 +846,10 @@ Shortcuts that seem reasonable but create long-term problems.
 | Calling `writeText()` after an async gap | Feels clean | Breaks silently in Safari/Firefox (NotAllowedError) | Never — serialize synchronously, then call writeText immediately |
 | Clipboard export only on the deny path | Most cases need it on deny | Approve path in offline mode silently does nothing | Never — both approve and deny need clipboard fallback |
 | Different JSON format for clipboard vs stdout | Frontend-convenient | Double Step 4 parsing logic in annotate.md; will drift | Never — clipboard JSON must be byte-for-byte compatible with build_opencode_output |
+| Positioning cards with estimated heights instead of measured heights | Avoids ResizeObserver complexity | Cards overlap when content exceeds estimate | Acceptable only with a collapse-by-default UX that limits card height |
+| New reviewer importing from App.tsx for shared state | Avoids duplicating useHeartbeat etc. | New component breaks when old view is deleted | Never — new component must own its own hook instances |
+| Reusing existing tab DOM IDs in new component | Copy-paste speed | Existing tests fail; ARIA queries become ambiguous | Never — namespace all IDs in new component (e.g., `v2-tabpanel-plan`) |
+| Skipping jsdom observer mocks for first test pass | Unblocks test writing | All new component tests throw ReferenceError | Never — add mocks to setup file before first component test |
 
 ---
 
@@ -552,6 +868,12 @@ Common mistakes when connecting to external services.
 | Heartbeat ping (v0.5.0) | Single fetch failure → setOffline(true) | Require N consecutive failures; use AbortSignal.timeout() to bound each ping |
 | Clipboard API (v0.5.0) | Calling writeText() after await | Serialize synchronously; call writeText() directly in onClick with no async gap before it |
 | Clipboard JSON format (v0.5.0) | Frontend invents its own format | Must match build_opencode_output exactly: `{"behavior":"allow"}` or `{"behavior":"deny","message":"..."}` |
+| New reviewer isolation (v0.6.0) | New component imports from App.tsx for shared hooks | Extract shared utilities to `utils/`; each viewer owns its own hook instances |
+| IntersectionObserver config (v0.6.0) | `threshold: 1` or no `rootMargin` | Use `rootMargin: "-50% 0px"` for single-section active tracking; never require 100% visibility |
+| Comment card heights (v0.6.0) | Hardcoding estimated heights in layout algorithm | Use ResizeObserver to measure actual heights; debounce layout re-runs |
+| Scroll sync (v0.6.0) | Both panels have scroll listeners that write to each other | One-directional sync only; use an `isScrollingProgrammatically` guard ref |
+| Text selection toolbar position (v0.6.0) | `top: rangeRect.top` without scroll offset | Convert with `rangeRect.bottom - containerRect.top + container.scrollTop` |
+| Test IDs (v0.6.0) | Reusing existing IDs (`tabpanel-plan`, `tab-plan`) in new component | Namespace all IDs: `v2-tabpanel-plan`, `v2-tab-plan` |
 
 ---
 
@@ -566,6 +888,7 @@ Domain-specific security issues beyond general web security.
 | opencode plugin file execution | A plugin file in `.opencode/plugin/` runs arbitrary JS — a malicious project config could redirect the hook | Document that the global plugin path should be used; warn users about project-level plugin overrides |
 | Stdout write in hook path outside of the single `serde_json::to_writer` call | Any stray stdout write corrupts the hook protocol; could enable injection of fake JSON structures | Test harness that asserts stdout is exactly one valid JSON object |
 | Clipboard JSON injection (v0.5.0) | If the clipboard JSON is not sanitized and Claude executes it as a command, malformed annotations could inject instructions | The `serializeAnnotations` output is already plain text, not code; the JSON shape is fixed; no eval path exists |
+| comrak `unsafe_` option enabled (v0.6.0) | Plan markdown containing embedded HTML renders script tags via `dangerouslySetInnerHTML` | Keep `ComrakOptions.render.unsafe_` as `false` (the default); plans are Claude-authored not user-uploaded |
 
 ---
 
@@ -583,6 +906,9 @@ Common user experience mistakes in this domain.
 | Offline banner that blocks the annotation sidebar (v0.5.0) | User cannot add more annotations after server dies | Banner must be non-blocking (top-of-screen notification strip, not a modal) |
 | No success feedback after clipboard copy (v0.5.0) | User does not know if the copy succeeded | Show "Copied!" badge on the button for 2 seconds after writeText() resolves |
 | No textarea fallback when clipboard API is blocked (v0.5.0) | User has no way to export annotations | Show the JSON in a read-only textarea below the "Copy" button as a fallback |
+| Comment cards overlap on long comments (v0.6.0) | Comments are unreadable; user cannot see anchored text | Collapse non-focused cards to a one-line summary; expand on hover/focus |
+| Active outline section flickers during fast scroll (v0.6.0) | Outline feels broken; user loses context | Use `rootMargin: "-50% 0px"` to pin active section to viewport center |
+| Text selection toolbar appears above visible area after scroll (v0.6.0) | User cannot reach toolbar; loses annotation intent | Convert selection position with scroll offset before setting state |
 
 ---
 
@@ -610,6 +936,16 @@ Things that appear complete but are missing critical pieces.
 - [ ] **Clipboard (v0.5.0):** Textarea fallback exists when writeText() fails — verify blocked clipboard shows selectable JSON text
 - [ ] **annotate.md (v0.5.0):** Step 4 handles pasted JSON with explicit format description — verify Claude cannot confuse a user comment with the result JSON
 - [ ] **annotate.md (v0.5.0):** Step 4 handles double-result case (clipboard paste + eventual stdout) — verify the step explicitly says to prefer the paste result
+- [ ] **ARCH-01 (v0.6.0):** New component directory exists — verify no import from `./App` or App-provided context in any file under `src/components/AnnotatorV2/`
+- [ ] **ARCH-01 (v0.6.0):** Shared utilities in `utils/` — verify `rangeFromOffsets`, `serializeAnnotations`, `buildClipboardPayload` are in neutral `utils/` paths, not imported from App.tsx
+- [ ] **TEST-01 (v0.6.0):** Regression tests written before new component — verify existing annotation flow tests pass before and after new component is added
+- [ ] **TEST-01 (v0.6.0):** Observer mocks in setup file — verify `IntersectionObserver`, `ResizeObserver`, and `CSS.highlights` mocked in `vitest.setup.ts`
+- [ ] **COMMENT-01 (v0.6.0):** Card layout re-triggers comprehensive — verify layout runs after: initial mount, `planHtml` change, scroll, resize, font load, annotation add/remove
+- [ ] **COMMENT-03 (v0.6.0):** Collapse behavior implemented — verify non-focused cards collapse to one-line summary; focused card expands; all cards reachable by scroll
+- [ ] **SUBMIT-02 (v0.6.0):** Clipboard fallback preserved in new reviewer — verify offline submit path in new component uses `shouldUseClipboard()` and `buildClipboardPayload()`
+- [ ] **CONTENT-01 (v0.6.0):** comrak `unsafe_` disabled — verify Rust backend `ComrakOptions.render.unsafe_` is `false`
+- [ ] **OUTLINE-01 (v0.6.0):** IntersectionObserver configured with rootMargin — verify `rootMargin: "-50% 0px"` used, not `threshold: 1`
+- [ ] **CONTENT-03 (v0.6.0):** Selection toolbar position scroll-corrected — verify toolbar appears adjacent to selected text after scroll (not above it)
 
 ---
 
@@ -630,6 +966,12 @@ When pitfalls occur despite prevention, how to recover.
 | Clipboard copy fails silently (v0.5.0) | MEDIUM | Add textarea fallback; users lose annotations until fixed binary ships |
 | Clipboard JSON format mismatch (v0.5.0) | HIGH | Claude parses wrong format; annotate.md Step 4 fails; requires binary update to fix annotate.md |
 | Double-result in annotate.md (v0.5.0) | MEDIUM | Update annotate.md (binary update required); annotate.md is written fresh on every install |
+| Comment card drift (v0.6.0) | MEDIUM | Add ResizeObserver + font.ready re-trigger; no Rust changes needed; deploy updated frontend |
+| IntersectionObserver flicker (v0.6.0) | LOW | Add `rootMargin: "-50% 0px"` and scroll-direction logic; frontend-only fix |
+| New component imports from App.tsx (v0.6.0) | HIGH | Must be caught before App.tsx is deleted; requires extraction of shared code to utils/ |
+| Existing tests break after new component added (v0.6.0) | MEDIUM | Add ID namespacing, use `within()` scoping; regresses are caught early if TEST-01 phase runs first |
+| Observer mocks missing from test setup (v0.6.0) | LOW | Add three mocks to vitest.setup.ts; all blocked tests unblock immediately |
+| Selection toolbar off-screen after scroll (v0.6.0) | LOW | Add `container.scrollTop` to position calculation; one-line fix |
 
 ---
 
@@ -659,6 +1001,16 @@ How roadmap phases should address these pitfalls.
 | Clipboard/stdout JSON format mismatch (V5-08) | Clipboard fallback phase (spec first) | Unit test: clipboard export matches build_opencode_output output for same decision |
 | Ambiguous pasted-JSON detection in annotate.md (V5-09) | Slash command update phase | Manual test: paste JSON in Claude conversation, verify correct Step 4 interpretation |
 | Watchdog/stdout race (V5-10) | Slash command update phase | annotate.md review: double-result case explicitly handled in Step 4 instructions |
+| Comment card position drift (V6-01) | COMMENT-01 (sidebar positioning) | Manual test: scroll 500px, add annotation, verify card floats at anchor text level |
+| IntersectionObserver multi-section flicker (V6-02) | OUTLINE-01 (heading tree) | Manual test: fast scroll through heading-heavy document, verify one section active at a time |
+| Selection toolbar scroll offset error (V6-03) | CONTENT-03 (text selection toolbar) | Manual test: scroll halfway down, select text, verify toolbar appears below selection |
+| Card overlap from estimated heights (V6-04) | COMMENT-01 + COMMENT-03 | Manual test: add long comment, verify next card below does not overlap |
+| Scroll sync feedback loop (V6-05) | COMMENT-01 (sidebar scroll sync) | Manual test: rapid scroll, verify no infinite loop / jank; check for `isScrollingProgrammatically` ref |
+| CSS.highlights unavailable / comrak XSS (V6-06) | CONTENT-01 (Markdown rendering) + COMMENT-02 | Code review: `unsafe_` flag check in Rust; `typeof CSS.highlights` guard in new component |
+| New reviewer coupled to App.tsx (V6-07) | ARCH-01 (before LAYOUT-01) | CI rule: no import path to App.tsx from AnnotatorV2/ directory |
+| Existing tests break after new component (V6-08) | TEST-01 (before LAYOUT-01) | Run existing test suite after scaffolding; zero regressions before new feature tests added |
+| jsdom observer mocks missing (V6-09) | TEST-01 (setup file) | CI: all new component tests pass without `ReferenceError` in test runner output |
+| Clipboard fallback omitted in new reviewer (V6-10) | SUBMIT-02 | Test: mock connectivity as offline; click approve in new reviewer; assert clipboard write called |
 
 ---
 
@@ -676,13 +1028,26 @@ How roadmap phases should address these pitfalls.
 - Clipboard API writeText MDN: https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/writeText
 - Clipboard API user gesture interoperability issue (Safari/Firefox vs Chrome divergence): https://github.com/w3c/clipboard-apis/issues/182
 - Clipboard API secure context and localhost: https://web.dev/articles/async-clipboard
+- Clipboard API on non-secure contexts (custom hostnames fail): https://dev.to/falselight/understanding-why-the-clipboard-api-fails-on-devlocal-mapped-in-etchosts-http-and-succeeds-on-46ci
 - AbortSignal.timeout() for fetch: https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static
 - axum graceful shutdown and keep-alive connection behavior with Chrome: https://github.com/tokio-rs/axum/issues/2611
 - axum CancellationToken shutdown discussion: https://github.com/tokio-rs/axum/discussions/2565
 - Tokio runtime shutdown race conditions: https://github.com/tokio-rs/tokio/issues/7056
-- Current hook.rs / install.rs / uninstall.rs / integration.rs / types.ts / serializeAnnotations.ts / App.tsx / main.rs / server.rs: examined directly from codebase (v0.5.0 pre-implementation)
+- Primer anchored position algorithm (positioned ancestor pitfall): https://github.com/primer/behaviors/blob/main/docs/anchored-position.md
+- IntersectionObserver rootMargin for scrollspy: https://yashmahalwal.medium.com/scrollspy-using-intersection-observer-36acb7520e46
+- IntersectionObserver threshold never fires at 1.0: MDN https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API
+- ResizeObserver infinite loop prevention: https://web.dev/articles/resize-observer
+- ResizeObserver safe read zone for scrollWidth/clientWidth: https://tigeroakes.com/posts/resize-observer-avoid-forced-sync-layout/
+- Selection toolbar viewport-vs-document coordinate pitfall: https://www.bennadel.com/blog/3433-outlining-text-selections-using-the-window-selection-api.htm
+- Text selection toolbar in React: https://spacejelly.dev/posts/how-to-share-selected-text-in-react-with-the-selection-api
+- comrak XSS / dangerouslySetInnerHTML: https://www.hackerone.com/blog/secure-markdown-rendering-react-balancing-flexibility-and-safety
+- React Markdown XSS prevention: https://strapi.io/blog/react-markdown-complete-guide-security-styling
+- Vitest jsdom IntersectionObserver/ResizeObserver mocks: https://greenonsoftware.com/articles/testing/testing-and-mocking-resize-observer-in-java-script/
+- jsdom-testing-mocks for triggerable observer callbacks: https://www.npmjs.com/package/jsdom-testing-mocks
+- Vitest browser mode (alternative to jsdom for observer-heavy tests): https://www.codedaily.io/tutorials/setup-vitest-browser-mode-with-playwright-in-react
+- Current hook.rs / install.rs / uninstall.rs / integration.rs / types.ts / serializeAnnotations.ts / App.tsx / main.rs / server.rs: examined directly from codebase (v0.5.0 shipped state)
 - Known tech debt items WR-01–WR-04: .planning/PROJECT.md
 
 ---
-*Pitfalls research for: Multi-tool AI coding agent hook manager (v0.5.0 offline resilience additions)*
-*Originally researched: 2026-04-10 | Updated: 2026-05-05*
+*Pitfalls research for: Multi-tool AI coding agent hook manager*
+*Originally researched: 2026-04-10 | Updated: 2026-05-05 (v0.5.0) | Updated: 2026-05-19 (v0.6.0 Markdown Annotator v2)*

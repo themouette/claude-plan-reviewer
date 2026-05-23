@@ -1,380 +1,195 @@
-# Stack Research
+# Technology Stack — v0.6.0 Markdown Annotator v2
 
-**Domain:** Local Rust binary + React/TS browser UI — v0.3.0 incremental additions
-**Researched:** 2026-04-10
-**Confidence:** HIGH for opencode (confirmed via official docs + plannotator source) | HIGH for theme | MEDIUM for codestral (confirmed: it is a model, no agent hook system)
-
----
-
-## Scope
-
-This document covers ONLY new stack decisions needed for v0.3.0. The existing validated stack (axum 0.8, rust-embed 8, git2 0.20, comrak, clap 4, self_update 0.44, dialoguer 0.12, React 19, TS, Vite, Tailwind CSS 4) is not re-researched here.
+**Project:** claude-plan-reviewer (3-column annotation reviewer milestone)
+**Researched:** 2026-05-19
+**Scope:** New library additions only — existing React 19 + TypeScript + Vite + Tailwind CSS 4 + Vitest stack is proven and unchanged.
 
 ---
 
-## Recommended Stack — New Additions
+## Context: What Already Exists
 
-### opencode Integration
+| Package | Version in ui/package.json | Role |
+|---------|---------------------------|------|
+| react | ^19.2.4 | UI runtime |
+| react-dom | ^19.2.4 | DOM renderer |
+| tailwindcss | ^4.2.2 | Styling |
+| marked | ^18.0.0 | Markdown → HTML (used only in App.tsx with dangerouslySetInnerHTML) |
+| marked-highlight | ^2.2.4 | Syntax highlighting plugin for marked |
+| highlight.js | ^11.11.1 | Syntax highlighting engine |
+| @pierre/diffs | ^1.1.12 | Diff rendering |
+| vitest | ^4.1.4 | Unit tests |
 
-**Verdict: No Rust config changes. Requires writing an npm plugin in TypeScript.**
+The existing `useTextSelection` hook (ui/src/hooks/useTextSelection.ts) handles text selection with character-offset anchoring using CSS Custom Highlights API. The existing `Annotation` type uses `anchorText: string` — only the quoted string, no positional offsets.
 
-opencode does NOT have a config-based hook analogous to Claude Code's `ExitPlanMode`. The only config-based hooks are experimental (`experimental.hook.file_edited`, `experimental.hook.session_completed`) and have no plan approval event. Plan review in opencode is achieved via the plugin system: an npm package is listed in the `plugin` array and registers a `submit_plan` tool that the agent calls after drafting a plan.
+The new 3-column reviewer is architecturally isolated (ARCH-01: never imported from old view).
 
-This is confirmed by:
-- Plannotator's opencode integration (`@plannotator/opencode@latest`) uses exactly this pattern
-- open-plan-annotator (`open-plan-annotator@latest`) uses the same `submit_plan` tool approach
-- opencode's changelog and docs show no config hook for plan approval as of v1.4.3 (April 10 2026)
+---
 
-**What this means for plan-reviewer:**
+## Recommended Additions
 
-| Approach | Verdict | Reason |
-|----------|---------|--------|
-| Write a config hook entry (like Claude Code) | NOT POSSIBLE | No such hook exists in opencode |
-| Write a Rust binary plugin | NOT POSSIBLE | opencode plugins must be TypeScript/JavaScript npm packages |
-| Publish an npm plugin package that shells out to the plan-reviewer binary | CORRECT PATH | Plugin registers `submit_plan` tool; on invocation it calls `plan-reviewer` via subprocess, waits for browser decision, returns result to opencode |
+### 1. react-markdown — Client-Side Markdown Rendering
 
-**Integration path — opencode config file:**
+**Add:** `react-markdown@10.1.0` + `remark-gfm@4.0.1`
 
-- Global: `~/.config/opencode/opencode.json` or `~/.config/opencode/opencode.jsonc`
-- Project: `opencode.json` or `opencode.jsonc` at project root (merged on top of global)
-- Field: `"plugin": ["@plan-reviewer/opencode@latest"]`
+**Why not keep `marked`:**
+The existing view uses `marked` + `dangerouslySetInnerHTML`. For the new reviewer, the center pane must render markdown as a React component tree — not an HTML string — because:
+- Per-paragraph hover handlers require React event binding on individual `<p>` elements
+- Text selection → comment toolbar requires the DOM to be React-managed
+- Comment bubble vertical positioning requires `getBoundingClientRect()` on paragraph elements, which only works reliably when those elements exist in the React tree
 
-**Example config after install:**
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": ["@plan-reviewer/opencode@latest"]
-}
+`marked` + `dangerouslySetInnerHTML` produces an opaque HTML blob with no per-element React handles. `react-markdown` renders each heading, paragraph, and list item as a distinct React element that can receive `ref`, `onMouseEnter`, and `data-*` props via the `components` override map.
+
+**react-markdown@10.1.0 facts:**
+- Current version: 10.1.0 (confirmed via npm registry, published ~12 months ago; no newer major since)
+- React peer dependency: `>=18` — React 19.2.4 satisfies this (HIGH confidence)
+- ESM-only package — compatible with Vite 8 ESM build
+- The default `Markdown` component is synchronous; async plugins use `MarkdownAsync`/`MarkdownHooks` (not needed here)
+- Custom `components` prop allows replacing any element type (`h1`–`h6`, `p`, `code`, `pre`, etc.) with a React component that receives the standard HTML props plus a `node` prop (the hast AST node)
+
+**remark-gfm@4.0.1 facts:**
+- Current version: 4.0.1 (confirmed via npm)
+- Adds tables, task list checkboxes, strikethrough, autolinks to react-markdown
+- Plans are authored with GFM (comrak on the Rust side renders GFM by default) — the client-side parser must match
+
+**Syntax highlighting:** Do NOT add `react-syntax-highlighter`. The project already has `highlight.js@11.11.1`. Use `rehype-highlight@7.0.2` instead — it integrates highlight.js into the rehype pipeline that react-markdown uses, with zero additional bundle weight for the highlight engine.
+
+**rehype-highlight@7.0.2 facts:**
+- Current version: 7.0.2 (confirmed via npm)
+- Peer dep: none beyond rehype ecosystem — no React version constraint
+- Works via `rehypePlugins={[rehypeHighlight]}` prop on `<Markdown>`
+- Requires importing the highlight.js theme CSS — project already loads highlight.js CSS for the existing view
+
+**Do NOT add** `rehype-sanitize` — react-markdown is safe by default (no dangerouslySetInnerHTML); sanitization is only needed if you pass `rehypePlugins={[rehypeRaw]}` to allow raw HTML passthrough, which this viewer does not need.
+
+**Installation:**
+```bash
+npm install react-markdown remark-gfm
+```
+(`rehype-highlight` is already a devDependency candidate but confirm it's in prod deps since it runs at render time)
+
+---
+
+### 2. @floating-ui/react — Comment Bubble Positioning
+
+**Add:** `@floating-ui/react@0.27.19`
+
+**Why:** The comment sidebar requires comment bubbles to float at the vertical position of their anchor text, with collision detection to prevent overlap at viewport boundaries. This is the core visual mechanism of the 3-column layout.
+
+Floating UI is the de facto standard for anchored positioning in the React ecosystem (replaces Popper.js). It solves exactly the problems this feature requires:
+- Anchor a floating element (comment bubble) to a reference element (the annotated paragraph or selection)
+- `autoUpdate` keeps the anchor valid during scroll and resize
+- `shift()` middleware prevents bubbles from clipping viewport edges
+- `offset()` middleware controls the gap between anchor and bubble
+
+**@floating-ui/react@0.27.19 facts:**
+- Current version: 0.27.19 (confirmed via npm)
+- React peer dependency: `>=17.0.0` — React 19.2.4 satisfies this (HIGH confidence)
+- No Tailwind conflicts; floating elements use inline `style` for positioning, not CSS classes
+
+**Alternative considered — custom absolute positioning:** For a fixed sidebar column, comment bubbles can be positioned with `position: absolute` using `getBoundingClientRect()` of the anchor paragraph and the scroll offset of the sidebar container. This is viable and avoids a dependency. However, it requires hand-rolling collision detection for the overlap/collapse behavior (COMMENT-03) and re-implementing `autoUpdate` scroll tracking. Floating UI eliminates this boilerplate and is well-tested.
+
+**Alternative considered — CSS Anchor Positioning API:** The native CSS `anchor()` function is emerging (supported in Chrome 125+) but has no Firefox/Safari support as of May 2026. Not viable for a tool targeting all browsers.
+
+**Installation:**
+```bash
+npm install @floating-ui/react
 ```
 
-**New artifacts required:**
-- A separate npm package (`packages/opencode-plugin/` in a monorepo, or a standalone repo)
-- The plugin registers a `submit_plan` tool via opencode SDK
-- On `submit_plan` invocation: shell out to `plan-reviewer` binary (path from env var or discovery), capture stdout JSON, return decision to opencode
-- `plan-reviewer install opencode` writes the plugin entry to opencode.json; `uninstall opencode` removes it
+---
 
-**No new Rust crates needed** for the install/uninstall side — this is string manipulation on a JSON file, identical in pattern to the existing Claude Code installer. The Rust side uses `serde_json` (already present) to read/write `opencode.json`.
+### 3. DO NOT ADD — @recogito/react-text-annotator
 
-### codestral Integration
+**Verdict: Reject.** Do not add this library.
 
-**Verdict: Codestral is a language model, not a coding agent. No hook integration is possible.**
+**Rationale:**
+The project already has a fully implemented `useTextSelection` hook that does exactly what Recogito's text annotator core provides: DOM selection capture, character-offset anchoring, CSS Custom Highlight API for persistent highlights, and range reconstruction after React reconciliation. This hook is battle-tested and its behavior is already covered by the existing annotation system.
 
-Codestral (by Mistral AI) is a code-generation LLM. It has no agent runtime, no settings file, no hook infrastructure. It is used as a backend model inside other tools (Continue.dev, LM Studio, Ollama, etc.). The relevant agentic product from Mistral is Devstral, but Devstral also has no published plan-approval hook system.
+Recogito adds:
+- Its own annotation data model (diverges from W3C Web Annotation spec by design; incompatible with the project's existing `Annotation` type)
+- Its own persistence layer
+- `<Annotorious>` context provider that would need to wrap the entire new component tree
+- A mandatory peer dependency on `openseadragon` (marked optional via `peerDependenciesMeta`, but still a noise warning during install)
 
-**Current stub in integration.rs is correct**: `supported: false`, reason "Codestral is a model, not a coding agent with hook infrastructure." This should remain. Do not implement codestral integration in v0.3.0 — it is architecturally impossible without a future hook system from Mistral.
+The new annotator (v0.6.0) requires custom behavior: 3 quick-action types (comment / delete / replace), predefined-action menus, and floating sidebar bubbles at anchor positions. Recogito's popup model (`TextAnnotationPopup`) renders adjacent to the selection — not in a detached sidebar column. Adapting it to the sidebar layout would require overriding its positioning model entirely, at which point the library provides no value over the existing hook.
 
-**No new crates or config formats to research.**
+**Keep `useTextSelection` and extend it** to return `anchorElementRef` (the paragraph element containing the selection) for use as a Floating UI reference.
 
-### Annotation Predefined Action Types — Frontend Only
+---
 
-**Verdict: Pure frontend change. No new npm packages needed.**
+### 4. DO NOT ADD — Scroll Sync Library
 
-The existing `AnnotationType` union (`'comment' | 'delete' | 'replace'`) needs a new member: `'action'` (or keep as the existing types and add a `predefinedAction` field). The predefined actions (clarify this, needs test, give me an example, out of scope, search internet, search codebase) are strings passed as the annotation comment field with a fixed label.
+**Verdict: Reject.** Use native scroll event listeners instead.
 
-**Recommended approach:** Add `predefinedAction` as an optional field on the existing `Annotation` interface, or add `'action'` as a new `AnnotationType`. The latter is cleaner since it gets its own display badge color and requires no free-text textarea.
+Scroll sync between the content pane and comment sidebar is a 10-line custom hook: listen to `scroll` on the content container ref, read `scrollTop`, set the same `scrollTop` on the sidebar container ref. No library needed. `scroll-sync-react` (the npm package found in search) has a small user base and no meaningful advantage over native scroll event coordination for a two-pane sync scenario.
 
-**No new libraries.** The existing React component model handles this as a new branch in the `getTypeBadgeLabel` / `getTypeColor` switches. The serialization to the Claude hook's `message` field (already in `hook.rs`) is a string — predefined actions are serialized the same way as comments.
+---
 
-**Frontend changes only:**
-- `types.ts`: extend `AnnotationType` or add `predefinedAction?: string` to `Annotation`
-- `AnnotationSidebar.tsx`: new card variant showing action button grid instead of textarea
-- `App.tsx`: add `onAddPredefinedAction` handler
-- No changes to `server.rs`, `hook.rs`, or any Rust code
+### 5. DO NOT ADD — Separate Intersection Observer Library
 
-### Theme Switcher — Frontend Only, No New Packages
+**Verdict: Reject for heading tracking.** Use native `IntersectionObserver` directly.
 
-**Verdict: Zero new npm packages. Tailwind CSS v4 already in the project supports class-based dark mode natively.**
+Active heading tracking for the outline panel (OUTLINE-01) requires observing `h1`–`h6` elements rendered by react-markdown. This is a standard `useEffect` + `IntersectionObserver` pattern requiring ~30 lines of custom hook code. `react-intersection-observer` (version 10.0.3, React 17–19 compatible) is a clean option but adds a dependency for functionality that is straightforward to implement natively.
 
-**Tailwind CSS v4 dark mode setup:**
+If the implementation becomes complex (scroll direction awareness, rootMargin tuning), add `react-intersection-observer@10.0.3` then. Do not preemptively add it.
 
-Add to `index.css`:
-```css
-@custom-variant dark (&:where(.dark, .dark *));
+---
+
+## Final Dependency Delta
+
+```bash
+# New production dependencies
+npm install react-markdown remark-gfm rehype-highlight @floating-ui/react
 ```
 
-This makes every `dark:*` utility active whenever a `.dark` class appears on any ancestor. Toggle it on `<html>` (or `<body>`).
+| Package | Version | Purpose | React 19 Compatible |
+|---------|---------|---------|---------------------|
+| react-markdown | 10.1.0 | Render markdown as React component tree | YES (peer: >=18) |
+| remark-gfm | 4.0.1 | GFM tables, task lists, strikethrough | YES (no React peer dep) |
+| rehype-highlight | 7.0.2 | Syntax highlighting via existing highlight.js | YES (no React peer dep) |
+| @floating-ui/react | 0.27.19 | Anchor comment bubbles to paragraph elements | YES (peer: >=17) |
 
-**Persistence via localStorage — no library needed:**
+**Do not add:** `@recogito/react-text-annotator`, `react-syntax-highlighter`, `rehype-sanitize`, `scroll-sync-react`, `react-intersection-observer`
+
+---
+
+## Integration Notes
+
+### react-markdown with existing highlight.js theme
+
+The existing view imports a highlight.js CSS theme. The new view should import the same theme to maintain visual consistency. `rehype-highlight` adds `language-*` classes to `<code>` elements; highlight.js CSS targets those classes automatically.
+
+### Floating UI anchor reference from useTextSelection
+
+The `useTextSelection` hook currently returns `[selectedText, reset, getOffsets]`. To use Floating UI for the annotation toolbar popup position, the hook should also expose (or the caller should derive) a `getBoundingClientRect` compatible reference. Floating UI's `useFloating` accepts a `reference` that is any element with a `getBoundingClientRect` method — the `containerRef` and stored offsets can produce a virtual element:
+
 ```ts
-// Read on load (in main.tsx, before React renders):
-const saved = localStorage.getItem('theme')
-const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-if (saved === 'dark' || (!saved && prefersDark)) {
-  document.documentElement.classList.add('dark')
-}
-
-// Toggle handler:
-function toggleTheme() {
-  const isDark = document.documentElement.classList.toggle('dark')
-  localStorage.setItem('theme', isDark ? 'dark' : 'light')
+const virtualElement = {
+  getBoundingClientRect: () => range.getBoundingClientRect()
 }
 ```
 
-**Existing CSS variable approach in index.css is already dark-only.** Implementing light mode means adding a second set of CSS custom properties scoped to `:root.light` (or `:root:not(.dark)`). The variables (`--color-bg`, `--color-surface`, `--color-text-primary`, etc.) already exist — add light-mode values.
+This keeps `useTextSelection` unchanged; the caller constructs the virtual reference from `currentRange` (already tracked internally).
 
-**No FOUC risk** because the theme class is set in `main.tsx` before the first React render paints. Since this is a single-page app served from a local HTTP server with no SSR, there is no server/client mismatch problem.
+### Comment bubble anchoring strategy
 
-**Frontend changes only:**
-- `index.css`: add `@custom-variant dark` line + light-mode color token overrides under `.light` (or `html:not(.dark)`)
-- `main.tsx`: add pre-render theme initialization
-- `App.tsx` or a new `ThemeToggle` component: button that calls `toggleTheme()`
-- No changes to any Rust code
+For sidebar comment bubbles floating at anchor text level, the reference element should be the paragraph `<p>` element containing the annotated text — not the text range itself. This gives stable positioning as the user types in a comment (the range may change, the paragraph does not). Floating UI `useFloating` with `strategy: 'absolute'` inside the sidebar's scroll container is the correct approach; this avoids viewport-relative fixed positioning issues when the sidebar scrolls.
 
----
+### Tailwind CSS compatibility
 
-## What NOT to Add
-
-| Avoid | Why |
-|-------|-----|
-| `next-themes` or any theme-management library | Zero-dependency approach works; the app has no SSR hydration problem |
-| `react-markdown` or `rehype-*` | Server-side markdown rendering already done by comrak; client-side redundant |
-| `prefers-color-scheme` media-query-only approach | Won't allow user override; localStorage toggle requires the class approach |
-| Any npm package for opencode plugin invocation of plan-reviewer binary | Use Node.js `child_process.spawnSync` in the plugin TS code; no extra dependency |
-| `toml` or `yaml` Rust crate | opencode config is JSON/JSONC; `serde_json` already handles it |
-
----
-
-## Integration Points — Config File Summary
-
-| Integration | Config File | Field | Format |
-|-------------|-------------|-------|--------|
-| Claude Code | `~/.claude/settings.json` | `hooks.PermissionRequest[]` | `{"matcher":"ExitPlanMode","hooks":[{"type":"command","command":"<binary>"}]}` |
-| opencode | `~/.config/opencode/opencode.json` (global) or `opencode.json` (project) | `plugin[]` | `"@plan-reviewer/opencode@latest"` (npm package name string) |
-| codestral | N/A — model, not agent | N/A | N/A — not implementable |
-
----
-
-## Version Compatibility
-
-All changes are additive to the existing stack. No version bumps required.
-
-| Change | Impact on Existing Deps |
-|--------|------------------------|
-| opencode JSON install/uninstall | None — uses `serde_json` already present |
-| Annotation predefined types | None — pure React/TS frontend change |
-| Dark mode | None — Tailwind CSS 4 already supports `@custom-variant dark` |
+All three new libraries produce zero Tailwind conflicts:
+- `react-markdown` renders standard HTML elements — style them with Tailwind utility classes via the `components` prop wrappers
+- `rehype-highlight` adds classes to `<code>` elements — does not conflict with Tailwind
+- `@floating-ui/react` uses inline `style` for positional properties — no class conflicts
 
 ---
 
 ## Sources
 
-- opencode config docs: https://opencode.ai/docs/config/ — confirmed `plugin[]` array format, `~/.config/opencode/opencode.json` global path
-- opencode plugins docs: https://opencode.ai/docs/plugins/ — confirmed TypeScript-only plugin system, no config-based command hooks for plan approval
-- opencode modes docs: https://opencode.ai/docs/modes/ — confirmed plan mode exists, no approval hook fires
-- plannotator opencode guide: https://plannotator.ai/docs/guides/opencode/ — confirmed `plugin: ["@plannotator/opencode@latest"]` pattern
-- open-plan-annotator GitHub: https://github.com/ndom91/open-plan-annotator — confirmed `submit_plan` tool registration pattern, plugin-based (not config hook)
-- opencode hooks issue: https://github.com/anomalyco/opencode/issues/1473 — confirmed maintainer chose plugin system over traditional hooks
-- Tailwind CSS v4 dark mode: https://tailwindcss.com/docs/dark-mode — confirmed `@custom-variant dark` syntax for class-based dark mode
-- KristjanPikhof/OpenCode-Hooks: https://github.com/KristjanPikhof/OpenCode-Hooks — confirmed available hook events (session.*, tool.*, file.changed); no plan approval hook
-- Codestral: https://mistral.ai/news/codestral — confirmed model product, no agent runtime or hook system
-
----
-*Stack research for: claude-plan-reviewer v0.3.0 (opencode/codestral hooks, annotation actions, theme switcher)*
-*Researched: 2026-04-10*
-
----
-
-# Stack Research — v0.5.0 Offline Resilience (APPENDED)
-
-**Researched:** 2026-05-05
-**Confidence:** HIGH — all claims verified against MDN specs and existing codebase
-
-## Scope
-
-New stack decisions needed for v0.5.0 only. Existing stack (axum 0.8, rust-embed 8, React 19, TypeScript 6, Vite 8, Vitest 4) is not re-researched. All four features (heartbeat polling, offline annotation mode, clipboard export, slash command resilience) are achievable with **zero new Cargo or npm dependencies**.
-
----
-
-## New Additions Required
-
-### 1. Axum: `/api/ping` Route (Rust)
-
-**What:** A GET handler returning `200 OK`. No state access. No body required.
-
-**Why:** The frontend needs a dedicated stateless endpoint to poll for liveness. Existing endpoints (`/api/plan`, `/api/diff`, `/api/decide`) are stateful or mutating — not suitable as a heartbeat target.
-
-**Implementation:** One handler function + one `.route()` call in `src/server.rs`. No new crate.
-
-```rust
-async fn get_ping() -> impl IntoResponse {
-    StatusCode::OK
-}
-// In start_server():
-.route("/api/ping", get(get_ping))
-```
-
-`StatusCode::OK` with no body costs one allocation saved versus a `Json` response. The frontend checks `res.ok` only.
-
-**Confidence:** HIGH — identical pattern to existing handlers; axum 0.8 is already in use.
-
----
-
-### 2. React: `useHeartbeat` Hook (Frontend)
-
-**What:** Custom React hook that polls `/api/ping` at a fixed interval and returns `isOnline: boolean`.
-
-**Why:** Encapsulates interval lifecycle and AbortController cleanup. Keeps `App.tsx` free of polling boilerplate. Testable in isolation with Vitest.
-
-**No new npm dependency.** Uses `useState`, `useEffect`, `useRef` — already used in `App.tsx`.
-
-**Verified design decisions:**
-
-- Do NOT use `navigator.onLine` / `window "online"/"offline"` events. These reflect the host machine's network adapter state, not the local process's liveness. The Rust binary can die while the machine stays online. Fetch-based polling is the only reliable signal.
-- `AbortController` is single-use — create a new instance per poll cycle. The cleanup function must call `controller.abort()` on unmount and on interval teardown to prevent state updates on an unmounted component.
-- `AbortError` must be caught and silently discarded — it signals cancellation, not server death.
-- `setInterval` inside `useEffect` with a `useRef` for the controller avoids stale closure issues.
-- 5-second poll interval: fast enough for the user to notice before they click "Submit"; light enough on loopback (< 1 KB per poll).
-
-**Sketch (full implementation in planning, not here):**
-```typescript
-// ui/src/hooks/useHeartbeat.ts
-export function useHeartbeat(intervalMs = 5000): boolean {
-  const [isOnline, setIsOnline] = useState(true)
-  const controllerRef = useRef<AbortController | null>(null)
-  useEffect(() => {
-    let mounted = true
-    async function ping() {
-      const controller = new AbortController()
-      controllerRef.current = controller
-      try {
-        const res = await fetch('/api/ping', { signal: controller.signal })
-        if (mounted) setIsOnline(res.ok)
-      } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return
-        if (mounted) setIsOnline(false)
-      }
-    }
-    ping()
-    const id = setInterval(ping, intervalMs)
-    return () => { mounted = false; clearInterval(id); controllerRef.current?.abort() }
-  }, [intervalMs])
-  return isOnline
-}
-```
-
-**Confidence:** HIGH — standard React hook pattern; no external library needed.
-
----
-
-### 3. React: Offline State Branching in `App.tsx`
-
-**What:** `isOnline` from `useHeartbeat` threads into the approve/deny handlers and action bar rendering.
-
-**Why:** Offline mode must be non-blocking — the user keeps annotating normally; only the submit path changes.
-
-**Design (no new `AppState` value needed):**
-
-- `isOnline` is a parallel boolean, not a new `AppState` variant.
-- Action bar shows a non-blocking banner when `!isOnline` (e.g. amber strip: "Server disconnected — submit will copy to clipboard").
-- `approve()` and `deny()` gain an `isOnline` branch:
-  - Online: existing `fetch('/api/decide', ...)` path — unchanged.
-  - Offline: `copyToClipboard(serializedPayload)` → transition to `confirmed` state.
-- After a successful clipboard copy, the app sets `appState = 'confirmed'` as normal. The user pastes into Claude manually via the updated `annotate.md` Step 4.
-
-**No new React primitives.** Uses existing `useState`, `useCallback`, `useEffect`.
-
-**Confidence:** HIGH.
-
----
-
-### 4. Browser API: `navigator.clipboard.writeText()`
-
-**What:** Copy the serialized annotation payload to clipboard when the submit path is offline.
-
-**Secure context — verified HIGH confidence:**
-The app is served from `http://127.0.0.1:<port>`. Per MDN's [Secure Contexts spec](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts), `http://127.0.0.1` and `http://localhost` are "potentially trustworthy origins" treated as secure contexts by all modern browsers. `window.isSecureContext` evaluates to `true` on this origin. Firefox 84+ explicitly documents this; Chrome/Safari have done so since 2018.
-
-**`navigator.clipboard.writeText()` is therefore available on the loopback origin with no HTTPS setup needed.** No polyfill required.
-
-**Requirements verified:**
-- Must be called from a user gesture (button click). Satisfied: user clicks "Submit" / "Copy to clipboard".
-- Returns a Promise — must be awaited; errors caught and surfaced to the user (e.g., "Copy failed — paste this manually: ...").
-- `navigator.clipboard` is `undefined` only if `window.isSecureContext` is `false`, which will not happen on 127.0.0.1. The `execCommand('copy')` fallback below guards the hypothetical case.
-
-**Clipboard utility function (no library):**
-```typescript
-// ui/src/utils/clipboard.ts
-export async function copyToClipboard(text: string): Promise<boolean> {
-  if (navigator.clipboard?.writeText) {
-    try { await navigator.clipboard.writeText(text); return true }
-    catch { /* fall through */ }
-  }
-  // execCommand fallback — deprecated but functional; only reached if Clipboard API absent
-  try {
-    const ta = document.createElement('textarea')
-    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'
-    document.body.appendChild(ta); ta.focus(); ta.select()
-    const ok = document.execCommand('copy')
-    document.body.removeChild(ta)
-    return ok
-  } catch { return false }
-}
-```
-
-**Do NOT make `execCommand('copy')` the primary path.** It is deprecated; browsers may remove it. The Clipboard API is the primary path.
-
-**Serialization reuse:** `serializeAnnotations()` in `ui/src/utils/serializeAnnotations.ts` already produces the annotation string. The offline clipboard path calls the same function — no change to the serialization logic.
-
-**Confidence:** HIGH — MDN spec confirmed; Clipboard API is Baseline Widely Available since March 2020.
-
----
-
-### 5. Slash Command: `annotate.md` Text Update
-
-**What:** Update the embedded `annotate.md` template (in `src/integrations/claude.rs` or equivalent) — specifically Step 4 — to instruct Claude to accept pasted clipboard JSON as an alternative to reading stdout.
-
-**Why:** When the Rust binary is killed by Claude Code's timeout before the user submits, no stdout result arrives. The clipboard export gives the user the payload; the prompt must tell Claude to accept it pasted into the conversation instead.
-
-**Implementation:** Text-only string change in Rust source. No new crate, no new file format.
-
-**Confidence:** HIGH — this is a copy change.
-
----
-
-## What NOT to Add
-
-| Candidate | Why Rejected |
-|-----------|--------------|
-| `react-use` / `ahooks` (polling hooks) | 30-line custom hook is the right size; no library warranted |
-| `tokio-tungstenite` (WebSocket) | Overkill for liveness detection; complicates existing graceful shutdown |
-| Service Worker / Background Sync | Assets are embedded in binary — no offline caching needed |
-| `navigator.onLine` events alone | Detects host network, not local process death; wrong signal |
-| `react-query` / `swr` | No other data-fetching use cases justify these; overkill |
-| `execCommand('copy')` as primary path | Deprecated; not needed on 127.0.0.1 loopback origin |
-
----
-
-## Integration Points with Existing Stack
-
-| Existing File | Touch Point | Change Type |
-|---------------|-------------|-------------|
-| `src/server.rs` | Add `/api/ping` GET route | +5 lines (handler + `.route()`) |
-| `ui/src/App.tsx` | Call `useHeartbeat()`; branch approve/deny on `isOnline` | State threading; existing imports |
-| `ui/src/hooks/` | Add `useHeartbeat.ts` | New file; same pattern as `useTextSelection.ts` |
-| `ui/src/utils/` | Add `clipboard.ts` | New utility file |
-| `ui/src/utils/serializeAnnotations.ts` | Reused as-is | No change |
-| `src/integrations/claude.rs` | Update `annotate.md` template string | Text change only |
-
----
-
-## Dependency Block (No Changes for v0.5.0)
-
-No new Cargo or npm dependencies. Existing stack is fully sufficient:
-
-- **axum 0.8** — handles the new `/api/ping` route
-- **React 19 + TypeScript 6** — `useEffect`, `useRef`, `useState`, `fetch`, `AbortController`, `navigator.clipboard` all built-in
-- **Vitest 4** — tests the new `useHeartbeat` hook and `clipboard.ts` utility
-
----
-
-## Sources (v0.5.0 section)
-
-- MDN Clipboard API: https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API
-- MDN Clipboard.writeText(): https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/writeText
-- MDN Secure Contexts (localhost as trustworthy origin): https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts
-- axum docs (0.8): https://docs.rs/axum/latest/axum/
-- React useEffect + AbortController cleanup: https://blog.logrocket.com/understanding-react-useeffect-cleanup-function/
-- navigator.onLine unreliability for local server detection: https://dev.to/safal_bhandari/detecting-online-and-offline-status-in-react-1i6o
-
----
-*v0.5.0 Offline Resilience section appended: 2026-05-05*
+- react-markdown npm (version confirmed via `npm info`): https://www.npmjs.com/package/react-markdown
+- react-markdown GitHub: https://github.com/remarkjs/react-markdown
+- remark-gfm npm (version confirmed): https://www.npmjs.com/package/remark-gfm
+- rehype-highlight npm (version confirmed): https://www.npmjs.com/package/rehype-highlight
+- @floating-ui/react npm (version confirmed): https://floating-ui.com/docs/react
+- @recogito/react-text-annotator npm (evaluated and rejected): https://www.npmjs.com/package/@recogito/react-text-annotator
+- recogito/text-annotator-js GitHub (latest release 3.4.0 Apr 30 2026): https://github.com/recogito/text-annotator-js
+- react-intersection-observer npm (evaluated, not added): https://www.npmjs.com/package/react-intersection-observer

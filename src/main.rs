@@ -716,7 +716,7 @@ async fn async_main(
             }
         };
 
-    let url = format!("http://127.0.0.1:{}", port);
+    let url = format!("http://127.0.0.1:{}/", port);
 
     // Always print URL to stderr (UI-06)
     eprintln!("Review UI: {}", url);

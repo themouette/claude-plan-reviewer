@@ -44,7 +44,7 @@ stdout (Claude Code)   ← serde_json::to_string of hookSpecificOutput
 src/
 ├── main.rs          # CLI parse (clap), dispatch, extract_diff (git2), run_hook_flow
 ├── hook.rs          # HookInput / HookOutput serde structs (stdin/stdout protocol)
-├── server.rs        # axum HTTP server, rust-embed Assets, oneshot channel, AppState
+├── server.rs        # axum HTTP server, rust-embed Assets, oneshot decision channel, AppState
 ├── integration.rs   # IntegrationSlug enum, per-integration definitions, Claude helpers, TUI picker
 ├── install.rs       # run_install + install_claude (Claude only; others stubbed)
 ├── uninstall.rs     # run_uninstall + uninstall_claude (Claude only; others stubbed)
@@ -543,7 +543,7 @@ The relevant concerns are binary size and startup latency — unchanged from v0.
 - OpenCode vs Claude Code hooks comparison: https://gist.github.com/zeke/1e0ba44eaddb16afa6edc91fec778935
   (LOW confidence — community gist)
 - mistral-vibe README: https://github.com/mistralai/mistral-vibe/blob/main/README.md (MEDIUM confidence)
-- [Tokio oneshot channel docs](https://docs.rs/tokio/latest/tokio/sync/oneshot/index.html)
+- [Tokio oneshot channel docs](https://docs.rs/tokio/latest/tokio/sync/tokio/sync/oneshot/index.html)
 - [axum-embed crate](https://crates.io/crates/axum-embed)
 - [rust-embed](https://github.com/pyros2097/rust-embed)
 
@@ -877,3 +877,331 @@ If the background process is killed before stdout is written, empty stdout looks
 - `ui/src/utils/serializeAnnotations.ts` — serialization output format (direct inspection, HIGH confidence)
 - MDN Clipboard API: https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/writeText
 - MDN AbortController: https://developer.mozilla.org/en-US/docs/Web/API/AbortController
+
+---
+
+---
+
+# v0.6.0 Markdown Annotator v2 — Integration Architecture
+
+**Added:** 2026-05-19
+**Confidence:** HIGH — derived from direct codebase inspection of all referenced files
+
+---
+
+## Existing Architecture Snapshot
+
+The SPA is a single entry point: `main.tsx` renders `<App>` into `#root`. `App.tsx`
+is a 1,570-line monolith that owns all reviewer state and logic. The Rust server
+(`server.rs`) serves all `ui/dist/` via `rust-embed` + `axum-embed` with
+`FallbackBehavior::Ok`, which means **any unknown path returns `index.html`**. This
+enables client-side routing at zero cost — no Rust changes are needed to add a second
+URL path.
+
+---
+
+## Routing to the New Reviewer
+
+Use `window.location.pathname` for routing — no React Router dependency.
+
+The server's `FallbackBehavior::Ok` already handles this: a request to `/v2` returns
+`index.html`, and the React app reads `window.location.pathname` to decide which
+component to mount.
+
+```
+/        → existing App (status quo, untouched)
+/v2      → AnnotatorV2 (new 3-column reviewer)
+```
+
+`main.tsx` becomes a pathname switch with no new dependencies:
+
+```tsx
+// ui/src/main.tsx (modified)
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App'
+import { AnnotatorV2 } from './reviewer-v2/AnnotatorV2'
+
+const isV2 = window.location.pathname.startsWith('/v2')
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    {isV2 ? <AnnotatorV2 /> : <App />}
+  </StrictMode>,
+)
+```
+
+The Rust binary opens the browser at `http://127.0.0.1:{port}/v2` for the new flow.
+No Rust changes are required to support the `/v2` path. When the old reviewer is
+deleted, `main.tsx` collapses back to a direct render of `<AnnotatorV2>`.
+
+---
+
+## Directory Layout
+
+All new code lives under `ui/src/reviewer-v2/`. The coupling constraint (existing view
+never imports from this directory) is enforced at the filesystem level.
+
+```
+ui/src/
+  App.tsx                            (existing — not touched this milestone)
+  types.ts                           (shared wire-format types — imported by v2)
+  main.tsx                           (modified: pathname switch)
+  hooks/
+    useTextSelection.ts              (shared — v2 imports useTextSelection + rangeFromOffsets)
+    useHeartbeat.ts                  (shared — v2 imports useHeartbeat)
+  utils/
+    serializeAnnotations.ts          (shared — v2 imports serializeAnnotations)
+    offlineLabels.ts                 (shared — v2 imports buildClipboardPayload, shouldUseClipboard)
+    connectivity.ts                  (shared — ConnectivityStatus type)
+  reviewer-v2/
+    AnnotatorV2.tsx                  (root — owns all state, orchestrates three panes)
+    types.ts                         (v2-specific: Section, CommentPosition)
+    hooks/
+      useMarkdownRenderer.ts         (fetch /api/plan + marked.parse → { html, raw })
+      useAnnotationStore.ts          (annotation CRUD + offsetMap — isolated from App)
+      useHeadingTracker.ts           (IntersectionObserver active section tracking)
+      useCommentLayout.ts            (overlap algorithm — returns positions as data)
+    components/
+      OutlinePane.tsx                (left column — heading tree, active section, badges)
+      ContentPane.tsx                (center column — HTML, hover, text selection)
+      CommentPane.tsx                (right column — floating bubbles, scroll sync)
+      CommentBubble.tsx              (individual card: badge, anchor quote, textarea)
+      SelectionToolbar.tsx           (quick-action pills + expandable menu)
+      SubmitBar.tsx                  (approve / ask-for-changes + validation)
+      OfflineBanner.tsx              (static amber banner — extracted, no logic delta)
+```
+
+---
+
+## Component Boundaries
+
+| Component | Responsibility | Receives | Emits |
+|-----------|---------------|----------|-------|
+| `AnnotatorV2` | State machine, data fetch, orchestration | nothing | all downward props |
+| `OutlinePane` | Heading tree, active section, click-scroll, badge counts | `sections[]`, `activeId`, `annotationCounts` | `onSectionClick(id)` |
+| `ContentPane` | Markdown HTML render, paragraph hover, text selection, CSS Highlight API marks | `html`, `annotations`, `offsetMap`, `hoveredCommentId` | `onTextSelect(anchorText, offsets)`, `onParagraphHover(charOffset)`, `onSelectionDismiss()` |
+| `CommentPane` | Scroll sync with content; positions bubbles per overlap algorithm | `annotations`, `offsetMap`, `contentScrollTop`, `contentScrollHeight`, `focusedCommentId` | `onCommentUpdate`, `onCommentRemove`, `onCommentFocus` |
+| `CommentBubble` | Single annotation card (type badge, anchor quote, textarea/replace field) | `annotation`, `placedY`, `isFocused`, `isHovered` | `onUpdate`, `onRemove`, `onHover`, `onLeave` |
+| `SelectionToolbar` | Quick-action pills + expandable menu | `top`, `left`, `selectedText` | `onAction(type, anchorText, prefill?)` |
+| `SubmitBar` | Approve / ask-for-changes buttons + validation gates | `annotations[]`, `connectivity`, `approveLabel`, `denyLabel` | `onApprove()`, `onAskForChanges(message)` |
+| `OfflineBanner` | Static amber banner | `connectivity` | nothing |
+
+---
+
+## Shared vs. Isolated Code
+
+### Import from existing code (allowed — these are pure utilities)
+
+| Module | What to import | Why safe |
+|--------|---------------|----------|
+| `src/hooks/useTextSelection.ts` | `useTextSelection`, `rangeFromOffsets` | Pure DOM utility, no App coupling |
+| `src/hooks/useHeartbeat.ts` | `useHeartbeat` | Pure polling hook, no App coupling |
+| `src/utils/serializeAnnotations.ts` | `serializeAnnotations` | Output format must be identical |
+| `src/utils/offlineLabels.ts` | `buildClipboardPayload`, `shouldUseClipboard`, label constants | Pure functions |
+| `src/utils/connectivity.ts` | `ConnectivityStatus` type | Type only |
+| `src/types.ts` | `Annotation`, `AnnotationType` | Wire format is shared with Rust |
+
+### Do NOT import from `App.tsx` or its inline sub-components
+
+`App.tsx` contains `FloatingAnnotationAffordance`, `PageHeader`, `PlanViewToggle`, and
+the layout algorithm as inline functions. These will be deleted when the old reviewer
+is removed. None of them should be re-used by v2.
+
+### New v2-specific types (`reviewer-v2/types.ts`)
+
+```ts
+export interface Section {
+  id: string
+  level: 1 | 2 | 3
+  text: string
+  charOffset: number   // absolute char offset within contentRef — baked in for comment bucketing
+}
+
+export interface CommentPosition {
+  annotationId: string
+  desiredY: number     // derived from anchor range.getBoundingClientRect
+  placedY: number      // after overlap resolution (greedy forward-pass)
+}
+```
+
+`Section` makes `charOffset` a first-class field. The existing code stores this
+separately in `headingCharOffsetsRef` — v2 eliminates that separate ref.
+
+---
+
+## Data Flow
+
+```
+AnnotatorV2
+  ├── fetch /api/plan  → planMd → marked.parse() → planHtml
+  │     └── ContentPane receives planHtml
+  │           └── useLayoutEffect: extract headings → Section[] → OutlinePane
+  ├── fetch /api/config → approveLabel, denyLabel → SubmitBar
+  ├── useHeartbeat()   → connectivity → OfflineBanner, SubmitBar
+  ├── useAnnotationStore()
+  │     → { annotations, offsets, add, remove, update }
+  │     ├── ContentPane: CSS Highlight API marks rebuilt on [annotations, planHtml]
+  │     ├── CommentPane: bubbles positioned via offsets
+  │     └── SubmitBar: validates (no approve with comments; no ask without comments)
+  ├── useHeadingTracker(contentRef, sections) → activeHeadingId → OutlinePane
+  ├── useCommentLayout(annotations, offsets, contentRef, scrollTop) → Map<id, placedY> → CommentPane
+  ├── contentScrollTop: number (state, updated by ContentPane onScroll)
+  └── useTextSelection(contentRef) → selectedText, offsets → SelectionToolbar position
+```
+
+---
+
+## Key Implementation Patterns
+
+### Pattern 1: IntersectionObserver for Active Section
+
+Replace the scroll-event `el.offsetTop` polling in the existing code with
+`IntersectionObserver`. It fires without polling, respects the scroll container, and
+eliminates the `eslint-disable` workarounds in the existing implementation.
+
+```ts
+// reviewer-v2/hooks/useHeadingTracker.ts
+const observer = new IntersectionObserver(
+  (entries) => {
+    const visible = entries
+      .filter((e) => e.isIntersecting)
+      .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+    if (visible.length > 0) setActiveId(visible[0].target.id)
+  },
+  {
+    root: containerRef.current,
+    rootMargin: '-10% 0px -80% 0px',
+    threshold: 0,
+  }
+)
+```
+
+### Pattern 2: useCommentLayout Returns Data, Not DOM Mutations
+
+Extract `computeAndApplyLayout` from `App.tsx` into a hook that returns computed
+positions as a `Map<annotationId, placedY>` instead of imperatively calling
+`wrapper.style.top = ...`. The caller applies positions as inline `top` props.
+This eliminates the split responsibility between React and manual DOM writes that
+the existing code's `eslint-disable react-hooks/exhaustive-deps` comments flag.
+
+Height estimates to preserve from existing code:
+- `delete` annotation: `100px`
+- `comment` / `replace` annotation: `212px`
+- gap between cards: `8px`
+
+### Pattern 3: Scroll Synchronization via Numeric scrollTop Prop
+
+Content column `onScroll` updates `contentScrollTop` state in `AnnotatorV2`.
+`CommentPane` receives it as a prop and applies it to its inner scroll container via a
+`useLayoutEffect` + ref, matching the existing `[data-cards-scroll]` pattern but with
+React owning all DOM writes.
+
+Do NOT pass the scroll container ref across the boundary — pass the numeric value.
+This avoids the `annotationsRef` stale-closure workaround documented with
+`eslint-disable` in `App.tsx`.
+
+### Pattern 4: Paragraph Hit-Testing via data-attributes
+
+Add `data-para-start` / `data-para-end` character offset attributes to block elements
+after heading extraction. `onMouseMove` handler then uses
+`e.target.closest('[data-para-start]')` instead of `caretRangeFromPoint` on every
+pointer event. Faster, cross-browser, and no compatibility shim needed.
+
+### Pattern 5: CSS Highlight API for All Annotation Marks
+
+Identical to the existing implementation — rebuild highlights in `useLayoutEffect`
+keyed on `[annotations, planHtml]`. Import `rangeFromOffsets` directly from the
+existing `useTextSelection.ts`. No duplication.
+
+---
+
+## Build Order for Phases
+
+Dependencies flow strictly downward. Build in this order to ensure each phase is
+independently testable before the next.
+
+| Phase | What to build | Depends on | Test gate |
+|-------|---------------|-----------|-----------|
+| 1 | `main.tsx` pathname switch; `reviewer-v2/types.ts`; `useAnnotationStore`; `useMarkdownRenderer` | nothing | `useAnnotationStore` unit tests pass; `/v2` loads without error |
+| 2 | `ContentPane` (markdown render, heading extraction producing `Section[]`, `useTextSelection` integration, `SelectionToolbar`) | Phase 1 | Text selection fires correct offsets; headings extracted with correct ids and charOffsets |
+| 3 | `OutlinePane`; `useHeadingTracker` with IntersectionObserver | Phase 2 (needs `Section[]` from ContentPane) | Clicking a section scrolls ContentPane; active section updates on scroll |
+| 4 | `useCommentLayout` hook (pure function, testable without DOM); `CommentPane`; `CommentBubble` | Phase 1 (needs annotation store) | Overlap resolution positions cards correctly; scroll sync tracks ContentPane |
+| 5 | Cross-column hover interactions (comment → text, text → comment); CSS Highlight API marks for all annotation types | Phases 2 + 4 | Hovering a bubble highlights anchor text; hovering anchor text highlights bubble |
+| 6 | `SubmitBar` with approve/ask-for-changes validation, clipboard fallback, offline resilience wiring | Phases 1 + 4 | No approve when annotations exist; no ask-for-changes without annotation; clipboard path works offline |
+| 7 | Regression test suite for existing `App.tsx` annotation flow | Any order | Vitest tests pass with no regressions from `main.tsx` routing change |
+
+---
+
+## Anti-Patterns to Avoid (v0.6.0 specific)
+
+### Context Provider to Avoid Prop Drilling
+
+The component tree is shallow (root → three direct pane children). A context wrapping
+the entire v2 subtree forces all consumers to re-render on any state change. Props are
+the right mechanism for three components at one level of depth.
+
+### Storing Live Range Objects Across React Reconciliation
+
+React reconciliation replaces DOM nodes, collapsing live `Range` objects. Store
+`{ start: number, end: number }` character offsets and reconstruct ranges on demand
+via `rangeFromOffsets`. This pattern is proven in the existing `annotationOffsetsRef`
+implementation.
+
+### Coupling Scroll Sync to Imperative DOM Mutation
+
+Calling `wrapper.style.top = ...` inside scroll event handlers splits responsibility
+between React and manual DOM writes. The existing code carries `eslint-disable`
+comments as a smell. In v2, `useCommentLayout` returns data; `CommentPane` renders it.
+
+### Sharing Annotation State via Module-Level Mutable Refs
+
+Exporting `annotationOffsetsRef` or any mutable ref from a module breaks the isolation
+boundary. `useAnnotationStore` is a custom hook that returns a self-contained bundle
+scoped to the component instance.
+
+### Re-implementing serializeAnnotations or buildClipboardPayload
+
+The JSON output format must remain byte-identical to the server path and the existing
+annotation flow. Import from the existing utilities — do not duplicate.
+
+---
+
+## File Change Table (v0.6.0)
+
+| File | Action | Notes |
+|------|--------|-------|
+| `ui/src/main.tsx` | Modify | Add pathname switch; import AnnotatorV2 |
+| `ui/src/reviewer-v2/AnnotatorV2.tsx` | New | Root component, all orchestration |
+| `ui/src/reviewer-v2/types.ts` | New | Section, CommentPosition |
+| `ui/src/reviewer-v2/hooks/useMarkdownRenderer.ts` | New | Fetch + parse |
+| `ui/src/reviewer-v2/hooks/useAnnotationStore.ts` | New | CRUD + offsets |
+| `ui/src/reviewer-v2/hooks/useHeadingTracker.ts` | New | IntersectionObserver |
+| `ui/src/reviewer-v2/hooks/useCommentLayout.ts` | New | Greedy layout, returns Map |
+| `ui/src/reviewer-v2/components/OutlinePane.tsx` | New | Left column |
+| `ui/src/reviewer-v2/components/ContentPane.tsx` | New | Center column |
+| `ui/src/reviewer-v2/components/CommentPane.tsx` | New | Right column |
+| `ui/src/reviewer-v2/components/CommentBubble.tsx` | New | Single card |
+| `ui/src/reviewer-v2/components/SelectionToolbar.tsx` | New | Quick-action pills |
+| `ui/src/reviewer-v2/components/SubmitBar.tsx` | New | Approve / ask-for-changes |
+| `ui/src/reviewer-v2/components/OfflineBanner.tsx` | New | Static banner |
+| `ui/src/App.tsx` | No change | Existing reviewer untouched |
+| `ui/src/types.ts` | No change | Annotation, AnnotationType reused |
+| `ui/src/hooks/useTextSelection.ts` | No change | Imported by v2, not modified |
+| `ui/src/hooks/useHeartbeat.ts` | No change | Imported by v2, not modified |
+| `ui/src/utils/serializeAnnotations.ts` | No change | Imported by v2, not modified |
+| `ui/src/utils/offlineLabels.ts` | No change | Imported by v2, not modified |
+| `src/*.rs` | No change | FallbackBehavior::Ok already handles /v2 |
+
+---
+
+## Sources (v0.6.0 section)
+
+- `ui/src/App.tsx` — existing layout algorithm, state structure, hooks usage (direct inspection, HIGH confidence)
+- `ui/src/hooks/useTextSelection.ts` — offset-based Range pattern, rangeFromOffsets (direct inspection, HIGH confidence)
+- `ui/src/components/AnnotationSidebar.tsx` — existing card layout and scroll sync pattern (direct inspection, HIGH confidence)
+- `ui/src/components/PlanOutline.tsx` — existing outline component and badge pattern (direct inspection, HIGH confidence)
+- `src/server.rs` — FallbackBehavior::Ok enables client-side routing at any path (direct inspection, HIGH confidence)
+- MDN IntersectionObserver API — native browser API, no library required (HIGH confidence)
+- CSS Custom Highlight API — existing code proves browser support in target env (HIGH confidence)

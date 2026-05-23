@@ -212,6 +212,16 @@ body {
   background-color: rgba(255, 255, 255, 0.14);
 }
 
+/* Comment hover — highlights anchor text in plan when hovering a comment bubble */
+::highlight(comment-hover) {
+  background-color: rgba(255, 255, 255, 0.14);
+  color: inherit;
+}
+[data-theme="light"] ::highlight(comment-hover) {
+  background-color: rgba(0, 0, 0, 0.08);
+  color: inherit;
+}
+
 /* Prevent hljs theme background from overriding design-system pre background */
 .plan-prose pre code.hljs {
   background: none;
@@ -224,4 +234,39 @@ details > summary {
 }
 details > summary::-webkit-details-marker {
   display: none;
+}
+
+/* Phase 19: OutlinePane button — CSS-driven hover/focus replaces imperative style mutation */
+.outline-button:not([aria-current="true"]):hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="light"] .outline-button:not([aria-current="true"]):hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.outline-button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Phase 18: paragraph hover overlay — absolutely-positioned sibling, React-managed */
+.paragraph-hover-overlay {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="light"] .paragraph-hover-overlay {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Phase 21: CommentBubble edit/delete icon buttons — transition on hover */
+.bubble-icon-btn {
+  transition: color 0.1s ease;
+}
+
+/* Phase 22: SubmitControls button transitions */
+.submit-btn {
+  transition: background 0.1s ease, opacity 0.1s ease;
 }

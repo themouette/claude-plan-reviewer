@@ -20,4 +20,22 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    files: ['src/reviewer-v2/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['../**'],
+              message:
+                'reviewer-v2/ files must not import from outside the subtree. ' +
+                'Copy the utility into reviewer-v2/utils/ or reviewer-v2/hooks/.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ])
