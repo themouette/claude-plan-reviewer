@@ -169,7 +169,7 @@ Structure per entry:
 ```
 
 - Minimum height: 28px
-- Padding: `6px 16px` (matches OutlinePane button padding pattern)
+- Padding: `8px 16px`
 - Font: 14px, weight 400
 - Color: `var(--color-text-secondary)` (inactive), `var(--color-text-primary)` (active)
 - Background: `transparent` (inactive), `var(--color-bg)` (active — same as OutlinePane active uses `--color-surface`)
@@ -238,7 +238,7 @@ When the diff API returns a non-2xx response or network error:
 - Container: same as empty state
 - Heading color: `var(--color-accent-deny)` (#ef4444 / #dc2626)
 - Body color: `var(--color-text-secondary)`
-- Retry link: `<button>Reload</button>` — 32px height, `border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-secondary); padding: 0 16px; border-radius: 6px; font-size: 14px; margin-top: 16px`
+- Retry button: `<button>Reload Diff</button>` — 32px height, `border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-secondary); padding: 0 16px; border-radius: 6px; font-size: 14px; margin-top: 16px`
 
 ### Diff Content
 
@@ -321,7 +321,7 @@ All interactive elements (file list buttons, toolbar buttons) use:
 | Empty state body | "This branch has no uncommitted or unpushed changes compared to main." |
 | Error state heading | "Could not load diff" |
 | Error state body | "The server returned an error. Check that the repository has a main branch and try reloading." |
-| Error retry button | "Reload" |
+| Error retry button | "Reload Diff" |
 | File list scroll-to tooltip | "{full/relative/path.ts}" |
 | Renamed file tooltip | "{old/path.ts} → {new/path.ts}" |
 
