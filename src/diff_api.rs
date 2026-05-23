@@ -35,27 +35,29 @@ pub struct CodeReviewState {
 // --- Base branch detection ---
 
 /// Find the merge base candidate commit for the current branch.
+///
 /// Resolution order per D-07:
-///   1. refs/remotes/origin/HEAD (symbolic ref, resolved to direct ref)
-///   2. "main", "origin/main", "master", "origin/master" (revparse_single)
+///
+/// 1. refs/remotes/origin/HEAD (symbolic ref, resolved to direct ref)
+/// 2. "main", "origin/main", "master", "origin/master" (revparse_single)
+///
 /// Returns None if no base branch can be resolved (D-07 — empty array, not error).
 pub fn find_base_commit(repo: &git2::Repository) -> Option<git2::Oid> {
-    // Step 1: refs/remotes/origin/HEAD symbolic ref
-    if let Ok(origin_head) = repo.find_reference("refs/remotes/origin/HEAD") {
-        if let Ok(resolved) = origin_head.resolve() {
-            if let Some(oid) = resolved.target() {
-                return Some(oid);
-            }
-        }
+    // Step 1: refs/remotes/origin/HEAD symbolic ref (Pitfall 4 — resolve before target)
+    if let Ok(origin_head) = repo.find_reference("refs/remotes/origin/HEAD")
+        && let Ok(resolved) = origin_head.resolve()
+        && let Some(oid) = resolved.target()
+    {
+        return Some(oid);
     }
 
     // Steps 2-5: fallback candidates
     let candidates = ["main", "origin/main", "master", "origin/master"];
     for candidate in &candidates {
-        if let Ok(obj) = repo.revparse_single(candidate) {
-            if let Some(commit_oid) = obj.peel_to_commit().ok().map(|c| c.id()) {
-                return Some(commit_oid);
-            }
+        if let Ok(obj) = repo.revparse_single(candidate)
+            && let Some(commit_oid) = obj.peel_to_commit().ok().map(|c| c.id())
+        {
+            return Some(commit_oid);
         }
     }
 
@@ -93,7 +95,9 @@ fn commit_to_dto(c: &git2::Commit) -> Commit {
 // --- Per-file diff extraction ---
 
 fn build_file_diffs(diff: &git2::Diff) -> Vec<FileDiff> {
-    let num_deltas = diff.num_deltas();
+    // Use .len() on Deltas (ExactSizeIterator) to avoid consuming the iterator.
+    // Do NOT call .deltas().count() — that exhausts the iterator (Pitfall 1).
+    let num_deltas = diff.deltas().len();
     let mut file_diffs = Vec::with_capacity(num_deltas);
 
     for i in 0..num_deltas {
@@ -128,10 +132,8 @@ fn build_file_diffs(diff: &git2::Diff) -> Vec<FileDiff> {
 
         match git2::Patch::from_diff(diff, i) {
             Ok(Some(mut patch)) => {
-                let (_, additions, deletions) = match patch.line_stats() {
-                    Ok(stats) => stats,
-                    Err(_) => (0, 0, 0),
-                };
+                let (_, additions, deletions): (usize, usize, usize) =
+                    patch.line_stats().unwrap_or_default();
                 let patch_text = match patch.to_buf() {
                     Ok(buf) => String::from_utf8_lossy(&buf).into_owned(),
                     Err(_) => String::new(),
@@ -215,7 +217,8 @@ fn try_list_commits(repo_path: &std::path::Path) -> Option<Vec<Commit>> {
         .and_then(|base_candidate| repo.merge_base(head_oid, base_candidate).ok());
 
     let mut walk = repo.revwalk().ok()?;
-    walk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME).ok()?;
+    walk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)
+        .ok()?;
     walk.push_head().ok()?;
 
     // Pitfall 3 — hide must be called before iteration
