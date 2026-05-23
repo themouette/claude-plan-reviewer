@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.7.0
 milestone_name: Code Review
-status: executing
-stopped_at: Phase 24 context gathered
-last_updated: "2026-05-23T11:57:42.958Z"
+status: ready_to_plan
+stopped_at: Phase 24 complete (2/2) — ready to discuss Phase 25
+last_updated: 2026-05-23T20:27:29.821Z
 last_activity: 2026-05-23 -- Phase 24 execution started
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 2
-  completed_plans: 0
+  completed_plans: 57
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 24 — backend-diff-api
+**Current focus:** Phase 25 — diff viewer ui
 
 ## Current Position
 
-Phase: 24 (backend-diff-api) — EXECUTING
-Plan: 1 of 2
-Status: Executing Phase 24
-Last activity: 2026-05-23 -- Phase 24 execution started
+Phase: 25
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-05-23
 
 ## Performance Metrics
 

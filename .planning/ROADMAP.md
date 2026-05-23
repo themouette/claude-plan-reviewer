@@ -767,7 +767,7 @@ Plans:
 | 21. Comment Actions | v0.6.0 | 7/7 | Complete   | 2026-05-22 |
 | 22. Submit & Clipboard | v0.6.0 | 3/4 | Complete    | 2026-05-22 |
 | 23. Replace v1 with v2 | v0.6.0 | 1/1 | Complete    | 2026-05-22 |
-| 24. Backend Diff API | v0.7.0 | 2/2 | Complete   | 2026-05-23 |
+| 24. Backend Diff API | v0.7.0 | 2/2 | Complete    | 2026-05-23 |
 | 25. Diff Viewer UI | v0.7.0 | 0/3 | Not started | - |
 | 26. Commit Navigation | v0.7.0 | 0/2 | Not started | - |
 | 27. Inline Comments | v0.7.0 | 0/3 | Not started | - |
