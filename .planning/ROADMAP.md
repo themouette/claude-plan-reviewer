@@ -622,8 +622,13 @@ Plans:
 **Plans:** 0/2 plans
 Plans:
 
-- [ ] 24-01-PLAN.md — git2 diff API: branch diff endpoint + commit list endpoint
-- [ ] 24-02-PLAN.md — Per-commit diff endpoint + Rust integration tests for all three
+**Wave 1**
+
+- [ ] 24-01-PLAN.md — Module refactor (server.rs → plan_review.rs + diff_api.rs) + GET /api/diff/branch + GET /api/commits
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 24-02-PLAN.md — GET /api/diff/commit/:sha + tower::oneshot tmpdir tests covering all three endpoints
 
 ### Phase 25: Diff Viewer UI
 
