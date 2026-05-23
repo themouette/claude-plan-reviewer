@@ -219,18 +219,18 @@ fn try_list_commits(repo_path: &std::path::Path) -> Option<Vec<Commit>> {
     let head = repo.head().ok()?.peel_to_commit().ok()?;
     let head_oid = head.id();
 
-    let base_oid = find_base_commit(&repo)
-        .and_then(|base_candidate| repo.merge_base(head_oid, base_candidate).ok());
+    // D-07: no base branch → return empty array (consistent with get_diff_branch).
+    // Without this guard the revwalk would traverse the entire repo history,
+    // which hangs or OOMs in large monorepos.
+    let base_candidate = find_base_commit(&repo)?;
+    let base_oid = repo.merge_base(head_oid, base_candidate).ok()?;
 
     let mut walk = repo.revwalk().ok()?;
     walk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)
         .ok()?;
     walk.push_head().ok()?;
-
     // Pitfall 3 — hide must be called before iteration
-    if let Some(base) = base_oid {
-        let _ = walk.hide(base);
-    }
+    let _ = walk.hide(base_oid);
 
     let commits: Vec<Commit> = walk
         .filter_map(|r| {
