@@ -643,12 +643,19 @@ Plans:
   4. Collapsed context lines (shown as `...`) expand when clicked to reveal surrounding lines
   5. The existing (unused) diff tab and its code are removed — no dead `DiffView` or `TabBar` code remains
 
-**Plans:** 0/3 plans
+**Plans:** 3 plans
 Plans:
+**Wave 1**
 
-- [ ] 25-01-PLAN.md — Foundation: diff data types + useDiff hook + DiffLine/DiffHunk components (TDD)
-- [ ] 25-02-PLAN.md — DiffPane: file list + file diff renderer + unified/side-by-side toggle + expand lines
-- [ ] 25-03-PLAN.md — Route wiring: `/code-review` entry point + remove old diff tab code + human verify
+- [ ] 25-01-PLAN.md — Foundation: FileDiff type + useDiff hook with fetchDiffOnce (TDD) + Rust ?context=N param + ESLint code-review/ isolation rule
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 25-02-PLAN.md — AppToolbar + FileListPane + DiffPane components with PatchDiff integration and source-assertion tests
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 25-03-PLAN.md — CodeReviewApp composition + main.tsx pathname routing + ARCH-01 cleanup (remove legacy /api/diff, AppState.diff_content, extract_diff) + human verify
 
 **UI hint**: yes
 
@@ -727,6 +734,7 @@ Plans:
   2. Running `/code-review` (or the agent triggering the pre-PR hook) opens the browser UI at `/code-review` for the current git branch
   3. `plan-reviewer uninstall claude` removes the slash command file and hook entry; re-running exits 0
   4. The `code-review` subcommand can be invoked directly as `plan-reviewer code-review` to open the review UI without a hook
+
   5. Existing `plan-reviewer install` behavior for annotate/review-hook is unchanged
 
 **Plans:** 0/2 plans
@@ -768,7 +776,7 @@ Plans:
 | 22. Submit & Clipboard | v0.6.0 | 3/4 | Complete    | 2026-05-22 |
 | 23. Replace v1 with v2 | v0.6.0 | 1/1 | Complete    | 2026-05-22 |
 | 24. Backend Diff API | v0.7.0 | 2/2 | Complete    | 2026-05-23 |
-| 25. Diff Viewer UI | v0.7.0 | 0/3 | Not started | - |
+| 25. Diff Viewer UI | v0.7.0 | 0/3 | Planned | - |
 | 26. Commit Navigation | v0.7.0 | 0/2 | Not started | - |
 | 27. Inline Comments | v0.7.0 | 0/3 | Not started | - |
 | 28. Review Submission | v0.7.0 | 0/2 | Not started | - |

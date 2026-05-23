@@ -592,22 +592,30 @@ Three callsites call `server::start_server(plan_md, diff_content, ...)` — each
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does `CodeReviewApp` need connectivity/heartbeat?**
    - What we know: `ReviewerV2` uses `useHeartbeat` for the offline banner.
    - What's unclear: Whether a diff viewer showing read-only data needs to signal offline state.
    - Recommendation: Skip `useHeartbeat` in Phase 25 — the diff is loaded once; if the server is unreachable, the `useDiff` error state covers it.
+   - **RESOLVED:** `CodeReviewApp` does NOT use `useHeartbeat`. The `useDiff` error state handles unreachable server. Plans 25-01/25-03 implement this decision (Task actions explicitly exclude `useHeartbeat`).
 
 2. **Should `AppToolbar` be extracted to `ui/src/shared/` immediately?**
    - What we know: `ReviewerV2Shell` does not use `AppToolbar` in Phase 25 (D-02); `AppToolbar` is purely for `CodeReviewApp`.
    - What's unclear: Whether the planner should pre-create `shared/` for future use.
    - Recommendation: Keep `AppToolbar` in `code-review/` for Phase 25 per D-02. No `shared/` module needed yet.
+   - **RESOLVED:** `AppToolbar` stays in `ui/src/code-review/` for Phase 25. No `shared/` module created. Defer to a future phase if cross-app sharing is needed (per D-02 and D-03).
 
 3. **`isPartial: true` and per-hunk expansion in PatchDiff**
    - What we know: `FileDiffMetadata.isPartial` is `true` when diff is from a patch string (vs full file contents). The type definition states: "When true, `deletionLines`/`additionLines` contain only the lines present in the patch and hunk expansion is unavailable."
    - What's unclear: Whether `expansionLineCount` still works when `isPartial: true`.
    - Recommendation: Per-hunk expansion (`expansionLineCount`) is a `BaseDiffOptions` UI control — it tells the library how many lines to reveal per `...` click. However, if expansion requires full file content (which `PatchDiff` with a raw patch string does not have), the `...` separators may not expand beyond what the patch provides. The "Expand All" re-fetch approach (D-05) sidesteps this entirely by fetching more context from the backend. Per-hunk expansion may be limited to what the initial 3-line context patch provides — which is the correct behavior and matches D-04.
+   - **RESOLVED:** Plans deliver `expansionLineCount: 20` per D-04 as-is (Assumption A3 accepted). Per-hunk expansion is a best-effort UI control bounded by patch content. The "Expand All" re-fetch (D-05, `?context=999`) is the reliable full-context path. Library limitation acknowledged and accepted.
+
+4. **Does `useDiff` need a dependency-injected interface for testability?**
+   - What we know: `useHeartbeat` exports a `HeartbeatTickContext` injectable interface; tests inject a fake `doFetch`.
+   - What's unclear: Whether `useDiff` needs the same seam or can be tested differently.
+   - **RESOLVED:** `useDiff` exports a `fetchDiffOnce(url: string, doFetch?: DoFetch)` pure function alongside the React hook, following the exact same injection seam pattern as `useHeartbeat`. Tests call `fetchDiffOnce` directly with a fake `doFetch`. Plan 25-01 Task 3 implements this.
 
 ---
 
