@@ -1,6 +1,12 @@
 use std::sync::Arc;
 
-use axum::{Json, Router, extract::State, response::IntoResponse, routing::get};
+use axum::{
+    Json, Router,
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+    routing::get,
+};
 use serde::Serialize;
 
 // --- Types ---
@@ -237,14 +243,96 @@ fn try_list_commits(repo_path: &std::path::Path) -> Option<Vec<Commit>> {
     Some(commits)
 }
 
+/// GET /api/diff/commit/:sha — returns FileDiff[] for the single named commit.
+///
+/// Returns:
+/// - 200 + FileDiff[] on success
+/// - 400 + JSON {"error": "..."} when sha is not a valid hex OID (T-24-PT mitigated)
+/// - 404 + JSON {"error": "..."} when sha is valid hex but not found in the repo
+async fn get_diff_commit(
+    State(state): State<Arc<CodeReviewState>>,
+    Path(sha): Path<String>,
+) -> impl IntoResponse {
+    // Validate SHA format via Oid::from_str — returns 400 on non-hex / wrong-length input.
+    // This blocks path traversal and other injection patterns (T-24-PT).
+    let oid = match git2::Oid::from_str(&sha) {
+        Ok(o) => o,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "invalid sha"})),
+            )
+                .into_response();
+        }
+    };
+
+    let repo = match git2::Repository::open(&state.repo_path) {
+        Ok(r) => r,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "failed to open repository"})),
+            )
+                .into_response();
+        }
+    };
+
+    // find_commit returns Err when the OID parses but does not exist — surface as 404 (T-24-NF).
+    // No libgit2 error string forwarded to client.
+    let commit = match repo.find_commit(oid) {
+        Ok(c) => c,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "commit not found"})),
+            )
+                .into_response();
+        }
+    };
+
+    let commit_tree = match commit.tree() {
+        Ok(t) => t,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "failed to read commit tree"})),
+            )
+                .into_response();
+        }
+    };
+
+    // For the first commit (no parent), diff against the empty tree.
+    // commit.parent(0).ok() returns None when there is no parent, and
+    // diff_tree_to_tree treats None as the empty tree.
+    let parent_tree = commit.parent(0).ok().and_then(|p| p.tree().ok());
+
+    let mut opts = git2::DiffOptions::new();
+    opts.old_prefix("a/").new_prefix("b/");
+
+    let diff =
+        match repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&commit_tree), Some(&mut opts)) {
+            Ok(d) => d,
+            Err(_) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": "diff failed"})),
+                )
+                    .into_response();
+            }
+        };
+
+    let file_diffs = build_file_diffs(&diff);
+    (StatusCode::OK, Json(file_diffs)).into_response()
+}
+
 // --- Router factory ---
 
 /// Create the diff-api sub-router with state attached.
 /// Returns `Router<()>` so the assembler can `.merge()` it.
-/// Does NOT register /api/diff/commit/:sha — that endpoint lands in Plan 24-02.
 pub fn router(state: Arc<CodeReviewState>) -> Router<()> {
     Router::new()
         .route("/api/diff/branch", get(get_diff_branch))
         .route("/api/commits", get(get_commits))
+        .route("/api/diff/commit/:sha", get(get_diff_commit))
         .with_state(state)
 }
