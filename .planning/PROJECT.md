@@ -37,7 +37,7 @@ clipboard degraded mode preserved, no v1 code coupling.
 
 ## Current State
 
-v0.6.0 shipped 2026-05-22. v0.7.0 milestone (Code Review) in progress.
+v0.6.0 shipped 2026-05-22. v0.7.0 milestone (Code Review) in progress — Phase 24 complete (backend diff API: /api/diff/branch, /api/commits, /api/diff/commit/{sha}).
 
 - **Binary**: `plan-reviewer` — single static Rust binary
 - **Subcommands**: `install [integration]`, `uninstall [integration]`, `update [--check] [--version X] [-y]`, `review <file>`, `review-hook`
@@ -177,4 +177,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-23 — milestone v0.7.0 Code Review started*
+*Last updated: 2026-05-23 — Phase 24 complete (backend diff API)*
