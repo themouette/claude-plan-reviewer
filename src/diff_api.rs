@@ -1,6 +1,12 @@
 use std::sync::Arc;
 
-use axum::{Json, Router, extract::State, response::IntoResponse, routing::get};
+use axum::{
+    Json, Router,
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+    routing::get,
+};
 use serde::Serialize;
 
 // --- Types ---
@@ -237,14 +243,421 @@ fn try_list_commits(repo_path: &std::path::Path) -> Option<Vec<Commit>> {
     Some(commits)
 }
 
+/// GET /api/diff/commit/:sha — returns FileDiff[] for the single named commit.
+///
+/// Returns:
+/// - 200 + FileDiff[] on success
+/// - 400 + JSON {"error": "..."} when sha is not a valid hex OID (T-24-PT mitigated)
+/// - 404 + JSON {"error": "..."} when sha is valid hex but not found in the repo
+async fn get_diff_commit(
+    State(state): State<Arc<CodeReviewState>>,
+    Path(sha): Path<String>,
+) -> impl IntoResponse {
+    // Validate SHA format via Oid::from_str — returns 400 on non-hex / wrong-length input.
+    // This blocks path traversal and other injection patterns (T-24-PT).
+    let oid = match git2::Oid::from_str(&sha) {
+        Ok(o) => o,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "invalid sha"})),
+            )
+                .into_response();
+        }
+    };
+
+    let repo = match git2::Repository::open(&state.repo_path) {
+        Ok(r) => r,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "failed to open repository"})),
+            )
+                .into_response();
+        }
+    };
+
+    // find_commit returns Err when the OID parses but does not exist — surface as 404 (T-24-NF).
+    // No libgit2 error string forwarded to client.
+    let commit = match repo.find_commit(oid) {
+        Ok(c) => c,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "commit not found"})),
+            )
+                .into_response();
+        }
+    };
+
+    let commit_tree = match commit.tree() {
+        Ok(t) => t,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "failed to read commit tree"})),
+            )
+                .into_response();
+        }
+    };
+
+    // For the first commit (no parent), diff against the empty tree.
+    // commit.parent(0).ok() returns None when there is no parent, and
+    // diff_tree_to_tree treats None as the empty tree.
+    let parent_tree = commit.parent(0).ok().and_then(|p| p.tree().ok());
+
+    let mut opts = git2::DiffOptions::new();
+    opts.old_prefix("a/").new_prefix("b/");
+
+    let diff =
+        match repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&commit_tree), Some(&mut opts)) {
+            Ok(d) => d,
+            Err(_) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": "diff failed"})),
+                )
+                    .into_response();
+            }
+        };
+
+    let file_diffs = build_file_diffs(&diff);
+    (StatusCode::OK, Json(file_diffs)).into_response()
+}
+
 // --- Router factory ---
 
 /// Create the diff-api sub-router with state attached.
 /// Returns `Router<()>` so the assembler can `.merge()` it.
-/// Does NOT register /api/diff/commit/:sha — that endpoint lands in Plan 24-02.
 pub fn router(state: Arc<CodeReviewState>) -> Router<()> {
     Router::new()
         .route("/api/diff/branch", get(get_diff_branch))
         .route("/api/commits", get(get_commits))
+        .route("/api/diff/commit/{sha}", get(get_diff_commit))
         .with_state(state)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use http_body_util::BodyExt;
+    use std::sync::Arc;
+    use tower::ServiceExt;
+
+    // --- Test fixture helpers ---
+
+    /// Build a minimal repo with a single initial commit on a branch named `main`.
+    /// Returns (TempDir, Repository) — the TempDir must be kept alive for the duration
+    /// of the test to prevent the tmpdir from being deleted.
+    fn make_repo_with_main() -> (tempfile::TempDir, git2::Repository) {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = git2::Repository::init(tmp.path()).unwrap();
+
+        let sig = git2::Signature::now("test", "test@test.com").unwrap();
+        // Build the initial tree from the (empty) index.
+        let commit_oid = {
+            let tree_id = repo.index().unwrap().write_tree().unwrap();
+            let tree = repo.find_tree(tree_id).unwrap();
+            let oid = repo
+                .commit(Some("HEAD"), &sig, &sig, "init on main", &tree, &[])
+                .unwrap();
+            // `tree` borrow ends here — drop it before we move `repo` below.
+            drop(tree);
+            oid
+        };
+
+        // Ensure HEAD is on `refs/heads/main`.
+        // After `repo.commit(Some("HEAD"), ...)`, git creates/advances the current HEAD branch.
+        // If `git init` defaulted to `master`, we need to create `main` explicitly and
+        // switch HEAD to it. If it defaulted to `main`, the branch already exists and
+        // we just confirm HEAD.
+        let head_branch = repo
+            .head()
+            .ok()
+            .and_then(|h| h.shorthand().map(|s| s.to_string()));
+        if head_branch.as_deref() != Some("main") {
+            // HEAD is on a branch that is not `main` — create `main` from the commit.
+            {
+                let commit = repo.find_commit(commit_oid).unwrap();
+                repo.branch("main", &commit, false).unwrap();
+            }
+            repo.set_head("refs/heads/main").unwrap();
+
+            // Delete the old default branch (e.g. `master`).
+            if let Ok(mut master) = repo.find_branch("master", git2::BranchType::Local) {
+                master.delete().unwrap_or(());
+            }
+        }
+
+        (tmp, repo)
+    }
+
+    /// Build a repo with an initial commit on `main`, then a `feature` branch with one commit
+    /// per entry in `extra_files`. Returns (TempDir, Repository, Vec<Oid>) where the Oid
+    /// list contains the feature-branch commit OIDs in order.
+    fn make_repo_with_main_and_feature(
+        extra_files: &[(&str, &str)],
+    ) -> (tempfile::TempDir, git2::Repository, Vec<git2::Oid>) {
+        use std::fs;
+
+        let (tmp, repo) = make_repo_with_main();
+
+        // Obtain the main commit (current HEAD) as the feature-branch base.
+        let main_commit_oid = repo.head().unwrap().peel_to_commit().unwrap().id();
+
+        // Create and switch to `feature` branch.
+        // Scope the main_commit borrow so it is dropped before we move `repo` later.
+        {
+            let main_commit = repo.find_commit(main_commit_oid).unwrap();
+            repo.branch("feature", &main_commit, false).unwrap();
+            // `main_commit` dropped here.
+        }
+        repo.set_head("refs/heads/feature").unwrap();
+
+        let sig = git2::Signature::now("test", "test@test.com").unwrap();
+        let mut parent_oid = main_commit_oid;
+        let mut feature_oids = Vec::new();
+
+        for (path, content) in extra_files {
+            // Write the file into the tmpdir.
+            let full_path = tmp.path().join(path);
+            fs::write(&full_path, content).unwrap();
+
+            // Scope tree and parent_commit so they are dropped before the next iteration
+            // (both borrow `repo` and must not outlive its move at end of function).
+            let oid = {
+                let mut index = repo.index().unwrap();
+                index.add_path(std::path::Path::new(path)).unwrap();
+                index.write().unwrap();
+                let tree_id = index.write_tree().unwrap();
+                let tree = repo.find_tree(tree_id).unwrap();
+                let parent_commit = repo.find_commit(parent_oid).unwrap();
+                let msg = format!("feature: add {path}");
+                let o = repo
+                    .commit(Some("HEAD"), &sig, &sig, &msg, &tree, &[&parent_commit])
+                    .unwrap();
+                drop(tree);
+                drop(parent_commit);
+                o
+            };
+            feature_oids.push(oid);
+            parent_oid = oid;
+        }
+
+        (tmp, repo, feature_oids)
+    }
+
+    /// Send a GET request to the router and return (StatusCode, parsed JSON body).
+    async fn do_get(state: Arc<CodeReviewState>, uri: &str) -> (StatusCode, serde_json::Value) {
+        let app = router(state);
+        let res = app
+            .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        let status = res.status();
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        let json = serde_json::from_slice(&body).unwrap_or(serde_json::Value::Null);
+        (status, json)
+    }
+
+    // --- Tests ---
+
+    /// Test 1: /api/diff/branch returns an empty array when no base branch resolves.
+    /// Uses a repo whose only branch is named `wip` (not in the candidate list).
+    #[tokio::test]
+    async fn get_diff_branch_returns_empty_array_when_no_base_resolves() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = git2::Repository::init(tmp.path()).unwrap();
+
+        let sig = git2::Signature::now("test", "test@test.com").unwrap();
+        let commit_oid = {
+            let tree_id = repo.index().unwrap().write_tree().unwrap();
+            let tree = repo.find_tree(tree_id).unwrap();
+            let oid = repo
+                .commit(Some("HEAD"), &sig, &sig, "wip commit", &tree, &[])
+                .unwrap();
+            drop(tree);
+            oid
+        };
+
+        // Point HEAD at a branch name that is not in the candidate list.
+        {
+            let commit = repo.find_commit(commit_oid).unwrap();
+            repo.branch("wip", &commit, false).unwrap();
+        }
+        repo.set_head("refs/heads/wip").unwrap();
+
+        // Delete `master`/`main` if git created them so find_base_commit returns None.
+        if let Ok(mut b) = repo.find_branch("master", git2::BranchType::Local) {
+            b.delete().unwrap_or(());
+        }
+        if let Ok(mut b) = repo.find_branch("main", git2::BranchType::Local) {
+            b.delete().unwrap_or(());
+        }
+
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let (status, json) = do_get(state, "/api/diff/branch").await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(
+            json.as_array().unwrap().is_empty(),
+            "Expected empty array, got: {json}"
+        );
+    }
+
+    /// Test 2: /api/diff/branch returns a FileDiff[] with the added file when on a feature branch.
+    #[tokio::test]
+    async fn get_diff_branch_returns_added_file_against_main_base() {
+        let (tmp, _repo, _oids) = make_repo_with_main_and_feature(&[("new.txt", "hello\n")]);
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let (status, json) = do_get(state, "/api/diff/branch").await;
+        assert_eq!(status, StatusCode::OK);
+
+        let arr = json.as_array().expect("expected JSON array");
+        assert_eq!(arr.len(), 1, "Expected 1 file diff, got {}", arr.len());
+
+        let entry = &arr[0];
+        assert_eq!(entry["filename"], "new.txt");
+        assert_eq!(entry["status"], "added");
+        assert_eq!(entry["additions"].as_u64(), Some(1));
+        assert_eq!(entry["deletions"].as_u64(), Some(0));
+        assert!(
+            entry.get("previous_filename").is_none(),
+            "previous_filename must be absent for added files"
+        );
+    }
+
+    /// Test 3: /api/commits returns only the feature-branch commits.
+    #[tokio::test]
+    async fn get_commits_returns_only_branch_commits() {
+        let (tmp, _repo, _oids) = make_repo_with_main_and_feature(&[("new.txt", "hello\n")]);
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let (status, json) = do_get(state, "/api/commits").await;
+        assert_eq!(status, StatusCode::OK);
+
+        let arr = json.as_array().expect("expected JSON array");
+        assert_eq!(arr.len(), 1, "Expected 1 commit, got {}", arr.len());
+
+        let entry = &arr[0];
+        assert_eq!(
+            entry["short_sha"].as_str().unwrap().len(),
+            7,
+            "short_sha must be 7 chars"
+        );
+        assert_eq!(
+            entry["sha"].as_str().unwrap().len(),
+            40,
+            "sha must be 40 chars"
+        );
+        assert!(
+            !entry["date"].as_str().unwrap().is_empty(),
+            "date must be non-empty"
+        );
+        assert!(
+            entry["message"].as_str().unwrap().contains("feature"),
+            "commit message must contain 'feature', got: {}",
+            entry["message"]
+        );
+    }
+
+    /// Test 4: /api/diff/commit/:sha with a syntactically invalid SHA returns HTTP 400.
+    #[tokio::test]
+    async fn get_diff_commit_with_invalid_sha_returns_400() {
+        let (tmp, _repo) = make_repo_with_main();
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let (status, json) = do_get(state, "/api/diff/commit/zzz").await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(
+            json["error"].is_string(),
+            "Expected error field in body, got: {json}"
+        );
+    }
+
+    /// Test 5: /api/diff/commit/:sha with a valid hex SHA that doesn't exist returns HTTP 404.
+    #[tokio::test]
+    async fn get_diff_commit_with_unknown_sha_returns_404() {
+        let (tmp, _repo) = make_repo_with_main();
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let unknown = "0000000000000000000000000000000000000000";
+        let uri = format!("/api/diff/commit/{unknown}");
+        let (status, json) = do_get(state, &uri).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert!(
+            json["error"].is_string(),
+            "Expected error field in body, got: {json}"
+        );
+    }
+
+    /// Test 6: /api/diff/commit/:sha on the first commit returns a diff against the empty tree.
+    #[tokio::test]
+    async fn get_diff_commit_for_first_commit_diffs_against_empty_tree() {
+        use std::fs;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = git2::Repository::init(tmp.path()).unwrap();
+
+        // Write hello.txt and make the first (and only) commit.
+        fs::write(tmp.path().join("hello.txt"), "hi\n").unwrap();
+        let mut index = repo.index().unwrap();
+        index.add_path(std::path::Path::new("hello.txt")).unwrap();
+        index.write().unwrap();
+        let tree_id = index.write_tree().unwrap();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let sig = git2::Signature::now("test", "test@test.com").unwrap();
+        let first_oid = repo
+            .commit(Some("HEAD"), &sig, &sig, "first commit", &tree, &[])
+            .unwrap();
+
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let uri = format!("/api/diff/commit/{first_oid}");
+        let (status, json) = do_get(state, &uri).await;
+        assert_eq!(status, StatusCode::OK);
+
+        let arr = json.as_array().expect("expected JSON array");
+        assert_eq!(arr.len(), 1, "Expected 1 file diff, got {}", arr.len());
+
+        let entry = &arr[0];
+        assert_eq!(entry["filename"], "hello.txt");
+        assert_eq!(entry["status"], "added");
+        assert!(
+            entry["additions"].as_u64().unwrap() >= 1,
+            "Expected at least 1 addition"
+        );
+    }
+
+    /// Test 7: /api/diff/commit/:sha for the second commit returns only that commit's changes.
+    #[tokio::test]
+    async fn get_diff_commit_for_named_commit_returns_only_that_commits_changes() {
+        let (tmp, _repo, feature_oids) =
+            make_repo_with_main_and_feature(&[("a.txt", "first\n"), ("b.txt", "second\n")]);
+        // Query the SECOND feature commit (adds b.txt, not a.txt).
+        let second_oid = feature_oids[1];
+
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let uri = format!("/api/diff/commit/{second_oid}");
+        let (status, json) = do_get(state, &uri).await;
+        assert_eq!(status, StatusCode::OK);
+
+        let arr = json.as_array().expect("expected JSON array");
+        assert_eq!(arr.len(), 1, "Expected 1 file diff, got {}", arr.len());
+        assert_eq!(
+            arr[0]["filename"], "b.txt",
+            "Expected b.txt (second commit), not a.txt"
+        );
+    }
 }
