@@ -6,7 +6,8 @@
 - 🚧 **v0.3.0 Integrations, Annotations & Polish** — Phases 5-9 (in progress)
 - ✅ **v0.4.0 Agent-Native Review** — Phases 10-11.1 (shipped 2026-04-11)
 - ✅ **v0.5.0 Offline Resilience** — Phases 12-16 (shipped 2026-05-07)
-- 🚧 **v0.6.0 Markdown Annotator v2** — Phases 17-23 (in progress)
+- ✅ **v0.6.0 Markdown Annotator v2** — Phases 17-23 (shipped 2026-05-22)
+- 🚧 **v0.7.0 Code Review** — Phases 24-29 (in progress)
 
 ## Phases
 
@@ -57,7 +58,7 @@ Full archive: `.planning/milestones/v0.5.0-ROADMAP.md`
 
 </details>
 
-### 🚧 v0.6.0 Markdown Annotator v2 (In Progress)
+### ✅ v0.6.0 Markdown Annotator v2 (Shipped 2026-05-22)
 
 **Milestone Goal:** Build a standalone 3-column annotation reviewer alongside the existing UI, architecturally isolated under `ui/src/reviewer-v2/`, with heading outline, formatted markdown, anchored comment sidebar, and full submit/clipboard-fallback support.
 
@@ -601,6 +602,134 @@ Plans:
 
 - [x] 23-01-PLAN.md — Update main.tsx + src/main.rs (drop /v2 routing), delete v1 source/test files, verify npm/cargo tests pass and no residual v1 imports
 
+---
+
+## v0.7.0: Code Review
+
+### Phase 24: Backend Diff API
+
+**Goal**: The server exposes git diff data via three endpoints — branch diff, commit list, and per-commit diff — giving the React frontend everything it needs to render diffs without shelling out to `git`
+**Depends on**: Phase 23
+**Requirements**: DIFF-01 (data layer), COMMIT-01 (data), COMMIT-02 (data)
+**Success Criteria** (what must be TRUE):
+
+  1. `GET /api/diff/branch` returns a JSON array of file diffs with hunks and line-level added/removed/context markers
+  2. `GET /api/commits` returns a list of commits in the current branch (vs main), each with sha, short sha, message, author, and date
+  3. `GET /api/diff/commit/:sha` returns the same diff structure as `/api/diff/branch` but scoped to a single commit
+  4. All three endpoints are covered by Rust integration tests (no real git repo required — use tmpdir fixture)
+  5. `cargo test` passes with no regressions
+
+**Plans:** 0/2 plans
+Plans:
+
+- [ ] 24-01-PLAN.md — git2 diff API: branch diff endpoint + commit list endpoint
+- [ ] 24-02-PLAN.md — Per-commit diff endpoint + Rust integration tests for all three
+
+### Phase 25: Diff Viewer UI
+
+**Goal**: A new `/code-review` route renders the full branch diff with a file list, unified/side-by-side toggle, and expandable context lines; the existing unused diff tab is removed
+**Depends on**: Phase 24
+**Requirements**: DIFF-01 (display), DIFF-02, DIFF-03, DIFF-04, ARCH-01
+**Success Criteria** (what must be TRUE):
+
+  1. Navigating to `/code-review` renders a file list on the left and a diff pane on the right
+  2. Toggling between unified and side-by-side layouts works without reloading
+  3. Clicking a file in the file list jumps to that file in the diff pane
+  4. Collapsed context lines (shown as `...`) expand when clicked to reveal surrounding lines
+  5. The existing (unused) diff tab and its code are removed — no dead `DiffView` or `TabBar` code remains
+
+**Plans:** 0/3 plans
+Plans:
+
+- [ ] 25-01-PLAN.md — Foundation: diff data types + useDiff hook + DiffLine/DiffHunk components (TDD)
+- [ ] 25-02-PLAN.md — DiffPane: file list + file diff renderer + unified/side-by-side toggle + expand lines
+- [ ] 25-03-PLAN.md — Route wiring: `/code-review` entry point + remove old diff tab code + human verify
+
+**UI hint**: yes
+
+### Phase 26: Commit Navigation
+
+**Goal**: A commit list sidebar lets the user browse branch commits; clicking one shows its isolated diff; the user can switch between per-commit and full-branch views; keyboard prev/next navigates commits; multi-commit selection filters the combined diff
+**Depends on**: Phase 24, Phase 25
+**Requirements**: COMMIT-01, COMMIT-02, COMMIT-03, COMMIT-04, DIFF-05
+**Success Criteria** (what must be TRUE):
+
+  1. The commit list sidebar shows each commit's short sha, message, author, and date
+  2. Clicking a commit switches the diff pane to show only that commit's changes
+  3. A "Full diff" mode toggle returns the diff pane to showing all branch changes combined
+  4. Pressing the left/right (or up/down) arrow keys navigates to the previous/next commit
+  5. Deselecting commits in the list excludes them from the combined diff view
+
+**Plans:** 0/2 plans
+Plans:
+
+- [ ] 26-01-PLAN.md — CommitList component + useCommits hook + per-commit diff switching
+- [ ] 26-02-PLAN.md — Mode toggle + keyboard navigation + commit multi-select filtering
+
+**UI hint**: yes
+
+### Phase 27: Inline Comments
+
+**Goal**: Users can add a comment to any diff hunk or to a whole file; comments persist in session state; each comment can be edited or deleted; the file list shows a comment count badge per file
+**Depends on**: Phase 25
+**Requirements**: COMMENT-01, COMMENT-02, COMMENT-03, COMMENT-04
+**Success Criteria** (what must be TRUE):
+
+  1. Clicking the `+` button that appears on hunk hover opens a comment input anchored to that hunk
+  2. A file-level comment button (in the file header) opens a comment input for the whole file
+  3. Submitted comments persist in session state — they survive navigating between commits
+  4. Each comment has edit (pencil) and delete (×) buttons; edit reopens the textarea; delete removes immediately
+  5. The file list shows a badge with the count of comments on each file; zero-comment files show no badge
+
+**Plans:** 0/3 plans
+Plans:
+
+- [ ] 27-01-PLAN.md — Comment types + useCodeReviewAnnotations reducer + serialization tests (TDD)
+- [ ] 27-02-PLAN.md — HunkComment + FileComment components + comment positioning in DiffPane
+- [ ] 27-03-PLAN.md — Edit/delete controls + file list badges + session persistence + human verify
+
+**UI hint**: yes
+
+### Phase 28: Review Submission
+
+**Goal**: The submit bar enforces review discipline; submitting with comments returns structured per-file/per-hunk JSON feedback to the agent; approving with no comments returns a clean approval with an optional global message; clipboard fallback is preserved for offline mode
+**Depends on**: Phase 27
+**Requirements**: SUBMIT-01, SUBMIT-02, SUBMIT-03, SUBMIT-04
+**Success Criteria** (what must be TRUE):
+
+  1. The "Approve" button is disabled when any comments exist; it is enabled with zero comments
+  2. "Request changes" is disabled when no comments exist; it is enabled with at least one comment
+  3. An optional global instruction text field is available alongside the Approve action
+  4. Submitting with comments produces structured JSON: `{"decision":"changes_requested","comments":[{"file":"...","hunk":"...","text":"..."},...]}` returned to the agent
+  5. When the server is unreachable, submission writes the same JSON to the clipboard using the existing `buildClipboardPayload` utility
+
+**Plans:** 0/2 plans
+Plans:
+
+- [ ] 28-01-PLAN.md — buildCodeReviewPayload + submission JSON schema + Vitest tests (TDD)
+- [ ] 28-02-PLAN.md — SubmitBar component + approve/request-changes gates + clipboard fallback wiring
+
+**UI hint**: yes
+
+### Phase 29: Code Review Integration
+
+**Goal**: `plan-reviewer install` wires a `/code-review` slash command and a pre-PR hook for each supported integration; `plan-reviewer uninstall` removes both; the `code-review` subcommand opens the review UI for the current branch
+**Depends on**: Phase 28
+**Requirements**: INTEG-01, INTEG-02, INTEG-03
+**Success Criteria** (what must be TRUE):
+
+  1. `plan-reviewer install claude` creates `commands/code-review.md` in the plugin directory and registers a pre-PR hook entry; `/code-review` appears in Claude Code's slash command menu
+  2. Running `/code-review` (or the agent triggering the pre-PR hook) opens the browser UI at `/code-review` for the current git branch
+  3. `plan-reviewer uninstall claude` removes the slash command file and hook entry; re-running exits 0
+  4. The `code-review` subcommand can be invoked directly as `plan-reviewer code-review` to open the review UI without a hook
+  5. Existing `plan-reviewer install` behavior for annotate/review-hook is unchanged
+
+**Plans:** 0/2 plans
+Plans:
+
+- [ ] 29-01-PLAN.md — `code-review` subcommand + Rust server route to open `/code-review` URL
+- [ ] 29-02-PLAN.md — Install/uninstall: code-review.md slash command + pre-PR hook wiring + integration tests
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -631,5 +760,11 @@ Plans:
 | 19. Outline Pane | v0.6.0 | 3/3 | Complete    | 2026-05-20 |
 | 20. Comment Pane | v0.6.0 | 3/3 | Complete   | 2026-05-21 |
 | 21. Comment Actions | v0.6.0 | 7/7 | Complete   | 2026-05-22 |
-| 22. Submit & Clipboard | v0.6.0 | 3/4 | In Progress|  |
+| 22. Submit & Clipboard | v0.6.0 | 3/4 | Complete    | 2026-05-22 |
 | 23. Replace v1 with v2 | v0.6.0 | 1/1 | Complete    | 2026-05-22 |
+| 24. Backend Diff API | v0.7.0 | 0/2 | Not started | - |
+| 25. Diff Viewer UI | v0.7.0 | 0/3 | Not started | - |
+| 26. Commit Navigation | v0.7.0 | 0/2 | Not started | - |
+| 27. Inline Comments | v0.7.0 | 0/3 | Not started | - |
+| 28. Review Submission | v0.7.0 | 0/2 | Not started | - |
+| 29. Code Review Integration | v0.7.0 | 0/2 | Not started | - |

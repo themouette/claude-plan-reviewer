@@ -99,33 +99,33 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DIFF-01 | TBD | Pending |
-| DIFF-02 | TBD | Pending |
-| DIFF-03 | TBD | Pending |
-| DIFF-04 | TBD | Pending |
-| DIFF-05 | TBD | Pending |
-| COMMIT-01 | TBD | Pending |
-| COMMIT-02 | TBD | Pending |
-| COMMIT-03 | TBD | Pending |
-| COMMIT-04 | TBD | Pending |
-| COMMENT-01 | TBD | Pending |
-| COMMENT-02 | TBD | Pending |
-| COMMENT-03 | TBD | Pending |
-| COMMENT-04 | TBD | Pending |
-| SUBMIT-01 | TBD | Pending |
-| SUBMIT-02 | TBD | Pending |
-| SUBMIT-03 | TBD | Pending |
-| SUBMIT-04 | TBD | Pending |
-| INTEG-01 | TBD | Pending |
-| INTEG-02 | TBD | Pending |
-| INTEG-03 | TBD | Pending |
-| ARCH-01 | TBD | Pending |
+| DIFF-01 | Phase 24 + 25 | Pending |
+| DIFF-02 | Phase 25 | Pending |
+| DIFF-03 | Phase 25 | Pending |
+| DIFF-04 | Phase 25 | Pending |
+| DIFF-05 | Phase 26 | Pending |
+| COMMIT-01 | Phase 24 + 26 | Pending |
+| COMMIT-02 | Phase 24 + 26 | Pending |
+| COMMIT-03 | Phase 26 | Pending |
+| COMMIT-04 | Phase 26 | Pending |
+| COMMENT-01 | Phase 27 | Pending |
+| COMMENT-02 | Phase 27 | Pending |
+| COMMENT-03 | Phase 27 | Pending |
+| COMMENT-04 | Phase 27 | Pending |
+| SUBMIT-01 | Phase 28 | Pending |
+| SUBMIT-02 | Phase 28 | Pending |
+| SUBMIT-03 | Phase 28 | Pending |
+| SUBMIT-04 | Phase 28 | Pending |
+| INTEG-01 | Phase 29 | Pending |
+| INTEG-02 | Phase 29 | Pending |
+| INTEG-03 | Phase 29 | Pending |
+| ARCH-01 | Phase 25 | Pending |
 
 **Coverage:**
 - v0.7.0 requirements: 21 total
-- Mapped to phases: 0 (roadmap pending)
-- Unmapped: 21 ⚠️
+- Mapped to phases: 21
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-10*
-*Last updated: 2026-05-23 — v0.7.0 requirements defined*
+*Last updated: 2026-05-23 after v0.7.0 roadmap creation (Phases 24-29)*
