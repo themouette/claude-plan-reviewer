@@ -1,6 +1,8 @@
+mod diff_api;
 mod hook;
 mod install;
 mod integrations;
+mod plan_review;
 mod server;
 mod uninstall;
 mod update;
