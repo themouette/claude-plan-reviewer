@@ -48,6 +48,10 @@ export interface UseDiffResult {
  * React hook: fetches FileDiff[] on mount, exposes { files, loading, error, refetch }.
  * refetch(contextLines?) re-fetches with ?context=N.
  * Uses a cancelledRef to prevent setState after unmount (avoids React 19 strict-mode warnings).
+ *
+ * Note: loading is initialized to true so the effect body does not call setLoading(true)
+ * synchronously (which would violate react-hooks/set-state-in-effect). The initial fetch
+ * resolves asynchronously and sets loading=false in the Promise callback.
  */
 export function useDiff(): UseDiffResult {
   const [files, setFiles] = useState<FileDiff[]>([])
@@ -55,6 +59,9 @@ export function useDiff(): UseDiffResult {
   const [error, setError] = useState<string | null>(null)
   const cancelledRef = useRef(false)
 
+  // refetch is the public API — called by event handlers (Expand All, etc.).
+  // Calling setLoading(true) here is fine: it is triggered by user interaction,
+  // not synchronously inside an effect body.
   const refetch = useCallback((contextLines?: number) => {
     setLoading(true)
     void fetchDiffOnce(globalThis.fetch.bind(globalThis), contextLines).then((result) => {
@@ -65,13 +72,20 @@ export function useDiff(): UseDiffResult {
     })
   }, [])
 
+  // On mount: perform the initial fetch without calling setLoading(true) synchronously
+  // inside the effect body. Loading is already true from initialization.
   useEffect(() => {
     cancelledRef.current = false
-    refetch()
+    void fetchDiffOnce(globalThis.fetch.bind(globalThis)).then((result) => {
+      if (cancelledRef.current) return
+      setFiles(result.files)
+      setError(result.error)
+      setLoading(false)
+    })
     return () => {
       cancelledRef.current = true
     }
-  }, [refetch])
+  }, [])
 
   return { files, loading, error, refetch }
 }
