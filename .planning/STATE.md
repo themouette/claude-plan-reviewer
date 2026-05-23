@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.6.0
-milestone_name: Markdown Annotator v2
-status: "v0.6.0 shipped — PR #1"
-stopped_at: Phase 22 complete — Phase 23 (regression tests) is next
-last_updated: "2026-05-22T23:10:46.309Z"
+milestone: v0.7.0
+milestone_name: Code Review
+status: planning
+last_updated: "2026-05-23T08:37:35.383Z"
 last_activity: 2026-05-23
 progress:
-  total_phases: 9
-  completed_phases: 8
-  total_plans: 18
-  completed_plans: 55
-  percent: 89
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,13 +24,10 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 ## Current Position
 
-Phase: 23
-Plan: Not started
-Phase: 23 (replace-v1-with-v2) — READY TO PLAN
-Status: v0.6.0 shipped — PR #1
-Last activity: 2026-05-23
-
-Progress: [██████████] 97% (v0.6.0 milestone — Phases 17-22 complete)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-23 — Milestone v0.7.0 started
 
 ## Performance Metrics
 
