@@ -38,4 +38,22 @@ export default defineConfig([
       ],
     },
   },
+  {
+    files: ['src/code-review/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['../reviewer-v2/**', '*/reviewer-v2/**'],
+              message:
+                'code-review/ files must not import from reviewer-v2/. ' +
+                'Copy the utility into code-review/ or extract to shared/.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ])

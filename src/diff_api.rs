@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::get,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // --- Types ---
 
@@ -36,6 +36,11 @@ pub struct Commit {
 #[derive(Clone)]
 pub struct CodeReviewState {
     pub repo_path: std::path::PathBuf,
+}
+
+#[derive(Deserialize)]
+pub struct DiffContextQuery {
+    pub context: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -189,11 +194,17 @@ fn build_file_diffs(diff: &git2::Diff) -> Vec<FileDiff> {
 /// GET /api/diff/branch — returns FileDiff[] for all changes between HEAD and
 /// the detected base branch (merge base). Returns an empty array if the repo
 /// cannot be opened or no base branch resolves (D-07).
-async fn get_diff_branch(State(state): State<Arc<CodeReviewState>>) -> impl IntoResponse {
-    Json(try_branch_diff(&state.repo_path).unwrap_or_default())
+/// Accepts optional `?context=N` query param (u32) to control context lines;
+/// defaults to 3 (git2 default, D-06). Returns 400 on non-u32 input (T-25-CINV).
+async fn get_diff_branch(
+    State(state): State<Arc<CodeReviewState>>,
+    Query(params): Query<DiffContextQuery>,
+) -> impl IntoResponse {
+    let context_lines = params.context.unwrap_or(3);
+    Json(try_branch_diff(&state.repo_path, context_lines).unwrap_or_default())
 }
 
-fn try_branch_diff(repo_path: &std::path::Path) -> Option<Vec<FileDiff>> {
+fn try_branch_diff(repo_path: &std::path::Path, context_lines: u32) -> Option<Vec<FileDiff>> {
     let repo = git2::Repository::open(repo_path).ok()?;
 
     let head = repo.head().ok()?.peel_to_commit().ok()?;
@@ -206,6 +217,7 @@ fn try_branch_diff(repo_path: &std::path::Path) -> Option<Vec<FileDiff>> {
 
     let mut opts = git2::DiffOptions::new();
     opts.old_prefix("a/").new_prefix("b/");
+    opts.context_lines(context_lines);
 
     let diff = repo
         .diff_tree_to_tree(Some(&base_tree), Some(&head_tree), Some(&mut opts))
@@ -266,9 +278,11 @@ fn try_list_commits(repo_path: &std::path::Path) -> Option<CommitList> {
 /// Returns:
 /// - 200 + FileDiff[] on success
 /// - 400 + JSON {"error": "..."} when sha is not a valid hex OID (T-24-PT mitigated)
+///   or when `?context` is not a valid u32 (T-25-CINV)
 /// - 404 + JSON {"error": "..."} when sha is valid hex but not found in the repo
 async fn get_diff_commit(
     State(state): State<Arc<CodeReviewState>>,
+    Query(params): Query<DiffContextQuery>,
     Path(sha): Path<String>,
 ) -> impl IntoResponse {
     // Validate SHA format via Oid::from_str — returns 400 on non-hex / wrong-length input.
@@ -324,8 +338,10 @@ async fn get_diff_commit(
     // diff_tree_to_tree treats None as the empty tree.
     let parent_tree = commit.parent(0).ok().and_then(|p| p.tree().ok());
 
+    let context_lines = params.context.unwrap_or(3);
     let mut opts = git2::DiffOptions::new();
     opts.old_prefix("a/").new_prefix("b/");
+    opts.context_lines(context_lines);
 
     let diff =
         match repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&commit_tree), Some(&mut opts)) {
@@ -678,5 +694,181 @@ mod tests {
             arr[0]["filename"], "b.txt",
             "Expected b.txt (second commit), not a.txt"
         );
+    }
+
+    /// Test 8: ?context=0 returns a smaller patch than ?context=999 for a multi-line file.
+    /// Verifies D-05: Expand All = context=999 produces strictly more context than context=0.
+    ///
+    /// The fixture creates a file with many stable lines on main, then modifies one middle
+    /// line on the feature branch. With context=0 the patch shows only the changed lines;
+    /// with context=999 the patch includes all surrounding lines.
+    #[tokio::test]
+    async fn get_diff_branch_context_param_changes_patch_size() {
+        use std::fs;
+
+        // Build a file with many stable lines around a single modification point.
+        // "stable" has 5 lines on each side — context=0 hides them; context=999 shows them.
+        let stable_lines: String = (1..=10).map(|i| format!("stable{i}\n")).collect();
+        let main_content = format!("{stable_lines}ORIGINAL\n{stable_lines}");
+        let feature_content = format!("{stable_lines}MODIFIED\n{stable_lines}");
+
+        // Step 1: create main with the multi-line file already present.
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = git2::Repository::init(tmp.path()).unwrap();
+        let sig = git2::Signature::now("test", "test@test.com").unwrap();
+
+        let file_path = tmp.path().join("multi.txt");
+        fs::write(&file_path, &main_content).unwrap();
+        let main_oid = {
+            let mut index = repo.index().unwrap();
+            index.add_path(std::path::Path::new("multi.txt")).unwrap();
+            index.write().unwrap();
+            let tree_id = index.write_tree().unwrap();
+            let tree = repo.find_tree(tree_id).unwrap();
+            let oid = repo
+                .commit(
+                    Some("HEAD"),
+                    &sig,
+                    &sig,
+                    "init main with multi.txt",
+                    &tree,
+                    &[],
+                )
+                .unwrap();
+            drop(tree);
+            oid
+        };
+
+        // Ensure HEAD is on `refs/heads/main` (handle git defaulting to master).
+        let head_branch = repo
+            .head()
+            .ok()
+            .and_then(|h| h.shorthand().map(|s| s.to_string()));
+        if head_branch.as_deref() != Some("main") {
+            let commit = repo.find_commit(main_oid).unwrap();
+            repo.branch("main", &commit, false).unwrap();
+            repo.set_head("refs/heads/main").unwrap();
+            if let Ok(mut master) = repo.find_branch("master", git2::BranchType::Local) {
+                master.delete().unwrap_or(());
+            }
+        }
+
+        // Step 2: create feature branch from main and commit the modification.
+        {
+            let main_commit = repo.find_commit(main_oid).unwrap();
+            repo.branch("feature", &main_commit, false).unwrap();
+        }
+        repo.set_head("refs/heads/feature").unwrap();
+
+        fs::write(&file_path, &feature_content).unwrap();
+        {
+            let mut index = repo.index().unwrap();
+            index.add_path(std::path::Path::new("multi.txt")).unwrap();
+            index.write().unwrap();
+            let tree_id = index.write_tree().unwrap();
+            let tree = repo.find_tree(tree_id).unwrap();
+            let parent = repo.find_commit(main_oid).unwrap();
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "feature: modify multi.txt",
+                &tree,
+                &[&parent],
+            )
+            .unwrap();
+        }
+
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+
+        let (status0, json0) = do_get(Arc::clone(&state), "/api/diff/branch?context=0").await;
+        assert_eq!(status0, StatusCode::OK);
+        let (status999, json999) = do_get(Arc::clone(&state), "/api/diff/branch?context=999").await;
+        assert_eq!(status999, StatusCode::OK);
+
+        let arr0 = json0.as_array().unwrap();
+        let arr999 = json999.as_array().unwrap();
+        assert_eq!(arr0.len(), 1, "Expected 1 file diff for context=0");
+        assert_eq!(arr999.len(), 1, "Expected 1 file diff for context=999");
+
+        let patch0 = arr0[0]["patch"].as_str().unwrap().to_string();
+        let patch999 = arr999[0]["patch"].as_str().unwrap().to_string();
+
+        assert!(
+            patch999.len() > patch0.len(),
+            "context=999 patch ({} bytes) should be longer than context=0 patch ({} bytes)",
+            patch999.len(),
+            patch0.len()
+        );
+    }
+
+    /// Test 9: /api/diff/branch?context=abc returns HTTP 400 (axum Query rejects non-u32).
+    #[tokio::test]
+    async fn get_diff_branch_invalid_context_returns_400() {
+        let (tmp, _repo, _oids) = make_repo_with_main_and_feature(&[("x.txt", "a\nb\n")]);
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let (status, _json) = do_get(state, "/api/diff/branch?context=abc").await;
+        assert_eq!(
+            status,
+            StatusCode::BAD_REQUEST,
+            "Non-u32 ?context must return 400"
+        );
+    }
+
+    /// Test 10: /api/diff/branch (no param) returns the same patch as ?context=3 (default = 3).
+    #[tokio::test]
+    async fn get_diff_branch_default_matches_context_3() {
+        let (tmp, _repo, _oids) =
+            make_repo_with_main_and_feature(&[("y.txt", "one\ntwo\nthree\n")]);
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+
+        let (status_default, json_default) = do_get(Arc::clone(&state), "/api/diff/branch").await;
+        assert_eq!(status_default, StatusCode::OK);
+
+        let (status_3, json_3) = do_get(Arc::clone(&state), "/api/diff/branch?context=3").await;
+        assert_eq!(status_3, StatusCode::OK);
+
+        let patch_default = json_default.as_array().unwrap()[0]["patch"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let patch_3 = json_3.as_array().unwrap()[0]["patch"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        assert_eq!(
+            patch_default, patch_3,
+            "No-param patch must be byte-identical to ?context=3 patch"
+        );
+    }
+
+    /// Test 11: /api/diff/commit/:sha?context=999 returns HTTP 200 with a JSON array.
+    #[tokio::test]
+    async fn get_diff_commit_accepts_context_param() {
+        let content_base = "line\n".repeat(5) + "ORIGINAL\n" + &"line\n".repeat(4);
+        let content_mod = "line\n".repeat(5) + "MODIFIED\n" + &"line\n".repeat(4);
+        let (tmp, _repo, feature_oids) = make_repo_with_main_and_feature(&[
+            ("multi.txt", &content_base),
+            ("multi.txt", &content_mod),
+        ]);
+
+        // Use the second commit which modifies multi.txt.
+        let second_oid = feature_oids[1];
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let uri = format!("/api/diff/commit/{second_oid}?context=999");
+        let (status, json) = do_get(state, &uri).await;
+        assert_eq!(status, StatusCode::OK, "?context=999 must return 200");
+
+        let arr = json.as_array().expect("expected JSON array");
+        assert_eq!(arr.len(), 1, "Expected 1 file diff, got {}", arr.len());
     }
 }
