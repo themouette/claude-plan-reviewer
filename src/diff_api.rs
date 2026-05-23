@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::get,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // --- Types ---
 
@@ -36,6 +36,11 @@ pub struct Commit {
 #[derive(Clone)]
 pub struct CodeReviewState {
     pub repo_path: std::path::PathBuf,
+}
+
+#[derive(Deserialize)]
+pub struct DiffContextQuery {
+    pub context: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -189,11 +194,17 @@ fn build_file_diffs(diff: &git2::Diff) -> Vec<FileDiff> {
 /// GET /api/diff/branch — returns FileDiff[] for all changes between HEAD and
 /// the detected base branch (merge base). Returns an empty array if the repo
 /// cannot be opened or no base branch resolves (D-07).
-async fn get_diff_branch(State(state): State<Arc<CodeReviewState>>) -> impl IntoResponse {
-    Json(try_branch_diff(&state.repo_path).unwrap_or_default())
+/// Accepts optional `?context=N` query param (u32) to control context lines;
+/// defaults to 3 (git2 default, D-06). Returns 400 on non-u32 input (T-25-CINV).
+async fn get_diff_branch(
+    State(state): State<Arc<CodeReviewState>>,
+    Query(params): Query<DiffContextQuery>,
+) -> impl IntoResponse {
+    let context_lines = params.context.unwrap_or(3);
+    Json(try_branch_diff(&state.repo_path, context_lines).unwrap_or_default())
 }
 
-fn try_branch_diff(repo_path: &std::path::Path) -> Option<Vec<FileDiff>> {
+fn try_branch_diff(repo_path: &std::path::Path, context_lines: u32) -> Option<Vec<FileDiff>> {
     let repo = git2::Repository::open(repo_path).ok()?;
 
     let head = repo.head().ok()?.peel_to_commit().ok()?;
@@ -206,6 +217,7 @@ fn try_branch_diff(repo_path: &std::path::Path) -> Option<Vec<FileDiff>> {
 
     let mut opts = git2::DiffOptions::new();
     opts.old_prefix("a/").new_prefix("b/");
+    opts.context_lines(context_lines);
 
     let diff = repo
         .diff_tree_to_tree(Some(&base_tree), Some(&head_tree), Some(&mut opts))
@@ -266,9 +278,11 @@ fn try_list_commits(repo_path: &std::path::Path) -> Option<CommitList> {
 /// Returns:
 /// - 200 + FileDiff[] on success
 /// - 400 + JSON {"error": "..."} when sha is not a valid hex OID (T-24-PT mitigated)
+///   or when `?context` is not a valid u32 (T-25-CINV)
 /// - 404 + JSON {"error": "..."} when sha is valid hex but not found in the repo
 async fn get_diff_commit(
     State(state): State<Arc<CodeReviewState>>,
+    Query(params): Query<DiffContextQuery>,
     Path(sha): Path<String>,
 ) -> impl IntoResponse {
     // Validate SHA format via Oid::from_str — returns 400 on non-hex / wrong-length input.
@@ -324,8 +338,10 @@ async fn get_diff_commit(
     // diff_tree_to_tree treats None as the empty tree.
     let parent_tree = commit.parent(0).ok().and_then(|p| p.tree().ok());
 
+    let context_lines = params.context.unwrap_or(3);
     let mut opts = git2::DiffOptions::new();
     opts.old_prefix("a/").new_prefix("b/");
+    opts.context_lines(context_lines);
 
     let diff =
         match repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&commit_tree), Some(&mut opts)) {
