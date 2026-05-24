@@ -93,6 +93,7 @@ export async function fetchFilteredBranchDiff(
   doFetch: DoFetch,
   contextLines?: number,
 ): Promise<FetchDiffResult> {
+  if (shas.length === 0) return { files: [], error: null }
   const settled = await Promise.allSettled(
     shas.map((sha) => fetchCommitDiffOnce(sha, doFetch, contextLines)),
   )

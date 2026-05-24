@@ -163,4 +163,16 @@ describe('fetchFilteredBranchDiff', () => {
     expect(result.files).toHaveLength(0)
     expect(result.error).toBe('all fetches failed')
   })
+
+  it('returns { files: [], error: null } for empty shas array without calling doFetch', async () => {
+    let called = false
+    const doFetch = () => {
+      called = true
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
+    }
+    const result = await fetchFilteredBranchDiff([], doFetch)
+    expect(called).toBe(false)
+    expect(result.files).toHaveLength(0)
+    expect(result.error).toBeNull()
+  })
 })
