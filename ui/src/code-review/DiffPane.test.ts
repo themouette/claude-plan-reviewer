@@ -78,4 +78,27 @@ describe('DiffPane', () => {
   it('uses var(--color-accent-deny) for the error heading color', () => {
     expect(source).toContain('var(--color-accent-deny)')
   })
+
+  it('extends DiffPaneProps with viewMode, activeCommitSha, and commits optional props', () => {
+    expect(source).toContain('viewMode')
+    expect(source).toContain('activeCommitSha')
+    expect(source).toContain('commits')
+    expect(source).toContain("'branch' | 'commit'")
+  })
+
+  it("imports Commit type from './types'", () => {
+    expect(source).toContain('Commit')
+    expect(source).toContain("from './types'")
+  })
+
+  it('renders commit title strip when viewMode === commit (activeCommit fields)', () => {
+    expect(source).toContain('activeCommit.short_sha')
+    expect(source).toContain('activeCommit.message')
+    expect(source).toContain('activeCommit.author')
+    expect(source).toContain('activeCommit.date')
+  })
+
+  it('still does not import from reviewer-v2/', () => {
+    expect(source).not.toContain('reviewer-v2/')
+  })
 })
