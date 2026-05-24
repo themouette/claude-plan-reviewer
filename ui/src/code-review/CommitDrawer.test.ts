@@ -16,10 +16,29 @@ describe('CommitDrawer', () => {
     expect(source).toContain('aria-label="Branch commits"')
   })
 
-  it('overlay has width: 296, zIndex: 10, and position: absolute', () => {
+  it('D-01: drawer has width: 296 and flexShrink: 0 (flex sibling, not overlay)', () => {
     expect(source).toContain('width: 296')
-    expect(source).toContain('zIndex: 10')
-    expect(source).toContain("position: 'absolute'")
+    expect(source).toContain('flexShrink: 0')
+  })
+
+  it('D-01: drawer does NOT have position: absolute (no longer an overlay)', () => {
+    expect(source).not.toContain("position: 'absolute'")
+  })
+
+  it('D-01: drawer does NOT have zIndex: 10', () => {
+    expect(source).not.toContain('zIndex: 10')
+  })
+
+  it('D-06: drawer has NO checkbox input element', () => {
+    expect(source).not.toContain('type="checkbox"')
+  })
+
+  it('D-06: drawer does NOT have onCheckChange prop', () => {
+    expect(source).not.toContain('onCheckChange')
+  })
+
+  it('D-02: drawer does NOT have checkedCommitShas prop', () => {
+    expect(source).not.toContain('checkedCommitShas')
   })
 
   it("renders COMMITS header literal", () => {
@@ -38,10 +57,28 @@ describe('CommitDrawer', () => {
     expect(source).toContain("'Could not load commits. Check server connection and reload.'")
   })
 
-  it('checkbox has e.stopPropagation() on both onChange and onClick', () => {
-    const matches = source.match(/e\.stopPropagation\(\)/g)
-    expect(matches).not.toBeNull()
-    expect((matches ?? []).length).toBeGreaterThanOrEqual(2)
+  it('D-02: uses selectedCommitShas prop for selection state', () => {
+    expect(source).toContain('selectedCommitShas')
+  })
+
+  it('D-02: uses selectedCommitShas.includes( for row highlight', () => {
+    expect(source).toContain('selectedCommitShas.includes(')
+  })
+
+  it('D-11: renders commit.branches.map for branch pills', () => {
+    expect(source).toContain('commit.branches.map')
+  })
+
+  it('D-11: renders commit.tags.map for tag pills', () => {
+    expect(source).toContain('commit.tags.map')
+  })
+
+  it("D-11: branch pills use 'branch:' prefix format", () => {
+    expect(source).toContain('branch:')
+  })
+
+  it("D-11: tag pills use 'tag:' prefix format", () => {
+    expect(source).toContain('tag:')
   })
 
   it('renders commit.short_sha, commit.message, commit.author, commit.date', () => {
@@ -67,9 +104,8 @@ describe('CommitDrawer', () => {
     expect(source).not.toContain('reviewer-v2/')
   })
 
-  it('calls onCommitClick and onCheckChange handlers', () => {
-    expect(source).toContain('onCommitClick(')
-    expect(source).toContain('onCheckChange(')
+  it('calls onCommitClick handler with sha and event', () => {
+    expect(source).toContain('onCommitClick(commit.sha,')
   })
 
   it('CommitRow li has role="button" and tabIndex={0} for keyboard accessibility', () => {

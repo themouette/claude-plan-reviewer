@@ -4,20 +4,16 @@ export interface CommitDrawerProps {
   commits: Commit[]
   loading: boolean
   error: string | null
-  activeCommitSha: string | null
-  checkedCommitShas: string[]
-  onCommitClick: (sha: string) => void
-  onCheckChange: (sha: string, checked: boolean) => void
+  selectedCommitShas: string[]
+  onCommitClick: (sha: string, event: React.MouseEvent) => void
 }
 
 export default function CommitDrawer({
   commits,
   loading,
   error,
-  activeCommitSha,
-  checkedCommitShas,
+  selectedCommitShas,
   onCommitClick,
-  onCheckChange,
 }: CommitDrawerProps): React.JSX.Element {
   function renderBody() {
     // State 1: Loading (no commits yet)
@@ -102,39 +98,29 @@ export default function CommitDrawer({
     return (
       <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {commits.map((commit) => {
-          const isActive = commit.sha === activeCommitSha
-          const isChecked = checkedCommitShas.includes(commit.sha)
+          const isSelected = selectedCommitShas.includes(commit.sha)
 
           return (
             <li
               key={commit.sha}
               role="button"
               tabIndex={0}
-              onClick={() => onCommitClick(commit.sha)}
-              onKeyDown={(e) => { if (e.key === 'Enter') onCommitClick(commit.sha) }}
+              onClick={(e) => onCommitClick(commit.sha, e)}
+              onKeyDown={(e) => { if (e.key === 'Enter') onCommitClick(commit.sha, e as unknown as React.MouseEvent) }}
               style={{
                 padding: '8px 16px',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 4,
                 cursor: 'pointer',
-                borderLeft: isActive ? '2px solid var(--color-focus)' : '2px solid transparent',
-                background: isActive ? 'var(--color-bg)' : 'transparent',
-                color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                fontWeight: isActive ? 600 : 400,
+                borderLeft: isSelected ? '2px solid var(--color-focus)' : '2px solid transparent',
+                background: isSelected ? 'var(--color-bg)' : 'transparent',
+                color: isSelected ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                fontWeight: isSelected ? 600 : 400,
               }}
             >
-              {/* Line 1: checkbox + SHA chip + message */}
+              {/* Line 1: SHA chip + branch/tag pills + message */}
               <div style={{ display: 'flex', flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                <input
-                  type="checkbox"
-                  checked={isChecked}
-                  onChange={(e) => {
-                    e.stopPropagation()
-                    onCheckChange(commit.sha, e.target.checked)
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                />
                 <span
                   style={{
                     fontFamily: 'ui-monospace, "Cascadia Code", "Fira Code", monospace',
@@ -149,6 +135,40 @@ export default function CommitDrawer({
                 >
                   {commit.short_sha}
                 </span>
+                {/* D-11: branch pills after SHA chip */}
+                {commit.branches.map((branch) => (
+                  <span
+                    key={`branch:${branch}`}
+                    style={{
+                      fontSize: 11,
+                      padding: '2px 6px',
+                      borderRadius: 4,
+                      border: '1px solid var(--color-border)',
+                      background: 'var(--color-surface)',
+                      color: 'var(--color-text-secondary)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {`branch:${branch}`}
+                  </span>
+                ))}
+                {/* D-11: tag pills after branch pills */}
+                {commit.tags.map((tag) => (
+                  <span
+                    key={`tag:${tag}`}
+                    style={{
+                      fontSize: 11,
+                      padding: '2px 6px',
+                      borderRadius: 4,
+                      border: '1px solid var(--color-border)',
+                      background: 'var(--color-surface)',
+                      color: 'var(--color-text-secondary)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {`tag:${tag}`}
+                  </span>
+                ))}
                 <span
                   style={{
                     flex: 1,
@@ -178,14 +198,11 @@ export default function CommitDrawer({
       role="navigation"
       aria-label="Branch commits"
       style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
         width: 296,
+        flexShrink: 0,
         height: '100%',
         background: 'var(--color-surface)',
         borderRight: '1px solid var(--color-border)',
-        zIndex: 10,
         display: 'flex',
         flexDirection: 'column',
         overflowY: 'auto',
