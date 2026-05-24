@@ -643,7 +643,7 @@ Plans:
   4. Collapsed context lines (shown as `...`) expand when clicked to reveal surrounding lines
   5. The existing (unused) diff tab and its code are removed — no dead `DiffView` or `TabBar` code remains
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 **Wave 1**
 
@@ -655,7 +655,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 25-03-PLAN.md — CodeReviewApp composition + main.tsx pathname routing + ARCH-01 cleanup (remove legacy /api/diff, AppState.diff_content, extract_diff) + human verify
+- [x] 25-03-PLAN.md — CodeReviewApp composition + main.tsx pathname routing + ARCH-01 cleanup (remove legacy /api/diff, AppState.diff_content, extract_diff) + human verify
 
 **UI hint**: yes
 
@@ -776,7 +776,7 @@ Plans:
 | 22. Submit & Clipboard | v0.6.0 | 3/4 | Complete    | 2026-05-22 |
 | 23. Replace v1 with v2 | v0.6.0 | 1/1 | Complete    | 2026-05-22 |
 | 24. Backend Diff API | v0.7.0 | 2/2 | Complete    | 2026-05-23 |
-| 25. Diff Viewer UI | v0.7.0 | 2/3 | In Progress|  |
+| 25. Diff Viewer UI | v0.7.0 | 3/3 | Complete   | 2026-05-24 |
 | 26. Commit Navigation | v0.7.0 | 0/2 | Not started | - |
 | 27. Inline Comments | v0.7.0 | 0/3 | Not started | - |
 | 28. Review Submission | v0.7.0 | 0/2 | Not started | - |

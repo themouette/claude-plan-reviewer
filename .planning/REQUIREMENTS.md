@@ -45,7 +45,7 @@ Code review mode: inspect, navigate, and annotate agent-generated diffs before a
 
 ### Architecture
 
-- [ ] **ARCH-01**: Code review viewer replaces the existing (unused) diff tab — prior diff code removed
+- [x] **ARCH-01**: Code review viewer replaces the existing (unused) diff tab — prior diff code removed
 
 ## v0.6.0 Requirements (Shipped 2026-05-22)
 
@@ -119,7 +119,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INTEG-01 | Phase 29 | Pending |
 | INTEG-02 | Phase 29 | Pending |
 | INTEG-03 | Phase 29 | Pending |
-| ARCH-01 | Phase 25 | Pending |
+| ARCH-01 | Phase 25 | Complete |
 
 **Coverage:**
 - v0.7.0 requirements: 21 total
