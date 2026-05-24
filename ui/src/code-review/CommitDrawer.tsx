@@ -108,7 +108,10 @@ export default function CommitDrawer({
           return (
             <li
               key={commit.sha}
+              role="button"
+              tabIndex={0}
               onClick={() => onCommitClick(commit.sha)}
+              onKeyDown={(e) => { if (e.key === 'Enter') onCommitClick(commit.sha) }}
               style={{
                 padding: '8px 16px',
                 display: 'flex',

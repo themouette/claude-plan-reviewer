@@ -18,6 +18,7 @@ export default function CodeReviewApp(): React.JSX.Element {
   const [checkedCommitShas, setCheckedCommitShas] = useState<string[]>([])
 
   const diffPaneRef = useRef<HTMLDivElement>(null)
+  const seededRef = useRef(false)
   const { commits, loading: commitsLoading, error: commitsError } = useCommits()
 
   // Compute useDiff selector from current state (D-11)
@@ -63,13 +64,13 @@ export default function CodeReviewApp(): React.JSX.Element {
   }, [files.length])
 
   // D-08: seed checkedCommitShas to all commit shas when commits first load (opt-out model).
+  // seededRef sentinel (CR-02): one-shot guard — never re-seeds after user deselects all commits.
   // Deferred via setTimeout(0) to avoid react-hooks/set-state-in-effect violation.
   useEffect(() => {
-    if (commits.length > 0 && checkedCommitShas.length === 0) {
-      const id = setTimeout(() => setCheckedCommitShas(commits.map((c) => c.sha)), 0)
-      return () => clearTimeout(id)
-    }
-    return undefined
+    if (seededRef.current || commits.length === 0) return
+    seededRef.current = true
+    const id = setTimeout(() => setCheckedCommitShas(commits.map((c) => c.sha)), 0)
+    return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commits.length])
 
@@ -79,6 +80,7 @@ export default function CodeReviewApp(): React.JSX.Element {
     function handleKeyDown(e: KeyboardEvent) {
       if (viewMode !== 'commit' || commits.length === 0 || activeCommitSha === null) return
       const idx = commits.findIndex((c) => c.sha === activeCommitSha)
+      if (idx === -1) return
       if (e.key === 'ArrowLeft' && idx > 0) setActiveCommitSha(commits[idx - 1].sha)
       else if (e.key === 'ArrowRight' && idx < commits.length - 1) setActiveCommitSha(commits[idx + 1].sha)
     }
