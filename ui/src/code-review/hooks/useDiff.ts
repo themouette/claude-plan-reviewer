@@ -10,6 +10,10 @@ export interface FetchDiffResult {
   error: string | null
 }
 
+// SHA validation regex — accepts 7–40 hex characters (case-insensitive).
+// Used by fetchCommitDiffOnce to reject path-traversal and non-SHA strings before URL construction.
+const SHA_RE = /^[0-9a-f]{7,40}$/i
+
 /**
  * Discriminated union selector for useDiff — controls which endpoint to fetch from.
  *   { mode: 'branch' }                → GET /api/diff/branch
@@ -58,6 +62,9 @@ export async function fetchCommitDiffOnce(
   doFetch: DoFetch,
   contextLines?: number,
 ): Promise<FetchDiffResult> {
+  if (!SHA_RE.test(sha)) {
+    return { files: [], error: 'invalid sha' }
+  }
   const url =
     contextLines !== undefined
       ? `/api/diff/commit/${sha}?context=${contextLines}`
@@ -76,22 +83,27 @@ export async function fetchCommitDiffOnce(
 
 /**
  * Pure function: fetches FileDiff[] from N /api/diff/commit/{sha} endpoints in parallel
- * and returns the flat union. Per-sha failures resolve to [] (no throw escapes).
+ * and returns the flat union as a FetchDiffResult.
+ * Returns { files: [], error: 'all fetches failed' } when every SHA-level fetch fails.
+ * Returns { files: [...], error: null } when at least one SHA succeeds.
  * Used for DIFF-05: client-side union for subset-of-commits branch view.
  */
 export async function fetchFilteredBranchDiff(
   shas: string[],
   doFetch: DoFetch,
   contextLines?: number,
-): Promise<FileDiff[]> {
-  const results = await Promise.all(
-    shas.map((sha) =>
-      fetchCommitDiffOnce(sha, doFetch, contextLines)
-        .then((r) => r.files)
-        .catch(() => [] as FileDiff[]),
-    ),
+): Promise<FetchDiffResult> {
+  const settled = await Promise.allSettled(
+    shas.map((sha) => fetchCommitDiffOnce(sha, doFetch, contextLines)),
   )
-  return results.flat()
+  const allFailed = settled.every((r) => r.status === 'rejected' || r.value.error !== null)
+  if (allFailed) {
+    return { files: [], error: 'all fetches failed' }
+  }
+  return {
+    files: settled.flatMap((r) => (r.status === 'fulfilled' ? r.value.files : [])),
+    error: null,
+  }
 }
 
 export interface UseDiffResult {
@@ -135,8 +147,7 @@ export function useDiff(opts?: { selector: DiffFetchSelector }): UseDiffResult {
       return fetchCommitDiffOnce(selector.sha, doFetch, contextLines)
     }
     if (selector.mode === 'branch-union') {
-      const unionFiles = await fetchFilteredBranchDiff(selector.shas, doFetch, contextLines)
-      return { files: unionFiles, error: null }
+      return fetchFilteredBranchDiff(selector.shas, doFetch, contextLines)
     }
     // Default: branch mode
     return fetchDiffOnce(doFetch, contextLines)

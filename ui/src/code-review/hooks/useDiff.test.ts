@@ -77,10 +77,10 @@ describe('fetchCommitDiffOnce', () => {
   it('calls /api/diff/commit/{sha} and returns files on 200', async () => {
     const file: FileDiff = { filename: 'b', status: 'modified', additions: 1, deletions: 1, changes: 2, patch: '-x\n+y' }
     const doFetch = (url: string) => {
-      expect(url).toContain('/api/diff/commit/abc123')
+      expect(url).toContain('/api/diff/commit/abc1234')
       return Promise.resolve(new Response(JSON.stringify([file]), { status: 200 }))
     }
-    const result = await fetchCommitDiffOnce('abc123', doFetch)
+    const result = await fetchCommitDiffOnce('abc1234', doFetch)
     expect(result.error).toBeNull()
     expect(result.files).toHaveLength(1)
     expect(result.files[0].filename).toBe('b')
@@ -88,14 +88,14 @@ describe('fetchCommitDiffOnce', () => {
 
   it("returns { files: [], error: 'fetch failed' } on non-ok", async () => {
     const doFetch = () => Promise.resolve(new Response(null, { status: 500 }))
-    const result = await fetchCommitDiffOnce('abc123', doFetch)
+    const result = await fetchCommitDiffOnce('abc1234', doFetch)
     expect(result.files).toHaveLength(0)
     expect(result.error).toBe('fetch failed')
   })
 
   it("returns { files: [], error: 'network error' } when fetch throws", async () => {
     const doFetch = (): Promise<Response> => Promise.reject(new Error('network failure'))
-    const result = await fetchCommitDiffOnce('abc123', doFetch)
+    const result = await fetchCommitDiffOnce('abc1234', doFetch)
     expect(result.files).toHaveLength(0)
     expect(result.error).toBe('network error')
   })
@@ -106,7 +106,7 @@ describe('fetchCommitDiffOnce', () => {
       capturedUrl = url
       return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
     }
-    await fetchCommitDiffOnce('abc123', doFetch, 999)
+    await fetchCommitDiffOnce('abc1234', doFetch, 999)
     expect(capturedUrl).toContain('?context=999')
   })
 
@@ -128,10 +128,10 @@ describe('fetchFilteredBranchDiff', () => {
     const fileA: FileDiff = { filename: 'a', status: 'added', additions: 1, deletions: 0, changes: 1, patch: '+a' }
     const fileB: FileDiff = { filename: 'b', status: 'modified', additions: 1, deletions: 1, changes: 2, patch: '-x\n+y' }
     const doFetch = (url: string) => {
-      if (url.includes('sha1')) return Promise.resolve(new Response(JSON.stringify([fileA]), { status: 200 }))
+      if (url.includes('aa11111')) return Promise.resolve(new Response(JSON.stringify([fileA]), { status: 200 }))
       return Promise.resolve(new Response(JSON.stringify([fileB]), { status: 200 }))
     }
-    const result = await fetchFilteredBranchDiff(['sha1', 'sha2'], doFetch)
+    const result = await fetchFilteredBranchDiff(['aa11111', 'bb22222'], doFetch)
     expect(result.files).toHaveLength(2)
     expect(result.error).toBeNull()
   })
@@ -139,10 +139,10 @@ describe('fetchFilteredBranchDiff', () => {
   it('returns [] for a single failing sha without throwing', async () => {
     const fileA: FileDiff = { filename: 'a', status: 'added', additions: 1, deletions: 0, changes: 1, patch: '+a' }
     const doFetch = (url: string) => {
-      if (url.includes('sha1')) return Promise.resolve(new Response(JSON.stringify([fileA]), { status: 200 }))
+      if (url.includes('aa11111')) return Promise.resolve(new Response(JSON.stringify([fileA]), { status: 200 }))
       return Promise.resolve(new Response(null, { status: 500 }))
     }
-    const result = await fetchFilteredBranchDiff(['sha1', 'sha2'], doFetch)
+    const result = await fetchFilteredBranchDiff(['aa11111', 'bb22222'], doFetch)
     expect(result.files).toHaveLength(1)
     expect(result.error).toBeNull()
   })
@@ -153,13 +153,13 @@ describe('fetchFilteredBranchDiff', () => {
       capturedUrls.push(url)
       return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
     }
-    await fetchFilteredBranchDiff(['sha1', 'sha2'], doFetch, 5)
+    await fetchFilteredBranchDiff(['aa11111', 'bb22222'], doFetch, 5)
     expect(capturedUrls.every((u) => u.includes('?context='))).toBe(true)
   })
 
   it("returns { files: [], error: 'all fetches failed' } when all SHAs return 500", async () => {
     const doFetch = () => Promise.resolve(new Response(null, { status: 500 }))
-    const result = await fetchFilteredBranchDiff(['sha1', 'sha2'], doFetch)
+    const result = await fetchFilteredBranchDiff(['aa11111', 'bb22222'], doFetch)
     expect(result.files).toHaveLength(0)
     expect(result.error).toBe('all fetches failed')
   })
