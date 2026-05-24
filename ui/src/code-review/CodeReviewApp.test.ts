@@ -42,7 +42,7 @@ describe('CodeReviewApp', () => {
   })
 
   it('calls useDiff() and destructures files, loading, error, refetch', () => {
-    expect(source).toContain('useDiff()')
+    expect(source).toContain('useDiff(')
     expect(source).toContain('files')
     expect(source).toContain('loading')
     expect(source).toContain('error')
@@ -92,5 +92,77 @@ describe('CodeReviewApp', () => {
 
   it('resets activeIndex when files.length changes', () => {
     expect(source).toContain('[files.length]')
+  })
+
+  // Phase 26 additions
+  it("imports CommitDrawer", () => {
+    expect(source).toContain("import CommitDrawer from './CommitDrawer'")
+  })
+
+  it("imports useCommits", () => {
+    expect(source).toContain("from './hooks/useCommits'")
+    expect(source).toContain('useCommits()')
+  })
+
+  it('declares drawerOpen, viewMode, activeCommitSha, checkedCommitShas state', () => {
+    expect(source).toContain('drawerOpen')
+    expect(source).toContain('viewMode')
+    expect(source).toContain('activeCommitSha')
+    expect(source).toContain('checkedCommitShas')
+  })
+
+  it("viewMode state is typed 'branch' | 'commit' with initial 'branch'", () => {
+    expect(source).toContain("useState<'branch' | 'commit'>('branch')")
+  })
+
+  it("aside has position: 'relative'", () => {
+    expect(source).toContain("position: 'relative'")
+  })
+
+  it('passes commitsOpen and onCommitsToggle to AppToolbar', () => {
+    expect(source).toContain('commitsOpen={drawerOpen}')
+    expect(source).toContain('onCommitsToggle={')
+  })
+
+  it('passes viewMode, activeCommitSha, commits to DiffPane', () => {
+    expect(source).toContain('viewMode={viewMode}')
+    expect(source).toContain('activeCommitSha={activeCommitSha}')
+    expect(source).toContain('commits={commits}')
+  })
+
+  it('conditionally renders CommitDrawer when drawerOpen', () => {
+    expect(source).toContain('{drawerOpen &&')
+    expect(source).toContain('<CommitDrawer')
+  })
+
+  it('handleCommitsToggle resets viewMode to branch and activeCommitSha to null on close', () => {
+    expect(source).toContain("setViewMode('branch')")
+    expect(source).toContain('setActiveCommitSha(null)')
+    expect(source).toContain('setDrawerOpen(false)')
+  })
+
+  it('keyboard handler listens for ArrowLeft and ArrowRight only', () => {
+    expect(source).toContain("'ArrowLeft'")
+    expect(source).toContain("'ArrowRight'")
+    expect(source).not.toContain("'ArrowUp'")
+    expect(source).not.toContain("'ArrowDown'")
+  })
+
+  it("keyboard handler is gated on viewMode === 'commit'", () => {
+    expect(source).toContain("viewMode !== 'commit'")
+  })
+
+  it('keyboard handler stops at boundaries (no wrap)', () => {
+    expect(source).toContain('idx > 0')
+    expect(source).toContain('idx < commits.length - 1')
+  })
+
+  it('checkedCommitShas seeded via setTimeout(0) deferral', () => {
+    expect(source).toContain('setTimeout(')
+    expect(source).toContain('setCheckedCommitShas(commits.map')
+  })
+
+  it('still does not import from reviewer-v2/', () => {
+    expect(source).not.toContain('reviewer-v2/')
   })
 })
