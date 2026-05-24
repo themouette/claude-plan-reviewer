@@ -672,7 +672,7 @@ Plans:
   4. Pressing the left/right (or up/down) arrow keys navigates to the previous/next commit
   5. Deselecting commits in the list excludes them from the combined diff view
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 Plans:
 **Wave 1**
 
@@ -680,7 +680,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 26-02-PLAN.md — CommitDrawer overlay component + DiffPane per-commit title strip
+- [x] 26-02-PLAN.md — CommitDrawer overlay component + DiffPane per-commit title strip
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -785,7 +785,7 @@ Plans:
 | 23. Replace v1 with v2 | v0.6.0 | 1/1 | Complete    | 2026-05-22 |
 | 24. Backend Diff API | v0.7.0 | 2/2 | Complete    | 2026-05-23 |
 | 25. Diff Viewer UI | v0.7.0 | 3/3 | Complete   | 2026-05-24 |
-| 26. Commit Navigation | v0.7.0 | 1/3 | In Progress|  |
+| 26. Commit Navigation | v0.7.0 | 2/3 | In Progress|  |
 | 27. Inline Comments | v0.7.0 | 0/3 | Not started | - |
 | 28. Review Submission | v0.7.0 | 0/2 | Not started | - |
 | 29. Code Review Integration | v0.7.0 | 0/2 | Not started | - |
