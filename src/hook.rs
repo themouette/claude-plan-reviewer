@@ -8,6 +8,7 @@ pub struct HookInput {
     pub session_id: String,
     #[allow(dead_code)]
     pub transcript_path: Option<String>,
+    #[allow(dead_code)]
     pub cwd: String,
     pub hook_event_name: String,
     #[allow(dead_code)]

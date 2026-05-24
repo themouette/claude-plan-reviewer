@@ -21,7 +21,6 @@ pub struct Decision {
 
 pub struct AppState {
     pub plan_md: String,
-    pub diff_content: String,
     pub approve_label: String,
     pub deny_label: String,
     pub decision_tx: Mutex<Option<oneshot::Sender<Decision>>>,
@@ -31,10 +30,6 @@ pub struct AppState {
 
 async fn get_plan(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     Json(serde_json::json!({ "plan_md": state.plan_md }))
-}
-
-async fn get_diff(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    Json(serde_json::json!({ "diff": state.diff_content }))
 }
 
 async fn get_config(State(state): State<Arc<AppState>>) -> impl IntoResponse {
@@ -66,7 +61,6 @@ async fn post_decide(
 pub fn router(state: Arc<AppState>) -> Router<()> {
     Router::new()
         .route("/api/plan", get(get_plan))
-        .route("/api/diff", get(get_diff))
         .route("/api/config", get(get_config))
         .route("/api/decide", post(post_decide))
         .with_state(state)

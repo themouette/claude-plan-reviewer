@@ -34,7 +34,6 @@ async fn get_ping() -> impl IntoResponse {
 /// the decision.
 pub async fn start_server(
     plan_md: String,
-    diff_content: String,
     approve_label: String,
     deny_label: String,
     port: u16,
@@ -49,7 +48,6 @@ pub async fn start_server(
     // 3. Build plan_review state (AppState fields unchanged per D-06)
     let plan_state = Arc::new(AppState {
         plan_md,
-        diff_content,
         approve_label,
         deny_label,
         decision_tx: Mutex::new(Some(decision_tx)),

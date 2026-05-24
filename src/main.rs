@@ -9,10 +9,7 @@ mod update;
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        Cli, Commands, build_gemini_output, build_opencode_output, extract_diff,
-        extract_plan_content,
-    };
+    use super::{Cli, Commands, build_gemini_output, build_opencode_output, extract_plan_content};
     use crate::hook;
     use crate::hook::HookOutput;
     use crate::server;
@@ -176,77 +173,6 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_diff_nonexistent_path() {
-        let result = extract_diff("/nonexistent/path/xyz");
-        assert_eq!(result, "", "Non-existent path should return empty string");
-    }
-
-    #[test]
-    fn test_extract_diff_non_git_dir() {
-        let result = extract_diff(std::env::temp_dir().to_str().unwrap());
-        assert_eq!(result, "", "Non-git directory should return empty string");
-    }
-
-    #[test]
-    fn test_extract_diff_dirty_repo() {
-        use std::fs;
-        // Create a temp dir with a git repo that has uncommitted changes
-        let tmp = tempfile::tempdir().expect("failed to create temp dir");
-        let repo = git2::Repository::init(tmp.path()).expect("failed to init repo");
-
-        // Create initial commit so HEAD exists
-        {
-            let sig = git2::Signature::now("test", "test@test.com").unwrap();
-            let tree_id = repo.index().unwrap().write_tree().unwrap();
-            let tree = repo.find_tree(tree_id).unwrap();
-            repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[])
-                .unwrap();
-        }
-
-        // Write a new (untracked/modified) file
-        let file_path = tmp.path().join("hello.txt");
-        fs::write(&file_path, "hello world\n").expect("failed to write file");
-
-        // Stage the file so it shows in diff_tree_to_workdir_with_index
-        let mut index = repo.index().unwrap();
-        index.add_path(std::path::Path::new("hello.txt")).unwrap();
-        index.write().unwrap();
-
-        let result = extract_diff(tmp.path().to_str().unwrap());
-        assert!(
-            !result.is_empty(),
-            "Dirty repo should return non-empty diff string"
-        );
-        // Should contain diff markers
-        let has_diff_marker =
-            result.contains("diff --git") || result.contains("@@") || result.contains('+');
-        assert!(
-            has_diff_marker,
-            "Diff output should contain diff markers, got: {}",
-            result
-        );
-    }
-
-    #[test]
-    fn test_extract_diff_clean_repo() {
-        // Create a temp dir with a clean git repo (no uncommitted changes)
-        let tmp = tempfile::tempdir().expect("failed to create temp dir");
-        let repo = git2::Repository::init(tmp.path()).expect("failed to init repo");
-
-        // Create initial commit
-        {
-            let sig = git2::Signature::now("test", "test@test.com").unwrap();
-            let tree_id = repo.index().unwrap().write_tree().unwrap();
-            let tree = repo.find_tree(tree_id).unwrap();
-            repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[])
-                .unwrap();
-        }
-
-        let result = extract_diff(tmp.path().to_str().unwrap());
-        assert_eq!(result, "", "Clean repo should return empty diff string");
-    }
-
-    #[test]
     fn test_cli_review_hook_subcommand_parses() {
         let cli = Cli::try_parse_from(["plan-reviewer", "review-hook"]).expect("parse failed");
         assert!(matches!(cli.command, Some(Commands::ReviewHook)));
@@ -363,64 +289,6 @@ enum Commands {
     },
 }
 
-/// Extract the unified diff of the working tree against HEAD from the given
-/// directory.  Returns an empty string if `cwd` is not a git repository,
-/// does not exist, or has no uncommitted changes.
-fn extract_diff(cwd: &str) -> String {
-    let repo = match git2::Repository::open(cwd) {
-        Ok(r) => r,
-        Err(_) => return String::new(),
-    };
-
-    // Force standard a/b prefixes regardless of diff.mnemonicPrefix git config,
-    // because @pierre/diffs regex only matches `a/` and `b/` prefixes.
-    let mut opts = git2::DiffOptions::new();
-    opts.old_prefix("a/").new_prefix("b/");
-
-    // Prefer full working-tree diff vs HEAD (staged + unstaged)
-    let diff = if let Ok(head) = repo.head() {
-        if let Ok(commit) = head.peel_to_commit() {
-            if let Ok(tree) = commit.tree() {
-                repo.diff_tree_to_workdir_with_index(Some(&tree), Some(&mut opts))
-                    .ok()
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    // Fallback: unstaged changes only (works on empty repos with no HEAD)
-    let diff = diff.or_else(|| repo.diff_index_to_workdir(None, Some(&mut opts)).ok());
-
-    let diff = match diff {
-        Some(d) => d,
-        None => return String::new(),
-    };
-
-    let mut output = String::new();
-    let _ = diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
-        if let Ok(s) = std::str::from_utf8(line.content()) {
-            match line.origin() {
-                '+' | '-' | ' ' => {
-                    output.push(line.origin());
-                    output.push_str(s);
-                }
-                _ => {
-                    // File headers, hunk headers, binary markers — already formatted by git2
-                    output.push_str(s);
-                }
-            }
-        }
-        true
-    });
-
-    output
-}
-
 /// Extract plan Markdown from hook input.
 ///
 /// Claude Code sends the plan inline in `tool_input.plan`.
@@ -489,13 +357,6 @@ fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
         plan_file
     );
 
-    // Extract diff from current working directory (no HookInput cwd available)
-    let cwd = std::env::current_dir()
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let diff_content = extract_diff(&cwd);
-    eprintln!("Diff extracted ({} bytes)", diff_content.len());
-
     // Start tokio runtime and run the browser review flow
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -506,7 +367,6 @@ fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
         no_browser,
         port,
         plan_md,
-        diff_content,
         "Approve".to_string(),
         "Deny".to_string(),
     ));
@@ -545,13 +405,6 @@ fn run_review_flow(no_browser: bool, port: u16, file: &str, approve_label: &str,
         }
     }
 
-    // Extract diff from current working directory
-    let cwd = std::env::current_dir()
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let diff_content = extract_diff(&cwd);
-    eprintln!("Diff extracted ({} bytes)", diff_content.len());
-
     // Start tokio runtime and run the browser review flow
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -562,7 +415,6 @@ fn run_review_flow(no_browser: bool, port: u16, file: &str, approve_label: &str,
         no_browser,
         port,
         plan_md,
-        diff_content,
         approve_label.to_string(),
         deny_label.to_string(),
     ));
@@ -655,10 +507,6 @@ fn run_hook_flow(no_browser: bool, port: u16) {
     let plan_md = extract_plan_content(&hook_input.tool_input);
     eprintln!("Plan received ({} bytes)", plan_md.len());
 
-    // 5b. Extract git diff from the hook's cwd
-    let diff_content = extract_diff(&hook_input.cwd);
-    eprintln!("Diff extracted ({} bytes)", diff_content.len());
-
     // 6. Start tokio runtime (current_thread for single-user tool)
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -669,7 +517,6 @@ fn run_hook_flow(no_browser: bool, port: u16) {
         no_browser,
         port,
         plan_md,
-        diff_content,
         "Approve".to_string(),
         "Deny".to_string(),
     ));
@@ -701,13 +548,12 @@ async fn async_main(
     no_browser: bool,
     port: u16,
     plan_md: String,
-    diff_content: String,
     approve_label: String,
     deny_label: String,
 ) -> Decision {
     // Start server
     let (port, decision_rx) =
-        match server::start_server(plan_md, diff_content, approve_label, deny_label, port).await {
+        match server::start_server(plan_md, approve_label, deny_label, port).await {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("Failed to start server: {}", e);
