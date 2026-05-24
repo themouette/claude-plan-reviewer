@@ -56,4 +56,32 @@ describe('AppToolbar', () => {
   it('does not import from reviewer-v2/', () => {
     expect(source).not.toContain('reviewer-v2/')
   })
+
+  // Phase 26 additions
+  it('AppToolbarProps includes commitsOpen and onCommitsToggle', () => {
+    expect(source).toContain('commitsOpen: boolean')
+    expect(source).toContain('onCommitsToggle:')
+  })
+
+  it("renders the 'Commits' label literally", () => {
+    expect(source).toContain("'Commits'")
+  })
+
+  it('Commits button uses fontWeight 600 when commitsOpen is true', () => {
+    expect(source).toMatch(/commitsOpen\s*\?\s*600\s*:\s*400|commitsOpen\s*\?\s*400\s*:\s*600/)
+  })
+
+  it('Commits button uses color-text-primary when commitsOpen and color-text-secondary otherwise', () => {
+    expect(source).toContain('commitsOpen ?')
+    expect(source).toContain('var(--color-text-primary)')
+    expect(source).toContain('var(--color-text-secondary)')
+  })
+
+  it("Commits button uses makeFocusHandlers('commits')", () => {
+    expect(source).toContain("makeFocusHandlers('commits')")
+  })
+
+  it('AppToolbar still does NOT import from reviewer-v2/', () => {
+    expect(source).not.toContain('reviewer-v2/')
+  })
 })
