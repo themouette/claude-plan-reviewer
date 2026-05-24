@@ -64,7 +64,7 @@ completed: 2026-05-24
 - **Duration:** 7 min
 - **Started:** 2026-05-24T07:36:14Z
 - **Completed:** 2026-05-24T07:42:47Z
-- **Tasks:** 3 of 4 complete (Task 4 is a human-verify checkpoint — awaiting sign-off)
+- **Tasks:** 4 of 4 complete (Task 4 human-verify checkpoint — approved)
 - **Files modified:** 7
 
 ## Accomplishments
@@ -80,7 +80,7 @@ Each task was committed atomically:
 2. **Task 2: Wire pathname routing in main.tsx** - `b509243` (feat)
 3. **Task 3: ARCH-01 cleanup** - `bedf8aa` (fix)
 
-**Plan metadata commit:** pending (after human checkpoint)
+**Plan metadata commit:** 51e44e3 (pre-checkpoint), updated after approval
 
 ## Files Created/Modified
 - `ui/src/code-review/CodeReviewApp.tsx` - Root component composing AppToolbar + FileListPane + DiffPane; owns diffStyle, contextExpanded, activeIndex, diffPaneRef state and useDiff wiring
@@ -125,17 +125,20 @@ None beyond the two auto-fixed deviations above.
 
 ## Human Verification Status
 
-Task 4 is a `checkpoint:human-verify` gate. The executor stopped here. The human must:
-1. Run `cd ui && npm run build && cd .. && cargo build`
-2. Run the binary and navigate to `/code-review`
-3. Verify all 14 verification steps in the plan (DIFF-01 through DIFF-04, ARCH-01, theme, empty state, regression)
-4. Type "approved" to complete the checkpoint
+Task 4 is a `checkpoint:human-verify` gate. **APPROVED** — the human typed "approved" completing Phase 25.
+
+All 5 ROADMAP Phase 25 success criteria are confirmed in a real browser:
+1. `/code-review` renders file list + diff pane (DIFF-01)
+2. Unified/Side-by-side toggle works without reloading (DIFF-03)
+3. File click scrolls diff pane to that file; IntersectionObserver active tracking works (DIFF-04)
+4. Per-hunk `...` separators expand context (DIFF-02 native); Expand All re-fetches with `?context=999` (DIFF-02 explicit)
+5. ARCH-01 verified: no `/api/diff` request in devtools; `curl /api/diff` returns HTML fallback, not legacy JSON; existing `/` route renders ReviewerV2 unchanged
 
 ## Next Phase Readiness
-- Phase 25 is complete pending human sign-off on Task 4
+- Phase 25 is COMPLETE
 - The `/code-review` route is live; the legacy `/api/diff` endpoint is gone
-- All 5 ROADMAP Phase 25 success criteria are implemented and ready to verify visually
+- Phase 26 (Commit Navigation) is unblocked: depends on Phase 24 and Phase 25, both complete
 
 ---
 *Phase: 25-diff-viewer-ui*
-*Completed: 2026-05-24 (pending human checkpoint)*
+*Completed: 2026-05-24 — human checkpoint approved*

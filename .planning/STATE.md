@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.7.0
 milestone_name: Code Review
 status: executing
-stopped_at: Phase 25 UI-SPEC approved
-last_updated: "2026-05-24T07:44:02.307Z"
-last_activity: 2026-05-23
+stopped_at: Phase 25 complete — human checkpoint approved
+last_updated: "2026-05-24T09:50:00.000Z"
+last_activity: 2026-05-24
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
-  percent: 33
+  completed_phases: 3
+  total_plans: 8
+  completed_plans: 8
+  percent: 50
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 25 — diff-viewer-ui
+**Current focus:** Phase 26 — commit-navigation (next)
 
 ## Current Position
 
-Phase: 25 (diff-viewer-ui) — EXECUTING
-Plan: 2 of 3
-Status: Ready to execute
-Last activity: 2026-05-23
+Phase: 26 (commit-navigation) — READY
+Plan: 0 of 2
+Status: Phase 25 complete; ready to start Phase 26
+Last activity: 2026-05-24
 
 ## Performance Metrics
 
@@ -69,8 +69,15 @@ None yet.
 - [Phase 15]: Manual smoke test still pending — paste clipboard JSON into Claude to verify parsing
 - Pre-existing: `install_returns_err_when_binary_path_is_none` unit test fails on main before any v0.6.0 changes
 
+### Decisions (Phase 25)
+
+- [Phase 25]: useDiff effect calls fetchDiffOnce directly to avoid react-hooks/set-state-in-effect violation; loading init=true covers initial state
+- [Phase 25]: ESLint rule uses group ['../reviewer-v2/**', '*/reviewer-v2/**'] not '../**' to allow code-review/hooks/useDiff.ts to import from ../types
+- [Phase 25]: Deferred setActiveIndex via setTimeout(0) in useEffect — satisfies react-hooks/set-state-in-effect; same semantic
+- [Phase 25]: Added #[allow(dead_code)] to hook.rs cwd field — field is part of hook protocol deserialization contract even if unused at runtime
+
 ## Session Continuity
 
-Last session: 2026-05-24T07:44:02.301Z
-Stopped at: Phase 25 UI-SPEC approved
+Last session: 2026-05-24T09:50:00.000Z
+Stopped at: Phase 25 complete — human checkpoint approved
 Resume file: None
