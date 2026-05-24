@@ -724,8 +724,19 @@ Plans:
   5. Total files changed, additions, and deletions counts are visible in the UI
   6. Commits with an attached branch or tag ref show an inline pill (e.g. `branch:main`, `tag:v0.6.0`)
 
-**Plans:** 0/0 plans
+**Plans:** 3 plans
 Plans:
+**Wave 1**
+
+- [ ] 26.2-01-PLAN.md — Rust Commit struct branches/tags + TypeScript Commit interface update (foundation)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 26.2-02-PLAN.md — Selection model (click/CMD/Shift) + drawer layout push + branch/tag pills + all-selected branch label (CodeReviewApp, CommitDrawer, DiffPane)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 26.2-03-PLAN.md — Diff stats strip + per-file expand/collapse + Expand Files toolbar button (DiffPane, AppToolbar, CodeReviewApp)
 
 **UI hint**: yes
 
@@ -828,7 +839,7 @@ Plans:
 | 25. Diff Viewer UI | v0.7.0 | 3/3 | Complete   | 2026-05-24 |
 | 26. Commit Navigation | v0.7.0 | 3/3 | Complete    | 2026-05-24 |
 | 26.1. Commit Navigation Bug Fixes | v0.7.0 | 1/1 | Complete   | 2026-05-24 |
-| 26.2. Commit Navigation UX Polish | v0.7.0 | 0/0 | Not started | - |
+| 26.2. Commit Navigation UX Polish | v0.7.0 | 0/3 | Planned | - |
 | 27. Inline Comments | v0.7.0 | 0/3 | Not started | - |
 | 28. Review Submission | v0.7.0 | 0/2 | Not started | - |
 | 29. Code Review Integration | v0.7.0 | 0/2 | Not started | - |
