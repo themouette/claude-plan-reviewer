@@ -18,4 +18,6 @@ export interface Commit {
   author: string
   email: string
   date: string // ISO 8601 / RFC 3339
+  branches: string[]
+  tags: string[]
 }

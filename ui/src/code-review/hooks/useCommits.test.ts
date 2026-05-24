@@ -10,6 +10,8 @@ const sampleCommit: Commit = {
   author: 'Alice',
   email: 'alice@example.com',
   date: '2026-05-24T10:00:00Z',
+  branches: [],
+  tags: [],
 }
 
 describe('fetchCommitsOnce', () => {
