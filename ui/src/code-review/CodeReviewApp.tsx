@@ -11,22 +11,19 @@ export default function CodeReviewApp(): React.JSX.Element {
   const [diffStyle, setDiffStyle] = useState<'unified' | 'split'>('unified')
   const [contextExpanded, setContextExpanded] = useState(false)
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
-  // Phase 26 commit navigation state (D-11: all owned here)
+  // Phase 26.2 D-02: single selectedCommitShas replaces the old tri-state (viewMode + activeCommitSha + multi-select)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [viewMode, setViewMode] = useState<'branch' | 'commit'>('branch')
-  const [activeCommitSha, setActiveCommitSha] = useState<string | null>(null)
-  const [checkedCommitShas, setCheckedCommitShas] = useState<string[]>([])
+  const [selectedCommitShas, setSelectedCommitShas] = useState<string[]>([])
 
   const diffPaneRef = useRef<HTMLDivElement>(null)
-  const seededRef = useRef(false)
   const { commits, loading: commitsLoading, error: commitsError } = useCommits()
 
-  // Compute useDiff selector from current state (D-11)
+  // D-04: Compute useDiff selector from selectedCommitShas length
   const selector: DiffFetchSelector =
-    viewMode === 'commit' && activeCommitSha !== null
-      ? { mode: 'commit', sha: activeCommitSha }
-      : viewMode === 'branch' && commits.length > 0 && checkedCommitShas.length < commits.length
-        ? { mode: 'branch-union', shas: checkedCommitShas }
+    selectedCommitShas.length === 1
+      ? { mode: 'commit', sha: selectedCommitShas[0] }
+      : selectedCommitShas.length >= 2 && commits.length > 0 && selectedCommitShas.length < commits.length
+        ? { mode: 'branch-union', shas: selectedCommitShas }
         : { mode: 'branch' }
 
   const { files, loading, error, refetch } = useDiff({ selector })
@@ -45,15 +42,35 @@ export default function CodeReviewApp(): React.JSX.Element {
     refetch(contextExpanded ? 999 : undefined)
   }
 
-  // D-07: closing the drawer returns to branch view and clears active commit
+  // D-01: closing the drawer preserves selection (no viewMode/activeCommitSha to reset)
   function handleCommitsToggle() {
-    if (drawerOpen) {
-      setDrawerOpen(false)
-      setViewMode('branch')
-      setActiveCommitSha(null)
-    } else {
-      setDrawerOpen(true)
+    setDrawerOpen(open => !open)
+  }
+
+  // D-03: handleCommitClick implements click / CMD+click / Shift+click selection
+  function handleCommitClick(sha: string, event: React.MouseEvent) {
+    if (event.shiftKey && selectedCommitShas.length > 0) {
+      // Shift+click: range-select from last selected to clicked commit
+      const anchor = selectedCommitShas[selectedCommitShas.length - 1]
+      const anchorIdx = commits.findIndex((c) => c.sha === anchor)
+      const clickIdx = commits.findIndex((c) => c.sha === sha)
+      if (anchorIdx !== -1 && clickIdx !== -1) {
+        const start = Math.min(anchorIdx, clickIdx)
+        const end = Math.max(anchorIdx, clickIdx)
+        const range = commits.slice(start, end + 1).map((c) => c.sha)
+        setSelectedCommitShas((prev) => Array.from(new Set([...prev, ...range])))
+        return
+      }
     }
+    if (event.metaKey || event.ctrlKey) {
+      // CMD/Ctrl+click: toggle sha in selection
+      setSelectedCommitShas((prev) =>
+        prev.includes(sha) ? prev.filter((s) => s !== sha) : [...prev, sha],
+      )
+      return
+    }
+    // Plain click: replace selection with single commit
+    setSelectedCommitShas([sha])
   }
 
   // Reset active index when files change (e.g., after refetch).
@@ -63,30 +80,24 @@ export default function CodeReviewApp(): React.JSX.Element {
     return () => clearTimeout(id)
   }, [files.length])
 
-  // D-08: seed checkedCommitShas to all commit shas when commits first load (opt-out model).
-  // seededRef sentinel (CR-02): one-shot guard — never re-seeds after user deselects all commits.
-  // Deferred via setTimeout(0) to avoid react-hooks/set-state-in-effect violation.
-  useEffect(() => {
-    if (seededRef.current || commits.length === 0) return
-    seededRef.current = true
-    const id = setTimeout(() => setCheckedCommitShas(commits.map((c) => c.sha)), 0)
-    return () => clearTimeout(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [commits.length])
-
-  // D-09 / D-10: keyboard navigation — left/right only in per-commit mode, stop at boundaries
-  // Deps array includes viewMode, activeCommitSha, commits to avoid stale closures (Pitfall 2)
+  // D-04: keyboard navigation — left/right only when exactly one commit is selected
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (viewMode !== 'commit' || commits.length === 0 || activeCommitSha === null) return
-      const idx = commits.findIndex((c) => c.sha === activeCommitSha)
+      if (selectedCommitShas.length !== 1 || commits.length === 0) return
+      const idx = commits.findIndex((c) => c.sha === selectedCommitShas[0])
       if (idx === -1) return
-      if (e.key === 'ArrowLeft' && idx > 0) setActiveCommitSha(commits[idx - 1].sha)
-      else if (e.key === 'ArrowRight' && idx < commits.length - 1) setActiveCommitSha(commits[idx + 1].sha)
+      if (e.key === 'ArrowLeft' && idx > 0) setSelectedCommitShas([commits[idx - 1].sha])
+      else if (e.key === 'ArrowRight' && idx < commits.length - 1) setSelectedCommitShas([commits[idx + 1].sha])
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [viewMode, activeCommitSha, commits])
+  }, [selectedCommitShas, commits])
+
+  // D-05: derive branchName and allSelected for DiffPane branch label
+  const allSelected = commits.length > 0 && selectedCommitShas.length === commits.length
+  const branchName = commits[0]?.branches?.[0] ?? 'HEAD'
+  // Pass activeCommitSha for backwards compatibility with DiffPane's per-commit title strip
+  const activeCommitSha = selectedCommitShas.length === 1 ? selectedCommitShas[0] : null
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -105,17 +116,8 @@ export default function CodeReviewApp(): React.JSX.Element {
             commits={commits}
             loading={commitsLoading}
             error={commitsError}
-            activeCommitSha={activeCommitSha}
-            checkedCommitShas={checkedCommitShas}
-            onCommitClick={(sha) => {
-              setActiveCommitSha(sha)
-              setViewMode('commit')
-            }}
-            onCheckChange={(sha, checked) =>
-              setCheckedCommitShas((prev) =>
-                checked ? [...prev, sha] : prev.filter((s) => s !== sha),
-              )
-            }
+            selectedCommitShas={selectedCommitShas}
+            onCommitClick={(sha, e) => handleCommitClick(sha, e)}
           />
         )}
         <aside
@@ -142,9 +144,11 @@ export default function CodeReviewApp(): React.JSX.Element {
           diffStyle={diffStyle}
           diffPaneRef={diffPaneRef}
           onReload={handleReload}
-          viewMode={viewMode}
+          viewMode={activeCommitSha !== null ? 'commit' : 'branch'}
           activeCommitSha={activeCommitSha}
           commits={commits}
+          branchName={branchName}
+          allSelected={allSelected}
         />
       </div>
     </div>

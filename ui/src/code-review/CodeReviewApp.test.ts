@@ -104,19 +104,25 @@ describe('CodeReviewApp', () => {
     expect(source).toContain('useCommits()')
   })
 
-  it('declares drawerOpen, viewMode, activeCommitSha, checkedCommitShas state', () => {
+  it('declares drawerOpen and selectedCommitShas state (D-02: single selection state)', () => {
     expect(source).toContain('drawerOpen')
-    expect(source).toContain('viewMode')
-    expect(source).toContain('activeCommitSha')
-    expect(source).toContain('checkedCommitShas')
+    expect(source).toContain('selectedCommitShas')
   })
 
-  it("viewMode state is typed 'branch' | 'commit' with initial 'branch'", () => {
-    expect(source).toContain("useState<'branch' | 'commit'>('branch')")
+  it('declares selectedCommitShas as useState<string[]>([])', () => {
+    expect(source).toContain('useState<string[]>([])')
   })
 
-  it("aside has position: 'relative'", () => {
-    expect(source).toContain("position: 'relative'")
+  it('does NOT have checkedCommitShas state variable (D-02: removed)', () => {
+    expect(source).not.toContain('checkedCommitShas')
+  })
+
+  it('does NOT have seededRef (D-02: seeding logic removed)', () => {
+    expect(source).not.toContain('seededRef')
+  })
+
+  it('does NOT have setViewMode calls (D-02: viewMode state removed)', () => {
+    expect(source).not.toContain('setViewMode(')
   })
 
   it('passes commitsOpen and onCommitsToggle to AppToolbar', () => {
@@ -125,7 +131,7 @@ describe('CodeReviewApp', () => {
   })
 
   it('passes viewMode, activeCommitSha, commits to DiffPane', () => {
-    expect(source).toContain('viewMode={viewMode}')
+    expect(source).toContain('viewMode={')
     expect(source).toContain('activeCommitSha={activeCommitSha}')
     expect(source).toContain('commits={commits}')
   })
@@ -135,10 +141,25 @@ describe('CodeReviewApp', () => {
     expect(source).toContain('<CommitDrawer')
   })
 
-  it('handleCommitsToggle resets viewMode to branch and activeCommitSha to null on close', () => {
-    expect(source).toContain("setViewMode('branch')")
-    expect(source).toContain('setActiveCommitSha(null)')
-    expect(source).toContain('setDrawerOpen(false)')
+  it('handleCommitClick implements click/CMD/Shift semantics (D-03)', () => {
+    expect(source).toContain('handleCommitClick')
+    expect(source).toContain('event.metaKey')
+    expect(source).toContain('event.ctrlKey')
+    expect(source).toContain('event.shiftKey')
+  })
+
+  it('selector derived from selectedCommitShas.length (D-04)', () => {
+    expect(source).toContain('selectedCommitShas.length === 1')
+  })
+
+  it('computes allSelected and branchName for DiffPane (D-05)', () => {
+    expect(source).toContain('allSelected')
+    expect(source).toContain('branchName')
+  })
+
+  it('passes allSelected and branchName to DiffPane (D-05)', () => {
+    expect(source).toContain('allSelected={allSelected}')
+    expect(source).toContain('branchName={branchName}')
   })
 
   it('keyboard handler listens for ArrowLeft and ArrowRight only', () => {
@@ -148,18 +169,13 @@ describe('CodeReviewApp', () => {
     expect(source).not.toContain("'ArrowDown'")
   })
 
-  it("keyboard handler is gated on viewMode === 'commit'", () => {
-    expect(source).toContain("viewMode !== 'commit'")
+  it('keyboard handler is gated on selectedCommitShas.length === 1 (D-04)', () => {
+    expect(source).toContain('selectedCommitShas.length !== 1')
   })
 
   it('keyboard handler stops at boundaries (no wrap)', () => {
     expect(source).toContain('idx > 0')
     expect(source).toContain('idx < commits.length - 1')
-  })
-
-  it('checkedCommitShas seeded via setTimeout(0) deferral', () => {
-    expect(source).toContain('setTimeout(')
-    expect(source).toContain('setCheckedCommitShas(commits.map')
   })
 
   it('still does not import from reviewer-v2/', () => {
