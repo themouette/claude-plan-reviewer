@@ -709,6 +709,26 @@ Plans:
 
 **UI hint**: no
 
+### Phase 26.2: Commit Navigation — UX Polish
+
+**Goal**: Fix the 5 UX issues identified during Phase 26 testing: layout push (drawer overlays content), commit selection model (checkbox → click/CMD+click/Shift+click), expand-all button, diff stats display, and branch/tag pills on commits
+**Depends on**: Phase 26.1
+**Requirements**: COMMIT-01, COMMIT-02, COMMIT-03, COMMIT-04
+
+**Success Criteria** (what must be TRUE):
+
+  1. Opening the commit drawer pushes/shifts the diff panel instead of overlaying it
+  2. Single click selects one commit and shows that commit's diff; CMD+click / Shift+click adds to selection
+  3. When all commits are selected the main panel is labelled as "diff from branch XXXX"
+  4. The expand-all button in the diff viewer correctly expands all file diffs
+  5. Total files changed, additions, and deletions counts are visible in the UI
+  6. Commits with an attached branch or tag ref show an inline pill (e.g. `branch:main`, `tag:v0.6.0`)
+
+**Plans:** 0/0 plans
+Plans:
+
+**UI hint**: yes
+
 ### Phase 27: Inline Comments
 
 **Goal**: Users can add a comment to any diff hunk or to a whole file; comments persist in session state; each comment can be edited or deleted; the file list shows a comment count badge per file
@@ -808,6 +828,7 @@ Plans:
 | 25. Diff Viewer UI | v0.7.0 | 3/3 | Complete   | 2026-05-24 |
 | 26. Commit Navigation | v0.7.0 | 3/3 | Complete    | 2026-05-24 |
 | 26.1. Commit Navigation Bug Fixes | v0.7.0 | 1/1 | Complete   | 2026-05-24 |
+| 26.2. Commit Navigation UX Polish | v0.7.0 | 0/0 | Not started | - |
 | 27. Inline Comments | v0.7.0 | 0/3 | Not started | - |
 | 28. Review Submission | v0.7.0 | 0/2 | Not started | - |
 | 29. Code Review Integration | v0.7.0 | 0/2 | Not started | - |
