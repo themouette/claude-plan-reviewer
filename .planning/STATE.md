@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.7.0
 milestone_name: Code Review
-status: executing
-stopped_at: Phase 26 UI-SPEC approved
-last_updated: "2026-05-24T14:46:40.118Z"
+status: ready_to_plan
+stopped_at: Phase 26 complete (3/3) — ready to discuss Phase 27
+last_updated: 2026-05-24T21:20:45.625Z
 last_activity: 2026-05-24 -- Phase 26 execution started
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 8
-  completed_plans: 5
+  completed_plans: 63
   percent: 33
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 26 — commit-navigation
+**Current focus:** Phase 27 — inline comments
 
 ## Current Position
 
-Phase: 26 (commit-navigation) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 26
-Last activity: 2026-05-24 -- Phase 26 execution started
+Phase: 27
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-05-24
 
 ## Performance Metrics
 

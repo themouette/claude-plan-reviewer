@@ -14,14 +14,14 @@ Code review mode: inspect, navigate, and annotate agent-generated diffs before a
 - [x] **DIFF-02**: User can expand collapsed context lines within a diff hunk
 - [x] **DIFF-03**: User can toggle between unified and side-by-side layout
 - [x] **DIFF-04**: User can navigate directly to any changed file via a file list
-- [ ] **DIFF-05**: User can select which commits to include in the current diff view
+- [x] **DIFF-05**: User can select which commits to include in the current diff view
 
 ### Commit Navigation
 
 - [x] **COMMIT-01**: User can view a list of all commits in the current branch
 - [x] **COMMIT-02**: User can click a commit to view its individual diff
-- [ ] **COMMIT-03**: User can switch between per-commit view and full branch diff mode
-- [ ] **COMMIT-04**: User can navigate between commits with keyboard (prev/next)
+- [x] **COMMIT-03**: User can switch between per-commit view and full branch diff mode
+- [x] **COMMIT-04**: User can navigate between commits with keyboard (prev/next)
 
 ### Inline Comments
 
@@ -103,11 +103,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DIFF-02 | Phase 25 | Complete |
 | DIFF-03 | Phase 25 | Complete |
 | DIFF-04 | Phase 25 | Complete |
-| DIFF-05 | Phase 26 | Pending |
+| DIFF-05 | Phase 26 | Complete |
 | COMMIT-01 | Phase 24 + 26 | Complete |
 | COMMIT-02 | Phase 24 + 26 | Complete |
-| COMMIT-03 | Phase 26 | Pending |
-| COMMIT-04 | Phase 26 | Pending |
+| COMMIT-03 | Phase 26 | Complete |
+| COMMIT-04 | Phase 26 | Complete |
 | COMMENT-01 | Phase 27 | Pending |
 | COMMENT-02 | Phase 27 | Pending |
 | COMMENT-03 | Phase 27 | Pending |
