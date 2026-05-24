@@ -109,6 +109,18 @@ describe('fetchCommitDiffOnce', () => {
     await fetchCommitDiffOnce('abc123', doFetch, 999)
     expect(capturedUrl).toContain('?context=999')
   })
+
+  it('rejects an invalid SHA without calling doFetch', async () => {
+    let called = false
+    const doFetch = (url: string) => {
+      called = true
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200, headers: { url } }))
+    }
+    const result = await fetchCommitDiffOnce('../branch', doFetch)
+    expect(called).toBe(false)
+    expect(result.files).toHaveLength(0)
+    expect(result.error).toBe('invalid sha')
+  })
 })
 
 describe('fetchFilteredBranchDiff', () => {
@@ -120,7 +132,8 @@ describe('fetchFilteredBranchDiff', () => {
       return Promise.resolve(new Response(JSON.stringify([fileB]), { status: 200 }))
     }
     const result = await fetchFilteredBranchDiff(['sha1', 'sha2'], doFetch)
-    expect(result).toHaveLength(2)
+    expect(result.files).toHaveLength(2)
+    expect(result.error).toBeNull()
   })
 
   it('returns [] for a single failing sha without throwing', async () => {
@@ -130,7 +143,8 @@ describe('fetchFilteredBranchDiff', () => {
       return Promise.resolve(new Response(null, { status: 500 }))
     }
     const result = await fetchFilteredBranchDiff(['sha1', 'sha2'], doFetch)
-    expect(result).toHaveLength(1)
+    expect(result.files).toHaveLength(1)
+    expect(result.error).toBeNull()
   })
 
   it('appends ?context=N to every per-sha URL when contextLines is set', async () => {
@@ -141,5 +155,12 @@ describe('fetchFilteredBranchDiff', () => {
     }
     await fetchFilteredBranchDiff(['sha1', 'sha2'], doFetch, 5)
     expect(capturedUrls.every((u) => u.includes('?context='))).toBe(true)
+  })
+
+  it("returns { files: [], error: 'all fetches failed' } when all SHAs return 500", async () => {
+    const doFetch = () => Promise.resolve(new Response(null, { status: 500 }))
+    const result = await fetchFilteredBranchDiff(['sha1', 'sha2'], doFetch)
+    expect(result.files).toHaveLength(0)
+    expect(result.error).toBe('all fetches failed')
   })
 })
