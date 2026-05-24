@@ -1,5 +1,6 @@
-import { Fragment, useState } from 'react'
-import { PatchDiff } from '@pierre/diffs/react'
+import { Fragment, useMemo, useState } from 'react'
+import { FileDiff as FileDiffComponent, PatchDiff } from '@pierre/diffs/react'
+import { parseDiffFromFile } from '@pierre/diffs'
 import type { FileDiff } from './types'
 
 // Theme read once at module scope (D-12 — no listener, stable across re-renders)
@@ -9,6 +10,41 @@ const DIFF_THEME: 'github-dark' | 'github-light' =
   window.matchMedia('(prefers-color-scheme: dark)').matches
     ? 'github-dark'
     : 'github-light'
+
+// Renders one file diff. Uses FileDiffComponent (non-partial, expansion enabled) when
+// old_content + new_content are present; falls back to PatchDiff for binary files.
+function FileDiffRenderer({
+  file,
+  diffStyle,
+}: {
+  file: FileDiff
+  diffStyle: 'unified' | 'split'
+}) {
+  const fileDiffMetadata = useMemo(() => {
+    if (file.old_content === undefined || file.new_content === undefined) return null
+    return parseDiffFromFile(
+      { name: file.previous_filename ?? file.filename, contents: file.old_content },
+      { name: file.filename, contents: file.new_content },
+    )
+  }, [file.filename, file.previous_filename, file.old_content, file.new_content])
+
+  if (fileDiffMetadata) {
+    return (
+      <FileDiffComponent
+        fileDiff={fileDiffMetadata}
+        disableWorkerPool={true}
+        options={{ diffStyle, expansionLineCount: 10, collapsedContextThreshold: 3, theme: DIFF_THEME }}
+      />
+    )
+  }
+  return (
+    <PatchDiff
+      patch={file.patch}
+      disableWorkerPool={true}
+      options={{ diffStyle, theme: DIFF_THEME }}
+    />
+  )
+}
 
 export interface DiffPaneProps {
   files: FileDiff[]
@@ -208,11 +244,7 @@ export default function DiffPane({
                 Binary file — no diff available
               </div>
             ) : (
-              <PatchDiff
-                patch={file.patch}
-                disableWorkerPool={true}
-                options={{ diffStyle, expansionLineCount: 10, collapsedContextThreshold: 3, theme: DIFF_THEME }}
-              />
+              <FileDiffRenderer file={file} diffStyle={diffStyle} />
             )}
           </Fragment>
         ))}

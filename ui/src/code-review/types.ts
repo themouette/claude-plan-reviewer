@@ -6,4 +6,6 @@ export interface FileDiff {
   deletions: number
   changes: number
   patch: string // raw unified diff text, or "[binary file]"
+  old_content?: string // full file text before change; absent for binary files
+  new_content?: string // full file text after change; absent for binary files
 }

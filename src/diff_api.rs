@@ -21,6 +21,10 @@ pub struct FileDiff {
     pub deletions: u32,
     pub changes: u32,
     pub patch: String, // raw unified diff text
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_content: Option<String>, // full file text before change; None for binary files
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub new_content: Option<String>, // full file text after change; None for binary files
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -113,7 +117,20 @@ fn commit_to_dto(c: &git2::Commit) -> Commit {
 
 // --- Per-file diff extraction ---
 
-fn build_file_diffs(diff: &git2::Diff) -> Vec<FileDiff> {
+/// Read blob content as UTF-8. Returns `Some("")` for the zero OID (added/deleted side),
+/// `None` for binary blobs or encoding errors.
+fn extract_blob_content(repo: &git2::Repository, oid: git2::Oid) -> Option<String> {
+    if oid.is_zero() {
+        return Some(String::new());
+    }
+    let blob = repo.find_blob(oid).ok()?;
+    if blob.is_binary() {
+        return None;
+    }
+    String::from_utf8(blob.content().to_vec()).ok()
+}
+
+fn build_file_diffs(diff: &git2::Diff, repo: &git2::Repository) -> Vec<FileDiff> {
     // Use .len() on Deltas (ExactSizeIterator) to avoid consuming the iterator.
     // Do NOT call .deltas().count() — that exhausts the iterator (Pitfall 1).
     let num_deltas = diff.deltas().len();
@@ -157,6 +174,8 @@ fn build_file_diffs(diff: &git2::Diff) -> Vec<FileDiff> {
                     Ok(buf) => String::from_utf8_lossy(&buf).into_owned(),
                     Err(_) => String::new(),
                 };
+                let old_content = extract_blob_content(repo, delta.old_file().id());
+                let new_content = extract_blob_content(repo, delta.new_file().id());
                 file_diffs.push(FileDiff {
                     filename,
                     previous_filename,
@@ -165,6 +184,8 @@ fn build_file_diffs(diff: &git2::Diff) -> Vec<FileDiff> {
                     deletions: deletions as u32,
                     changes: (additions + deletions) as u32,
                     patch: patch_text,
+                    old_content,
+                    new_content,
                 });
             }
             Ok(None) => {
@@ -177,6 +198,8 @@ fn build_file_diffs(diff: &git2::Diff) -> Vec<FileDiff> {
                     deletions: 0,
                     changes: 0,
                     patch: "[binary file]".to_string(),
+                    old_content: None,
+                    new_content: None,
                 });
             }
             Err(_) => {
@@ -195,13 +218,12 @@ fn build_file_diffs(diff: &git2::Diff) -> Vec<FileDiff> {
 /// the detected base branch (merge base). Returns an empty array if the repo
 /// cannot be opened or no base branch resolves (D-07).
 /// Accepts optional `?context=N` query param (u32) to control context lines;
-/// defaults to 20 so the frontend library has enough context to collapse into
-/// expandable `...` separators. Returns 400 on non-u32 input (T-25-CINV).
+/// defaults to 3. Returns 400 on non-u32 input (T-25-CINV).
 async fn get_diff_branch(
     State(state): State<Arc<CodeReviewState>>,
     Query(params): Query<DiffContextQuery>,
 ) -> impl IntoResponse {
-    let context_lines = params.context.unwrap_or(20);
+    let context_lines = params.context.unwrap_or(3);
     Json(try_branch_diff(&state.repo_path, context_lines).unwrap_or_default())
 }
 
@@ -224,7 +246,7 @@ fn try_branch_diff(repo_path: &std::path::Path, context_lines: u32) -> Option<Ve
         .diff_tree_to_tree(Some(&base_tree), Some(&head_tree), Some(&mut opts))
         .ok()?;
 
-    Some(build_file_diffs(&diff))
+    Some(build_file_diffs(&diff, &repo))
 }
 
 /// GET /api/commits — returns `{ commits: Commit[], truncated: bool }` for
@@ -339,7 +361,7 @@ async fn get_diff_commit(
     // diff_tree_to_tree treats None as the empty tree.
     let parent_tree = commit.parent(0).ok().and_then(|p| p.tree().ok());
 
-    let context_lines = params.context.unwrap_or(20);
+    let context_lines = params.context.unwrap_or(3);
     let mut opts = git2::DiffOptions::new();
     opts.old_prefix("a/").new_prefix("b/");
     opts.context_lines(context_lines);
@@ -356,7 +378,7 @@ async fn get_diff_commit(
             }
         };
 
-    let file_diffs = build_file_diffs(&diff);
+    let file_diffs = build_file_diffs(&diff, &repo);
     (StatusCode::OK, Json(file_diffs)).into_response()
 }
 
