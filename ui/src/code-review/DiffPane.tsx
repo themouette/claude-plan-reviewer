@@ -211,7 +211,7 @@ export default function DiffPane({
               <PatchDiff
                 patch={file.patch}
                 disableWorkerPool={true}
-                options={{ diffStyle, expansionLineCount: 20, theme: DIFF_THEME }}
+                options={{ diffStyle, expansionLineCount: 10, collapsedContextThreshold: 3, theme: DIFF_THEME }}
               />
             )}
           </Fragment>

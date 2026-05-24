@@ -19,8 +19,9 @@ describe('DiffPane', () => {
     expect(source).toContain('disableWorkerPool={true}')
   })
 
-  it('passes expansionLineCount: 20 in options (D-04, UI-SPEC)', () => {
-    expect(source).toContain('expansionLineCount: 20')
+  it('passes expansionLineCount and collapsedContextThreshold in options (D-04, UI-SPEC)', () => {
+    expect(source).toContain('expansionLineCount: 10')
+    expect(source).toContain('collapsedContextThreshold: 3')
   })
 
   it('reads theme once at module scope via window.matchMedia (D-12)', () => {

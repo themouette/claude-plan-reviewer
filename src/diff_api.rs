@@ -195,12 +195,13 @@ fn build_file_diffs(diff: &git2::Diff) -> Vec<FileDiff> {
 /// the detected base branch (merge base). Returns an empty array if the repo
 /// cannot be opened or no base branch resolves (D-07).
 /// Accepts optional `?context=N` query param (u32) to control context lines;
-/// defaults to 3 (git2 default, D-06). Returns 400 on non-u32 input (T-25-CINV).
+/// defaults to 20 so the frontend library has enough context to collapse into
+/// expandable `...` separators. Returns 400 on non-u32 input (T-25-CINV).
 async fn get_diff_branch(
     State(state): State<Arc<CodeReviewState>>,
     Query(params): Query<DiffContextQuery>,
 ) -> impl IntoResponse {
-    let context_lines = params.context.unwrap_or(3);
+    let context_lines = params.context.unwrap_or(20);
     Json(try_branch_diff(&state.repo_path, context_lines).unwrap_or_default())
 }
 
@@ -338,7 +339,7 @@ async fn get_diff_commit(
     // diff_tree_to_tree treats None as the empty tree.
     let parent_tree = commit.parent(0).ok().and_then(|p| p.tree().ok());
 
-    let context_lines = params.context.unwrap_or(3);
+    let context_lines = params.context.unwrap_or(20);
     let mut opts = git2::DiffOptions::new();
     opts.old_prefix("a/").new_prefix("b/");
     opts.context_lines(context_lines);
