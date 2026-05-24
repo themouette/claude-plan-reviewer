@@ -45,7 +45,7 @@ Exceptions:
 - AppToolbar header strip: 48px height — established in Phase 25 (D-03), consistent with `ReviewerV2Shell` header.
 - CommitDrawer width: 296px (midpoint of D-04 range 280–320px). Exact value is Claude's discretion within that range; 296px leaves the file list fully visible in the remaining aside space.
 - Checkbox touch target: minimum 20×20px — native `<input type="checkbox">` at its default size.
-- Short SHA chip: 6px horizontal padding, 4px vertical padding, 4px border-radius — pill/monospace label pattern.
+- Short SHA chip: 8px horizontal padding, 4px vertical padding, 4px border-radius — pill/monospace label pattern. Both values are multiples of 4.
 
 ---
 
@@ -86,6 +86,8 @@ Accent reserved for:
 - Focus ring on the drawer toggle button in AppToolbar (`outline: 2px solid var(--color-focus)`).
 - Checkbox checked state (browser-native, inherits system accent — not overridden).
 
+Primary focal point: the DiffPane diff content; CommitDrawer is secondary chrome that overlays the file list.
+
 Source: All tokens from `ui/src/index.css`. Color usage pattern from `ui/src/code-review/FileListPane.tsx` (active border, text states) and `ui/src/code-review/AppToolbar.tsx` (focus ring pattern).
 
 ---
@@ -119,7 +121,7 @@ One row per commit in the drawer list.
 - Line 1: `[checkbox] [SHA chip] [message]` — flex row, align-center
 - Line 2: `[author] · [date]` — 12px, color-text-secondary, indented to align with message
 
-**SHA chip:** monospace pill — background: `rgba(59, 130, 246, 0.12)`, border: `1px solid var(--color-border)`, borderRadius: 4px, padding: `2px 6px`, fontSize: 12px. Displays `short_sha` (7 chars).
+**SHA chip:** monospace pill — background: `rgba(59, 130, 246, 0.12)`, border: `1px solid var(--color-border)`, borderRadius: 4px, padding: `4px 8px`, fontSize: 12px. Displays `short_sha` (7 chars).
 
 **Commit message:** 14px, weight 400, `overflow: hidden`, `textOverflow: ellipsis`, `whiteSpace: nowrap`, `flex: 1`. Truncation at one line; full message on hover tooltip (`title` attribute).
 
