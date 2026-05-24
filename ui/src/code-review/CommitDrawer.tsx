@@ -105,7 +105,7 @@ export default function CommitDrawer({
               key={commit.sha}
               role="button"
               tabIndex={0}
-              onClick={(e) => onCommitClick(commit.sha, e)}
+              onClick={(e) => { if (e.shiftKey) e.preventDefault(); onCommitClick(commit.sha, e) }}
               onKeyDown={(e) => { if (e.key === 'Enter') onCommitClick(commit.sha, e as unknown as React.MouseEvent) }}
               style={{
                 padding: '8px 16px',
