@@ -97,7 +97,25 @@ export default function CodeReviewApp(): React.JSX.Element {
         commitsOpen={drawerOpen}
         onCommitsToggle={handleCommitsToggle}
       />
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', position: 'relative' }}>
+        {drawerOpen && (
+          <CommitDrawer
+            commits={commits}
+            loading={commitsLoading}
+            error={commitsError}
+            activeCommitSha={activeCommitSha}
+            checkedCommitShas={checkedCommitShas}
+            onCommitClick={(sha) => {
+              setActiveCommitSha(sha)
+              setViewMode('commit')
+            }}
+            onCheckChange={(sha, checked) =>
+              setCheckedCommitShas((prev) =>
+                checked ? [...prev, sha] : prev.filter((s) => s !== sha),
+              )
+            }
+          />
+        )}
         <aside
           style={{
             width: 240,
@@ -106,27 +124,8 @@ export default function CodeReviewApp(): React.JSX.Element {
             background: 'var(--color-surface)',
             overflowY: 'auto',
             padding: '8px 0',
-            position: 'relative',
           }}
         >
-          {drawerOpen && (
-            <CommitDrawer
-              commits={commits}
-              loading={commitsLoading}
-              error={commitsError}
-              activeCommitSha={activeCommitSha}
-              checkedCommitShas={checkedCommitShas}
-              onCommitClick={(sha) => {
-                setActiveCommitSha(sha)
-                setViewMode('commit')
-              }}
-              onCheckChange={(sha, checked) =>
-                setCheckedCommitShas((prev) =>
-                  checked ? [...prev, sha] : prev.filter((s) => s !== sha),
-                )
-              }
-            />
-          )}
           <FileListPane
             files={files}
             activeIndex={activeIndex}
