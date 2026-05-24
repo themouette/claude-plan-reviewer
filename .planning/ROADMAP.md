@@ -703,9 +703,9 @@ Plans:
   5. `CommitRow` `<li>` elements have `role="button"`, `tabIndex={0}`, and `onKeyDown` for keyboard/screen-reader access (WR-03 fixed)
   6. `DiffPane` shows a short-SHA fallback string when `activeCommitSha` doesn't match any loaded commit (WR-04 fixed)
 
-**Plans:** 0/1 plans
+**Plans:** 1/1 plans complete
 
-- [ ] 26.1-01-PLAN.md — Fix CR-01, CR-02, WR-01 through WR-04 with targeted patches and regression tests
+- [x] 26.1-01-PLAN.md — Fix CR-01, CR-02, WR-01 through WR-04 with targeted patches and regression tests
 
 **UI hint**: no
 
@@ -807,7 +807,7 @@ Plans:
 | 24. Backend Diff API | v0.7.0 | 2/2 | Complete    | 2026-05-23 |
 | 25. Diff Viewer UI | v0.7.0 | 3/3 | Complete   | 2026-05-24 |
 | 26. Commit Navigation | v0.7.0 | 3/3 | Complete    | 2026-05-24 |
-| 26.1. Commit Navigation Bug Fixes | v0.7.0 | 0/1 | Not started | - |
+| 26.1. Commit Navigation Bug Fixes | v0.7.0 | 1/1 | Complete   | 2026-05-24 |
 | 27. Inline Comments | v0.7.0 | 0/3 | Not started | - |
 | 28. Review Submission | v0.7.0 | 0/2 | Not started | - |
 | 29. Code Review Integration | v0.7.0 | 0/2 | Not started | - |
