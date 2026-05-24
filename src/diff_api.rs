@@ -35,6 +35,8 @@ pub struct Commit {
     pub author: String,
     pub email: String,
     pub date: String, // ISO 8601 / RFC 3339
+    pub branches: Vec<String>,
+    pub tags: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -102,9 +104,29 @@ fn time_to_iso8601(t: &git2::Time) -> String {
 
 // --- Commit DTO mapping ---
 
-fn commit_to_dto(c: &git2::Commit) -> Commit {
+fn commit_to_dto(c: &git2::Commit, repo: &git2::Repository) -> Commit {
     let sha = c.id().to_string();
     let short_sha = sha.chars().take(7).collect();
+    let commit_sha = c.id();
+
+    let mut branches: Vec<String> = Vec::new();
+    let mut tags: Vec<String> = Vec::new();
+
+    if let Ok(refs) = repo.references() {
+        for r in refs.flatten() {
+            if let Ok(peeled) = r.peel_to_commit()
+                && peeled.id() == commit_sha
+                && let Some(name) = r.shorthand()
+            {
+                if r.is_branch() {
+                    branches.push(name.to_string());
+                } else if r.is_tag() {
+                    tags.push(name.to_string());
+                }
+            }
+        }
+    }
+
     Commit {
         short_sha,
         sha,
@@ -112,6 +134,8 @@ fn commit_to_dto(c: &git2::Commit) -> Commit {
         author: c.author().name().unwrap_or("").to_string(),
         email: c.author().email().unwrap_or("").to_string(),
         date: time_to_iso8601(&c.author().when()),
+        branches,
+        tags,
     }
 }
 
@@ -285,7 +309,7 @@ fn try_list_commits(repo_path: &std::path::Path) -> Option<CommitList> {
         .filter_map(|r| {
             let oid = r.ok()?;
             let c = repo.find_commit(oid).ok()?;
-            Some(commit_to_dto(&c))
+            Some(commit_to_dto(&c, &repo))
         })
         .take(COMMIT_LIMIT + 1)
         .collect();
@@ -893,5 +917,30 @@ mod tests {
 
         let arr = json.as_array().expect("expected JSON array");
         assert_eq!(arr.len(), 1, "Expected 1 file diff, got {}", arr.len());
+    }
+
+    /// Test 12: /api/commits returns commits[0].branches as a non-empty JSON array
+    /// when the HEAD commit is pointed to by a named branch ref.
+    /// The fixture creates a `feature` branch pointing at the feature commit, so
+    /// branches must contain at least one entry.
+    #[tokio::test]
+    async fn get_commits_populates_branches_from_repo_refs() {
+        let (tmp, _repo, _feature_oids) = make_repo_with_main_and_feature(&[("a.txt", "x\n")]);
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let (status, json) = do_get(state, "/api/commits").await;
+        assert_eq!(status, StatusCode::OK);
+
+        let commits = json["commits"].as_array().expect("expected commits array");
+        assert!(!commits.is_empty(), "Expected at least one commit");
+
+        let branches = commits[0]["branches"]
+            .as_array()
+            .expect("commits[0].branches must be a JSON array");
+        assert!(
+            !branches.is_empty(),
+            "commits[0].branches must be non-empty — the feature branch ref should be resolved; got: {branches:?}"
+        );
     }
 }
