@@ -37,7 +37,7 @@ clipboard degraded mode preserved, no v1 code coupling.
 
 ## Current State
 
-v0.6.0 shipped 2026-05-22. v0.7.0 milestone (Code Review) in progress — Phase 24 complete (backend diff API: /api/diff/branch, /api/commits, /api/diff/commit/{sha}).
+v0.6.0 shipped 2026-05-22. v0.7.0 milestone (Code Review) in progress — Phase 26 complete (commit navigation: CommitDrawer overlay, per-commit diff, keyboard nav, DIFF-05 multi-commit union).
 
 - **Binary**: `plan-reviewer` — single static Rust binary
 - **Subcommands**: `install [integration]`, `uninstall [integration]`, `update [--check] [--version X] [-y]`, `review <file>`, `review-hook`
