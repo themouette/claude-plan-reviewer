@@ -57,6 +57,9 @@ export interface DiffPaneProps {
   viewMode?: 'branch' | 'commit'  // default 'branch'
   activeCommitSha?: string | null // default null
   commits?: Commit[]              // default [] — for title strip lookup
+  // Phase 26.2 D-05 additions — optional; default values preserve existing call sites
+  allSelected?: boolean  // default false — when true + branchName set, renders "diff from branch" label
+  branchName?: string    // default '' — branch label shown when allSelected is true
 }
 
 export default function DiffPane({
@@ -69,6 +72,8 @@ export default function DiffPane({
   viewMode = 'branch',
   activeCommitSha = null,
   commits = [],
+  allSelected = false,
+  branchName = '',
 }: DiffPaneProps): React.JSX.Element {
   const [reloadFocused, setReloadFocused] = useState(false)
 
@@ -324,6 +329,27 @@ export default function DiffPane({
             }}
           >
             {activeCommitSha.slice(0, 7)}
+          </div>
+        </div>
+      )}
+      {/* D-05: All-selected branch label — renders when all commits selected */}
+      {allSelected && branchName.length > 0 && (
+        <div
+          style={{
+            background: 'var(--color-surface)',
+            borderBottom: '1px solid var(--color-border)',
+            padding: '8px 16px',
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: 'var(--color-text-primary)',
+            }}
+          >
+            {`diff from branch ${branchName}`}
           </div>
         </div>
       )}

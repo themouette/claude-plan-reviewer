@@ -105,4 +105,16 @@ describe('DiffPane', () => {
   it('renders fallback short SHA when activeCommit lookup returns null (WR-04)', () => {
     expect(source).toContain('activeCommitSha.slice(0, 7)')
   })
+
+  it('D-05: DiffPaneProps contains allSelected optional boolean prop', () => {
+    expect(source).toContain('allSelected')
+  })
+
+  it('D-05: DiffPaneProps contains branchName optional string prop', () => {
+    expect(source).toContain('branchName')
+  })
+
+  it("D-05: renders 'diff from branch' label when allSelected is true", () => {
+    expect(source).toContain('diff from branch')
+  })
 })
