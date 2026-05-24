@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import { FileDiff as FileDiffComponent, PatchDiff } from '@pierre/diffs/react'
 import { parseDiffFromFile } from '@pierre/diffs'
-import type { FileDiff } from './types'
+import type { FileDiff, Commit } from './types'
 
 // Theme read once at module scope (D-12 — no listener, stable across re-renders)
 // T-25-WIN: typeof guard covers SSR / test environments where matchMedia may be absent
@@ -53,6 +53,10 @@ export interface DiffPaneProps {
   diffStyle: 'unified' | 'split'
   diffPaneRef: React.RefObject<HTMLDivElement | null> // ref-forwarding via prop, NOT React.forwardRef
   onReload: () => void // wired to error state's "Reload Diff" button
+  // Phase 26 additions — all optional; default values preserve existing call sites
+  viewMode?: 'branch' | 'commit'  // default 'branch'
+  activeCommitSha?: string | null // default null
+  commits?: Commit[]              // default [] — for title strip lookup
 }
 
 export default function DiffPane({
@@ -62,8 +66,17 @@ export default function DiffPane({
   diffStyle,
   diffPaneRef,
   onReload,
+  viewMode = 'branch',
+  activeCommitSha = null,
+  commits = [],
 }: DiffPaneProps): React.JSX.Element {
   const [reloadFocused, setReloadFocused] = useState(false)
+
+  // Lookup the active commit for per-commit title strip (D-06)
+  const activeCommit =
+    viewMode === 'commit' && activeCommitSha !== null
+      ? (commits.find((c) => c.sha === activeCommitSha) ?? null)
+      : null
 
   // suppress unused variable warning
   void reloadFocused
@@ -263,6 +276,36 @@ export default function DiffPane({
         padding: 0,
       }}
     >
+      {/* Per-commit title strip (D-06) — renders above content when viewMode === 'commit' */}
+      {activeCommit !== null && (
+        <div
+          style={{
+            background: 'var(--color-surface)',
+            borderBottom: '1px solid var(--color-border)',
+            padding: '8px 16px',
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: 'var(--color-text-primary)',
+            }}
+          >
+            {activeCommit.short_sha} — {activeCommit.message}
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: 'var(--color-text-secondary)',
+              marginTop: 2,
+            }}
+          >
+            {activeCommit.author} · {activeCommit.date}
+          </div>
+        </div>
+      )}
       {renderContent()}
     </div>
   )
