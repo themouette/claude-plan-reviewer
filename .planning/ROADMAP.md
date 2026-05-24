@@ -688,6 +688,27 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 26.1: Commit Navigation — Bug Fixes
+
+**Goal**: Address the 2 blockers and 4 warnings from Phase 26's code review before proceeding to inline comments; ensures security, correctness, and accessibility of the commit navigation feature
+**Depends on**: Phase 26
+**Requirements**: COMMIT-01, COMMIT-02, COMMIT-03, COMMIT-04
+
+**Success Criteria** (what must be TRUE):
+
+  1. SHA inputs are validated with `/^[0-9a-f]{7,40}$/i` before being interpolated into fetch URLs (CR-01 fixed)
+  2. `checkedCommitShas` seeding uses a `seededRef` boolean sentinel and does not re-seed when the user deselects all commits (CR-02 fixed)
+  3. Keyboard navigation handler guards against `findIndex` returning `-1` (WR-01 fixed)
+  4. `fetchFilteredBranchDiff` surfaces a non-null error when all per-SHA fetches fail (WR-02 fixed)
+  5. `CommitRow` `<li>` elements have `role="button"`, `tabIndex={0}`, and `onKeyDown` for keyboard/screen-reader access (WR-03 fixed)
+  6. `DiffPane` shows a short-SHA fallback string when `activeCommitSha` doesn't match any loaded commit (WR-04 fixed)
+
+**Plans:** 0/1 plans
+
+- [ ] 26.1-01-PLAN.md — Fix CR-01, CR-02, WR-01 through WR-04 with targeted patches and regression tests
+
+**UI hint**: no
+
 ### Phase 27: Inline Comments
 
 **Goal**: Users can add a comment to any diff hunk or to a whole file; comments persist in session state; each comment can be edited or deleted; the file list shows a comment count badge per file
@@ -786,6 +807,7 @@ Plans:
 | 24. Backend Diff API | v0.7.0 | 2/2 | Complete    | 2026-05-23 |
 | 25. Diff Viewer UI | v0.7.0 | 3/3 | Complete   | 2026-05-24 |
 | 26. Commit Navigation | v0.7.0 | 3/3 | Complete    | 2026-05-24 |
+| 26.1. Commit Navigation Bug Fixes | v0.7.0 | 0/1 | Not started | - |
 | 27. Inline Comments | v0.7.0 | 0/3 | Not started | - |
 | 28. Review Submission | v0.7.0 | 0/2 | Not started | - |
 | 29. Code Review Integration | v0.7.0 | 0/2 | Not started | - |
