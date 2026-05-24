@@ -9,3 +9,13 @@ export interface FileDiff {
   old_content?: string // full file text before change; absent for binary files
   new_content?: string // full file text after change; absent for binary files
 }
+
+// snake_case matches Rust JSON output (no rename_all on struct)
+export interface Commit {
+  sha: string
+  short_sha: string // 7 chars
+  message: string
+  author: string
+  email: string
+  date: string // ISO 8601 / RFC 3339
+}
