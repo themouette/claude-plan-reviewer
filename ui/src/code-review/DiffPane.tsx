@@ -276,8 +276,8 @@ export default function DiffPane({
         padding: 0,
       }}
     >
-      {/* Per-commit title strip (D-06) — renders above content when viewMode === 'commit' */}
-      {activeCommit !== null && (
+      {/* Per-commit title strip (D-06) — renders above content when viewMode === 'commit' and commit is found */}
+      {viewMode === 'commit' && activeCommitSha !== null && activeCommit !== null && (
         <div
           style={{
             background: 'var(--color-surface)',
@@ -303,6 +303,27 @@ export default function DiffPane({
             }}
           >
             {activeCommit.author} · {activeCommit.date}
+          </div>
+        </div>
+      )}
+      {/* WR-04: Fallback strip when activeCommitSha is not found in commits list */}
+      {viewMode === 'commit' && activeCommitSha !== null && activeCommit === null && (
+        <div
+          style={{
+            background: 'var(--color-surface)',
+            borderBottom: '1px solid var(--color-border)',
+            padding: '8px 16px',
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: 'var(--color-text-primary)',
+            }}
+          >
+            {activeCommitSha.slice(0, 7)}
           </div>
         </div>
       )}

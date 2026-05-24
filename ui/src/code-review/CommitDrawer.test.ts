@@ -71,4 +71,14 @@ describe('CommitDrawer', () => {
     expect(source).toContain('onCommitClick(')
     expect(source).toContain('onCheckChange(')
   })
+
+  it('CommitRow li has role="button" and tabIndex={0} for keyboard accessibility', () => {
+    expect(source).toContain('role="button"')
+    expect(source).toContain('tabIndex={0}')
+  })
+
+  it('CommitRow li has onKeyDown handler for Enter key', () => {
+    expect(source).toContain("e.key === 'Enter'")
+    expect(source).toContain('onKeyDown')
+  })
 })

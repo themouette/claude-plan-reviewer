@@ -101,4 +101,8 @@ describe('DiffPane', () => {
   it('still does not import from reviewer-v2/', () => {
     expect(source).not.toContain('reviewer-v2/')
   })
+
+  it('renders fallback short SHA when activeCommit lookup returns null (WR-04)', () => {
+    expect(source).toContain('activeCommitSha.slice(0, 7)')
+  })
 })
