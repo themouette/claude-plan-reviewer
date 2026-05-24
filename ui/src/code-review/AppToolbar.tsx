@@ -6,6 +6,8 @@ export interface AppToolbarProps {
   contextLoading: boolean
   onDiffStyleChange: (style: 'unified' | 'split') => void
   onExpandAll: () => void
+  commitsOpen: boolean
+  onCommitsToggle: () => void
 }
 
 export default function AppToolbar({
@@ -14,6 +16,8 @@ export default function AppToolbar({
   contextLoading,
   onDiffStyleChange,
   onExpandAll,
+  commitsOpen,
+  onCommitsToggle,
 }: AppToolbarProps): React.JSX.Element {
   const [focusedButton, setFocusedButton] = useState<string | null>(null)
 
@@ -63,6 +67,27 @@ export default function AppToolbar({
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         {/* Reserved: help / GitHub / theme — empty in Phase 25 (D-03) */}
         <div />
+
+        {/* Commits toggle button — Phase 26 */}
+        <button
+          type="button"
+          onClick={onCommitsToggle}
+          style={{
+            height: 32,
+            padding: '0 16px',
+            border: '1px solid var(--color-border)',
+            borderRadius: 6,
+            fontSize: 14,
+            cursor: 'pointer',
+            outline: 'none',
+            background: 'var(--color-surface)',
+            color: commitsOpen ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+            fontWeight: commitsOpen ? 600 : 400,
+          }}
+          {...makeFocusHandlers('commits')}
+        >
+          {'Commits'}
+        </button>
 
         {/* Layout toggle: Unified | Side-by-side */}
         <div
