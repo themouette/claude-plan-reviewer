@@ -10,6 +10,7 @@ export interface AppToolbarProps {
   onCommitsToggle: () => void
   // Phase 26.2 D-08 additions — file expand/collapse
   allFilesExpanded: boolean
+  filesCount: number  // WR-02: disable toggle-all button when there are no files
   onToggleAllFiles: () => void
 }
 
@@ -22,6 +23,7 @@ export default function AppToolbar({
   commitsOpen,
   onCommitsToggle,
   allFilesExpanded,
+  filesCount,
   onToggleAllFiles,
 }: AppToolbarProps): React.JSX.Element {
   const [focusedButton, setFocusedButton] = useState<string | null>(null)
@@ -158,13 +160,14 @@ export default function AppToolbar({
         <button
           type="button"
           onClick={onToggleAllFiles}
+          disabled={filesCount === 0}
           style={{
             height: 32,
             padding: '0 16px',
             border: '1px solid var(--color-border)',
             borderRadius: 6,
             fontSize: 14,
-            cursor: 'pointer',
+            cursor: filesCount === 0 ? 'default' : 'pointer',
             outline: 'none',
             background: 'var(--color-surface)',
             color: allFilesExpanded ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',

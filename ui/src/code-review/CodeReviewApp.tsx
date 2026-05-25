@@ -134,7 +134,9 @@ export default function CodeReviewApp(): React.JSX.Element {
   }
 
   // D-08: derive allFilesExpanded for AppToolbar button label
-  const allFilesExpanded = collapsedFiles.size === 0
+  // WR-02: use files.length > 0 guard so the button shows "Expand Files" (not "Collapse Files")
+  // when files is empty (during loading or no-change branch).
+  const allFilesExpanded = files.length > 0 && collapsedFiles.size === 0
 
   // D-05: derive branchName and allSelected for DiffPane branch label
   const allSelected = commits.length > 0 && selectedCommitShas.length === commits.length
@@ -153,6 +155,7 @@ export default function CodeReviewApp(): React.JSX.Element {
         commitsOpen={drawerOpen}
         onCommitsToggle={handleCommitsToggle}
         allFilesExpanded={allFilesExpanded}
+        filesCount={files.length}
         onToggleAllFiles={handleToggleAllFiles}
       />
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', position: 'relative' }}>
