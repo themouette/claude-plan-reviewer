@@ -753,7 +753,7 @@ Plans:
   4. Each comment has edit (pencil) and delete (×) buttons; edit reopens the textarea; delete removes immediately
   5. The file list shows a badge with the count of comments on each file; zero-comment files show no badge
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 Plans:
 **Wave 1**
 
@@ -761,7 +761,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 27-02-PLAN.md — HunkCommentForm + CommentBubble components + DiffPane wiring (lineAnnotations + renderAnnotation + renderGutterUtility + file-header trigger)
+- [x] 27-02-PLAN.md — HunkCommentForm + CommentBubble components + DiffPane wiring (lineAnnotations + renderAnnotation + renderGutterUtility + file-header trigger)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -847,6 +847,6 @@ Plans:
 | 26. Commit Navigation | v0.7.0 | 3/3 | Complete    | 2026-05-24 |
 | 26.1. Commit Navigation Bug Fixes | v0.7.0 | 1/1 | Complete   | 2026-05-24 |
 | 26.2. Commit Navigation UX Polish | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
-| 27. Inline Comments | v0.7.0 | 1/3 | In Progress|  |
+| 27. Inline Comments | v0.7.0 | 2/3 | In Progress|  |
 | 28. Review Submission | v0.7.0 | 0/2 | Not started | - |
 | 29. Code Review Integration | v0.7.0 | 0/2 | Not started | - |
