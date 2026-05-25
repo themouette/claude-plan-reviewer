@@ -6,21 +6,30 @@ export default function CommentBubble({
   comment,
   onEdit,
   onDelete,
+  onMouseEnter,
+  onMouseLeave,
 }: {
   comment: CodeReviewComment
   onEdit: (text: string) => void
   onDelete: () => void
+  onMouseEnter?: () => void
+  onMouseLeave?: () => void
 }): React.JSX.Element {
   const [editing, setEditing] = useState(false)
 
+  const isRange = comment.type === 'line' && comment.endLineNumber !== undefined && comment.endLineNumber !== comment.lineNumber
   const ariaLabel =
     comment.type === 'line'
-      ? `Comment on line ${comment.lineNumber}`
+      ? isRange
+        ? `Comment on lines ${comment.lineNumber}–${comment.endLineNumber}`
+        : `Comment on line ${comment.lineNumber}`
       : 'Comment on file'
 
   return (
     <article
       aria-label={ariaLabel}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       style={{
         border: '1px solid var(--color-border)',
         borderLeft: '3px solid var(--color-focus)',
@@ -43,6 +52,19 @@ export default function CommentBubble({
         />
       ) : (
         <>
+          {isRange && comment.type === 'line' && (
+            <span
+              style={{
+                fontSize: 11,
+                color: 'var(--color-focus)',
+                display: 'block',
+                marginBottom: 4,
+                fontWeight: 500,
+              }}
+            >
+              Lines {comment.lineNumber}–{comment.endLineNumber}
+            </span>
+          )}
           <p
             style={{
               margin: 0,

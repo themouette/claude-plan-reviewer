@@ -93,4 +93,14 @@ describe('CommentBubble', () => {
   it('does not use isFocused prop (no compact/expanded collapse states)', () => {
     expect(source).not.toContain('isFocused')
   })
+
+  it('accepts onMouseEnter and onMouseLeave props for hover-based selection reveal', () => {
+    expect(source).toContain('onMouseEnter')
+    expect(source).toContain('onMouseLeave')
+  })
+
+  it('shows "Lines X–Y" range label for range comments', () => {
+    expect(source).toContain('Lines ')
+    expect(source).toContain('endLineNumber')
+  })
 })

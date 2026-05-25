@@ -42,9 +42,8 @@ function FileDiffRenderer({
   // Tracks the active drag-selection so the gutter button click can use the full range.
   // A ref avoids re-renders on every pointer-move event during drag.
   const selectionRef = useRef<SelectedLineRange | null>(null)
-  // Persists the last submitted range so the selection highlight survives form submission.
-  // Cleared when the user starts a new drag.
-  const [committedSelection, setCommittedSelection] = useState<SelectedLineRange | null>(null)
+  // Tracks which submitted comment bubble is hovered so we can re-show its range.
+  const [hoveredCommentId, setHoveredCommentId] = useState<string | null>(null)
 
   const fileDiffMetadata = useMemo(() => {
     if (file.old_content === undefined || file.new_content === undefined) return null
@@ -77,11 +76,18 @@ function FileDiffRenderer({
           }
         : null
 
+    const hoveredComment = hoveredCommentId !== null
+      ? comments.find((c): c is Extract<CodeReviewComment, { type: 'line' }> => c.id === hoveredCommentId && c.type === 'line' && c.file === file.filename)
+      : undefined
+    const hoveredCommentSelection: SelectedLineRange | null = hoveredComment !== undefined
+      ? { start: hoveredComment.lineNumber, end: hoveredComment.endLineNumber ?? hoveredComment.lineNumber, side: hoveredComment.side }
+      : null
+
     return (
       <FileDiffComponent
         fileDiff={fileDiffMetadata}
         disableWorkerPool={true}
-        selectedLines={pendingSelection ?? committedSelection}
+        selectedLines={pendingSelection ?? hoveredCommentSelection}
         options={{
           diffStyle,
           expansionLineCount: 10,
@@ -91,7 +97,6 @@ function FileDiffRenderer({
           expandUnchanged: contextExpanded,
           enableGutterUtility: true,
           enableLineSelection: true,
-          onLineSelectionStart: () => { setCommittedSelection(null) },
           onLineSelectionChange: (range) => { selectionRef.current = range },
           onLineSelectionEnd: (range) => { selectionRef.current = range },
         }}
@@ -101,7 +106,6 @@ function FileDiffRenderer({
             return (
               <HunkCommentForm
                 onSubmit={(text) => {
-                  setCommittedSelection(pendingSelection)
                   onAddLineComment?.(file.filename, pendingLineAnchor!.lineNumber, ann.side, text, pendingLineAnchor!.endLineNumber)
                   setPendingLineAnchor(null)
                 }}
@@ -116,6 +120,8 @@ function FileDiffRenderer({
               comment={c}
               onEdit={(text) => onEditComment?.(c.id, text)}
               onDelete={() => onDeleteComment?.(c.id)}
+              onMouseEnter={() => setHoveredCommentId(c.id)}
+              onMouseLeave={() => setHoveredCommentId(null)}
             />
           )
         }}

@@ -223,6 +223,15 @@ describe('DiffPane Phase 27: inline comment wiring', () => {
     expect(source).toContain('selectionRef')
   })
 
+  it('tracks hovered comment id for hover-based selection reveal', () => {
+    expect(source).toContain('hoveredCommentId')
+  })
+
+  it('passes onMouseEnter and onMouseLeave to CommentBubble for hover selection', () => {
+    expect(source).toContain('onMouseEnter')
+    expect(source).toContain('onMouseLeave')
+  })
+
   it('imports DiffLineAnnotation type from @pierre/diffs', () => {
     expect(source).toContain('DiffLineAnnotation')
   })
