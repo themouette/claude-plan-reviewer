@@ -21,3 +21,21 @@ export interface Commit {
   branches: string[]
   tags: string[]
 }
+
+export type CodeReviewComment =
+  | {
+      id: string
+      type: 'line'
+      file: string
+      side: 'additions' | 'deletions'
+      lineNumber: number
+      text: string
+      createdAt: string
+    }
+  | {
+      id: string
+      type: 'file'
+      file: string
+      text: string
+      createdAt: string
+    }
