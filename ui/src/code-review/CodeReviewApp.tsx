@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import AppToolbar from './AppToolbar'
 import CommitDrawer from './CommitDrawer'
 import FileListPane from './FileListPane'
@@ -6,6 +6,7 @@ import DiffPane from './DiffPane'
 import { useDiff } from './hooks/useDiff'
 import type { DiffFetchSelector } from './hooks/useDiff'
 import { useCommits } from './hooks/useCommits'
+import { useCodeReviewAnnotations } from './hooks/useCodeReviewAnnotations'
 import type { Commit } from './types'
 
 export default function CodeReviewApp(): React.JSX.Element {
@@ -21,6 +22,47 @@ export default function CodeReviewApp(): React.JSX.Element {
   const [anchorCommitSha, setAnchorCommitSha] = useState<string | null>(null)
 
   const diffPaneRef = useRef<HTMLDivElement>(null)
+
+  // Phase 27: comment state via useCodeReviewAnnotations reducer (D-08/D-09)
+  const { comments, addComment, editComment, deleteComment } = useCodeReviewAnnotations()
+
+  // Phase 27: wrappers that generate id and createdAt before dispatching ADD_COMMENT
+  function handleAddLineComment(
+    file: string,
+    lineNumber: number,
+    side: 'additions' | 'deletions',
+    text: string,
+  ) {
+    addComment({
+      id: crypto.randomUUID(),
+      type: 'line',
+      file,
+      side,
+      lineNumber,
+      text,
+      createdAt: new Date().toISOString(),
+    })
+  }
+
+  function handleAddFileComment(file: string, text: string) {
+    addComment({
+      id: crypto.randomUUID(),
+      type: 'file',
+      file,
+      text,
+      createdAt: new Date().toISOString(),
+    })
+  }
+
+  // Phase 27: derive commentCounts for FileListPane badge (D-10)
+  const commentCounts = useMemo<Record<string, number>>(() => {
+    const counts: Record<string, number> = {}
+    for (const c of comments) {
+      counts[c.file] = (counts[c.file] ?? 0) + 1
+    }
+    return counts
+  }, [comments])
+
   const { commits, loading: commitsLoading, error: commitsError } = useCommits()
 
   // D-04: Compute useDiff selector from selectedCommitShas length
@@ -224,6 +266,7 @@ export default function CodeReviewApp(): React.JSX.Element {
             activeIndex={activeIndex}
             diffPaneRef={diffPaneRef}
             onActiveIndexChange={setActiveIndex}
+            commentCounts={commentCounts}
           />
         </aside>
         <DiffPane
@@ -247,6 +290,11 @@ export default function CodeReviewApp(): React.JSX.Element {
           onNextCommit={handleNextCommit}
           selectedCommits={selectedCommits}
           onClearSelection={handleClearSelection}
+          comments={comments}
+          onAddLineComment={handleAddLineComment}
+          onAddFileComment={handleAddFileComment}
+          onEditComment={editComment}
+          onDeleteComment={deleteComment}
         />
       </div>
     </div>
