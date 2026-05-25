@@ -77,4 +77,34 @@ describe('FileListPane', () => {
     expect(source).not.toContain('window.location')
     expect(source).not.toContain('history.push')
   })
+
+  it('imports buildTree from fileTree for tree construction', () => {
+    expect(source).toContain("from './fileTree'")
+    expect(source).toContain('buildTree')
+  })
+
+  it('uses useMemo to memoize the tree', () => {
+    expect(source).toContain('useMemo')
+  })
+
+  it('uses useState<Set<string>>(new Set()) for collapsedDirs', () => {
+    expect(source).toContain('useState<Set<string>>(new Set())')
+  })
+
+  it('has handleToggleDir function for toggling dir collapse state', () => {
+    expect(source).toContain('handleToggleDir')
+  })
+
+  it('uses aria-expanded on directory toggle buttons', () => {
+    expect(source).toContain('aria-expanded')
+  })
+
+  it('renders ▼ and ▶ chevrons for directory expand/collapse', () => {
+    expect(source).toContain('▼')
+    expect(source).toContain('▶')
+  })
+
+  it('does not use files.map( — tree rendering replaces flat map', () => {
+    expect(source).not.toContain('files.map(')
+  })
 })

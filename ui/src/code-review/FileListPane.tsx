@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FileDiff } from './types'
+import { buildTree, type DirNode, type FileNode, type TreeNode } from './fileTree'
 
 export interface FileListPaneProps {
   files: FileDiff[]
@@ -15,6 +16,8 @@ export default function FileListPane({
   onActiveIndexChange,
 }: FileListPaneProps): React.JSX.Element {
   const activeItemRef = useRef<HTMLLIElement>(null)
+  const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set())
+  const tree = useMemo(() => buildTree(files), [files])
 
   // IntersectionObserver: watch file anchor elements within diffPaneRef scroll container
   useEffect(() => {
@@ -55,6 +58,18 @@ export default function FileListPane({
     activeItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [activeIndex])
 
+  function handleToggleDir(path: string) {
+    setCollapsedDirs((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) {
+        next.delete(path)
+      } else {
+        next.add(path)
+      }
+      return next
+    })
+  }
+
   function getStatusDotColor(status: FileDiff['status']): string {
     switch (status) {
       case 'added':
@@ -71,102 +86,154 @@ export default function FileListPane({
     }
   }
 
+  function renderFileNode(node: FileNode, depth: number): React.ReactNode {
+    const { index, file } = node
+    const basename = file.filename.split('/').pop() ?? file.filename
+    const isActive = index === activeIndex
+    const showCounts = file.additions + file.deletions !== 0
+
+    return (
+      <li
+        key={`${file.filename}-${index}`}
+        ref={isActive ? activeItemRef : undefined}
+      >
+        <button
+          type="button"
+          aria-current={isActive ? 'true' : undefined}
+          title={
+            file.status === 'renamed' && file.previous_filename
+              ? `${file.previous_filename} → ${file.filename}`
+              : file.filename
+          }
+          onClick={() => {
+            onActiveIndexChange(index)
+            document
+              .getElementById(`file-${index}`)
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }}
+          style={{
+            width: '100%',
+            textAlign: 'left',
+            border: 'none',
+            borderLeft: isActive
+              ? '2px solid var(--color-focus)'
+              : '2px solid transparent',
+            background: isActive ? 'var(--color-bg)' : 'transparent',
+            color: isActive
+              ? 'var(--color-text-primary)'
+              : 'var(--color-text-secondary)',
+            fontWeight: isActive ? 600 : 400,
+            padding: '8px 16px',
+            paddingLeft: 16 + depth * 16,
+            cursor: 'pointer',
+            outline: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            fontSize: 14,
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.outline = '2px solid var(--color-focus)'
+            e.currentTarget.style.outlineOffset = '2px'
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.outline = 'none'
+          }}
+        >
+          {/* Status dot */}
+          <span
+            style={{
+              display: 'inline-block',
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              backgroundColor: getStatusDotColor(file.status),
+              marginRight: 8,
+              flexShrink: 0,
+            }}
+          />
+
+          {/* Rename icon (before basename when status === 'renamed') */}
+          {file.status === 'renamed' && (
+            <span
+              style={{
+                fontSize: 12,
+                color: 'var(--color-text-secondary)',
+                marginRight: 4,
+              }}
+            >
+              ↳
+            </span>
+          )}
+
+          {/* Basename */}
+          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {basename}
+          </span>
+
+          {/* Change counts — omitted when additions + deletions === 0 */}
+          {showCounts && (
+            <span style={{ marginLeft: 'auto', fontSize: 12, paddingLeft: 8, flexShrink: 0 }}>
+              <span style={{ color: '#22c55e' }}>+{file.additions}</span>
+              <span style={{ color: '#ef4444', marginLeft: 4 }}>-{file.deletions}</span>
+            </span>
+          )}
+        </button>
+      </li>
+    )
+  }
+
+  function renderDirNode(node: DirNode, depth: number): React.ReactNode {
+    const isCollapsed = collapsedDirs.has(node.path)
+    return (
+      <li key={node.path}>
+        <button
+          type="button"
+          aria-expanded={!isCollapsed}
+          onClick={() => handleToggleDir(node.path)}
+          style={{
+            width: '100%',
+            textAlign: 'left',
+            border: 'none',
+            background: 'transparent',
+            color: 'var(--color-text-secondary)',
+            padding: '6px 16px',
+            paddingLeft: 16 + depth * 16,
+            cursor: 'pointer',
+            outline: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            fontSize: 13,
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.outline = '2px solid var(--color-focus)'
+            e.currentTarget.style.outlineOffset = '2px'
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.outline = 'none'
+          }}
+        >
+          <span style={{ marginRight: 6 }}>{isCollapsed ? '▶' : '▼'}</span>
+          <span>{node.label}/</span>
+        </button>
+        {!isCollapsed && (
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+            {renderTree(node.children, depth + 1)}
+          </ul>
+        )}
+      </li>
+    )
+  }
+
+  function renderTree(nodes: TreeNode[], depth: number): React.ReactNode[] {
+    return nodes.map((node) =>
+      node.kind === 'file' ? renderFileNode(node, depth) : renderDirNode(node, depth),
+    )
+  }
+
   return (
     <nav aria-label="Changed files">
       <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-        {files.map((file, index) => {
-          const isActive = index === activeIndex
-          const basename = file.filename.split('/').pop() ?? file.filename
-          const showCounts = file.additions + file.deletions !== 0
-
-          return (
-            <li
-              key={`${file.filename}-${index}`}
-              ref={isActive ? activeItemRef : undefined}
-            >
-              <button
-                type="button"
-                aria-current={isActive ? 'true' : undefined}
-                title={
-                  file.status === 'renamed' && file.previous_filename
-                    ? `${file.previous_filename} → ${file.filename}`
-                    : file.filename
-                }
-                onClick={() => {
-                  onActiveIndexChange(index)
-                  document
-                    .getElementById(`file-${index}`)
-                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }}
-                style={{
-                  width: '100%',
-                  textAlign: 'left',
-                  border: 'none',
-                  borderLeft: isActive
-                    ? '2px solid var(--color-focus)'
-                    : '2px solid transparent',
-                  background: isActive ? 'var(--color-bg)' : 'transparent',
-                  color: isActive
-                    ? 'var(--color-text-primary)'
-                    : 'var(--color-text-secondary)',
-                  fontWeight: isActive ? 600 : 400,
-                  padding: '8px 16px',
-                  cursor: 'pointer',
-                  outline: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  fontSize: 14,
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.outline = '2px solid var(--color-focus)'
-                  e.currentTarget.style.outlineOffset = '2px'
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.outline = 'none'
-                }}
-              >
-                {/* Status dot */}
-                <span
-                  style={{
-                    display: 'inline-block',
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    backgroundColor: getStatusDotColor(file.status),
-                    marginRight: 8,
-                    flexShrink: 0,
-                  }}
-                />
-
-                {/* Rename icon (before basename when status === 'renamed') */}
-                {file.status === 'renamed' && (
-                  <span
-                    style={{
-                      fontSize: 12,
-                      color: 'var(--color-text-secondary)',
-                      marginRight: 4,
-                    }}
-                  >
-                    ↳
-                  </span>
-                )}
-
-                {/* Basename */}
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {basename}
-                </span>
-
-                {/* Change counts — omitted when additions + deletions === 0 */}
-                {showCounts && (
-                  <span style={{ marginLeft: 'auto', fontSize: 12, paddingLeft: 8, flexShrink: 0 }}>
-                    <span style={{ color: '#22c55e' }}>+{file.additions}</span>
-                    <span style={{ color: '#ef4444', marginLeft: 4 }}>-{file.deletions}</span>
-                  </span>
-                )}
-              </button>
-            </li>
-          )
-        })}
+        {renderTree(tree, 0)}
       </ol>
     </nav>
   )
