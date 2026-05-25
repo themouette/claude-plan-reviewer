@@ -489,17 +489,19 @@ const lineAnnotations: DiffLineAnnotation<{ commentId: string }>[] = fileComment
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Pending form anchor: DiffPane-local vs lifted to CodeReviewApp**
    - What we know: CONTEXT.md leaves this to Claude's discretion. Both work.
    - What's unclear: Whether Phase 28's serialization story benefits from the pending anchor being visible at `CodeReviewApp` level (probably not — pending ≠ submitted).
    - Recommendation: Keep `pendingLineAnchor` as `DiffPane`-local state. Pass `onAddComment` up to `CodeReviewApp` only when the form is submitted.
+   - **RESOLVED:** DiffPane-local `pendingLineAnchor` per Pattern 4 Option A (27-02 Task 3 action D).
 
 2. **PatchDiff fallback and annotations**
    - What we know: Binary files and files without `old_content`/`new_content` go through `PatchDiff`, not `FileDiffComponent`. `PatchDiff` cannot accept `lineAnnotations`.
    - What's unclear: Should the file-level comment button still appear in the header for binary files?
    - Recommendation: Yes — file-level comments (D-03) render above the diff content regardless of whether the diff is full or partial. Only line-anchored comments require `FileDiffComponent`.
+   - **RESOLVED:** File-level comment button appears in the header for all file types; `lineAnnotations` and `renderAnnotation`/`renderGutterUtility` restricted to the non-partial (FileDiffComponent) path only (27-02 Task 3 action G).
 
 ---
 
