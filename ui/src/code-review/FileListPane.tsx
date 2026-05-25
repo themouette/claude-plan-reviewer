@@ -7,6 +7,7 @@ export interface FileListPaneProps {
   activeIndex: number | null
   diffPaneRef: React.RefObject<HTMLDivElement | null> // scroll container for IntersectionObserver
   onActiveIndexChange: (index: number) => void
+  commentCounts?: Record<string, number> // filename → submitted comment count; default {}
 }
 
 export default function FileListPane({
@@ -14,6 +15,7 @@ export default function FileListPane({
   activeIndex,
   diffPaneRef,
   onActiveIndexChange,
+  commentCounts = {},
 }: FileListPaneProps): React.JSX.Element {
   const activeItemRef = useRef<HTMLLIElement>(null)
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set())
@@ -169,6 +171,24 @@ export default function FileListPane({
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {basename}
           </span>
+
+          {/* Phase 27: Comment count badge — shown when count > 0 (D-10) */}
+          {(commentCounts[file.filename] ?? 0) > 0 && (
+            <span
+              style={{
+                background: 'var(--color-focus)',
+                color: '#fff',
+                borderRadius: 10,
+                fontSize: 12,
+                fontWeight: 600,
+                padding: '2px 8px',
+                marginLeft: 8,
+                flexShrink: 0,
+              }}
+            >
+              {commentCounts[file.filename]}
+            </span>
+          )}
 
           {/* Change counts — omitted when additions + deletions === 0 */}
           {showCounts && (
