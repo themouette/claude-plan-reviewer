@@ -105,4 +105,120 @@ describe('AppToolbar', () => {
   it("D-08: uses makeFocusHandlers('files-expand') for the second button", () => {
     expect(source).toContain("makeFocusHandlers('files-expand')")
   })
+
+  // Phase 28 additions: submit controls
+  it('Phase 28: Test A — AppToolbarProps includes comments: CodeReviewComment[]', () => {
+    expect(source).toContain('comments: CodeReviewComment[]')
+  })
+
+  it('Phase 28: Test B — AppToolbarProps includes connectivity: ConnectivityStatus', () => {
+    expect(source).toContain('connectivity: ConnectivityStatus')
+  })
+
+  it('Phase 28: Test C — AppToolbarProps includes onApprove: and onRequestChanges:', () => {
+    expect(source).toContain('onApprove:')
+    expect(source).toContain('onRequestChanges:')
+  })
+
+  it("Phase 28: Test D — source contains 'Approve' literal (button label)", () => {
+    expect(source).toContain("'Approve'")
+  })
+
+  it("Phase 28: Test E — source contains 'Request Changes' literal (button label)", () => {
+    expect(source).toContain("'Request Changes'")
+  })
+
+  it("Phase 28: Test F — source contains 'Cannot approve while comments exist' (disabled title D-06)", () => {
+    expect(source).toContain("'Cannot approve while comments exist'")
+  })
+
+  it("Phase 28: Test G — source contains 'Add at least one comment before requesting changes' (disabled title D-06)", () => {
+    expect(source).toContain("'Add at least one comment before requesting changes'")
+  })
+
+  it('Phase 28: Test H — source contains var(--color-accent-approve) (Approve background)', () => {
+    expect(source).toContain('var(--color-accent-approve)')
+  })
+
+  it('Phase 28: Test I — source contains var(--color-accent-deny) (Request Changes background)', () => {
+    expect(source).toContain('var(--color-accent-deny)')
+  })
+
+  it("Phase 28: Test J — source contains import from './buildCodeReviewPayload'", () => {
+    expect(source).toContain("from './buildCodeReviewPayload'")
+  })
+
+  it("Phase 28: Test K — source contains import from '../shared/connectivity' for ConnectivityStatus", () => {
+    expect(source).toContain("from '../shared/connectivity'")
+  })
+
+  it("Phase 28: Test L — source contains import for CodeReviewSubmitPopover from './CodeReviewSubmitPopover'", () => {
+    expect(source).toContain("CodeReviewSubmitPopover from './CodeReviewSubmitPopover'")
+  })
+
+  it("Phase 28: Test M — source contains SubmitState union literal 'confirmed_approve'", () => {
+    expect(source).toContain("'confirmed_approve'")
+  })
+
+  it("Phase 28: Test N — source contains SubmitState union literal 'confirmed_request_changes'", () => {
+    expect(source).toContain("'confirmed_request_changes'")
+  })
+
+  it("Phase 28: Test O — source contains 'clipboard_confirmed' and 'clipboard_error'", () => {
+    expect(source).toContain("'clipboard_confirmed'")
+    expect(source).toContain("'clipboard_error'")
+  })
+
+  it('Phase 28: Test P — source contains window.close() (auto-close after confirmed)', () => {
+    expect(source).toContain('window.close()')
+  })
+
+  it('Phase 28: Test Q — source contains 3000 (clipboard_confirmed auto-reset)', () => {
+    expect(source).toContain('3000')
+  })
+
+  it('Phase 28: Test R — source contains 500 (confirmed auto-close delay)', () => {
+    expect(source).toContain('500')
+  })
+
+  it('Phase 28: Test S — source contains comments.length === 0 (canApprove gate D-06)', () => {
+    expect(source).toContain('comments.length === 0')
+  })
+
+  it('Phase 28: Test T — source contains comments.length > 0 (canRequestChanges gate D-06)', () => {
+    expect(source).toContain('comments.length > 0')
+  })
+
+  it('Phase 28: Test U — source contains shouldUseClipboard(connectivity) (offline branch entry)', () => {
+    expect(source).toContain('shouldUseClipboard(connectivity)')
+  })
+
+  it("Phase 28: Test V — source contains buildCodeReviewPayload('approved' AND buildCodeReviewPayload('changes_requested'", () => {
+    expect(source).toContain("buildCodeReviewPayload('approved'")
+    expect(source).toContain("buildCodeReviewPayload('changes_requested'")
+  })
+
+  it("Phase 28: Test W — source contains fetch('/api/decide' (the POST endpoint)", () => {
+    expect(source).toContain("fetch('/api/decide'")
+  })
+
+  it("Phase 28: Test X — source contains 'Approved' literal AND 'Review submitted'", () => {
+    expect(source).toContain("'Approved'")
+    expect(source).toContain("'Review submitted'")
+  })
+
+  it("Phase 28: Test Y — source contains 'Copied to clipboard' AND 'Paste into your Claude conversation.'", () => {
+    expect(source).toContain("'Copied to clipboard'")
+    expect(source).toContain("'Paste into your Claude conversation.'")
+  })
+
+  it("Phase 28: Test Z — source contains 'Clipboard write failed' AND 'Dismiss' AND JSON payload aria-label", () => {
+    expect(source).toContain("'Clipboard write failed'")
+    expect(source).toContain("'Dismiss'")
+    expect(source).toContain('JSON payload — copy and paste into Claude')
+  })
+
+  it("Phase 28: Test AA — source does NOT contain 'reviewer-v2/' (preserves ESLint boundary)", () => {
+    expect(source).not.toContain('reviewer-v2/')
+  })
 })

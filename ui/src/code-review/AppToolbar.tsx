@@ -1,3 +1,9 @@
+import { useEffect, useState } from 'react'
+import type { CodeReviewComment } from './types'
+import type { ConnectivityStatus } from '../shared/connectivity'
+import { buildCodeReviewPayload, shouldUseClipboard } from './buildCodeReviewPayload'
+import CodeReviewSubmitPopover from './CodeReviewSubmitPopover'
+
 export interface AppToolbarProps {
   diffStyle: 'unified' | 'split'
   contextExpanded: boolean
@@ -10,6 +16,11 @@ export interface AppToolbarProps {
   allFilesExpanded: boolean
   filesCount: number  // WR-02: disable toggle-all button when there are no files
   onToggleAllFiles: () => void
+  // Phase 28 additions: submit controls
+  comments: CodeReviewComment[]
+  connectivity: ConnectivityStatus
+  onApprove: (globalInstruction?: string) => void
+  onRequestChanges: () => void
 }
 
 export default function AppToolbar({
@@ -23,7 +34,96 @@ export default function AppToolbar({
   allFilesExpanded,
   filesCount,
   onToggleAllFiles,
+  comments,
+  connectivity,
 }: AppToolbarProps): React.JSX.Element {
+  type SubmitState =
+    | 'idle'
+    | 'popover_open'
+    | 'confirmed_approve'
+    | 'confirmed_request_changes'
+    | 'clipboard_confirmed'
+    | 'clipboard_error'
+
+  const [submitState, setSubmitState] = useState<SubmitState>('idle')
+  const [clipboardJson, setClipboardJson] = useState('')
+
+  const canApprove = comments.length === 0
+  const canRequestChanges = comments.length > 0
+
+  // Auto-close tab after confirmed states (500ms)
+  useEffect(() => {
+    if (submitState === 'confirmed_approve' || submitState === 'confirmed_request_changes') {
+      const id = window.setTimeout(() => {
+        try { window.close() } catch { /* browser may block window.close() — ignore */ }
+      }, 500)
+      return () => clearTimeout(id)
+    }
+  }, [submitState])
+
+  // Auto-reset clipboard_confirmed to idle after 3000ms
+  useEffect(() => {
+    if (submitState === 'clipboard_confirmed') {
+      const id = window.setTimeout(() => setSubmitState('idle'), 3000)
+      return () => clearTimeout(id)
+    }
+  }, [submitState])
+  async function handleApprove(globalInstruction?: string) {
+    if (shouldUseClipboard(connectivity)) {
+      const json = buildCodeReviewPayload('approved', comments, globalInstruction)
+      navigator.clipboard.writeText(json)
+        .then(() => setSubmitState('clipboard_confirmed'))
+        .catch(() => { setClipboardJson(json); setSubmitState('clipboard_error') })
+      return
+    }
+    try {
+      const body = buildCodeReviewPayload('approved', comments, globalInstruction)
+      const res = await fetch('/api/decide', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      })
+      if (res.ok || res.status === 409) {
+        setSubmitState('confirmed_approve')
+      } else {
+        setClipboardJson(body)
+        setSubmitState('clipboard_error')
+      }
+    } catch {
+      const json = buildCodeReviewPayload('approved', comments, globalInstruction)
+      setClipboardJson(json)
+      setSubmitState('clipboard_error')
+    }
+  }
+
+  async function handleRequestChanges() {
+    if (shouldUseClipboard(connectivity)) {
+      const json = buildCodeReviewPayload('changes_requested', comments)
+      navigator.clipboard.writeText(json)
+        .then(() => setSubmitState('clipboard_confirmed'))
+        .catch(() => { setClipboardJson(json); setSubmitState('clipboard_error') })
+      return
+    }
+    try {
+      const body = buildCodeReviewPayload('changes_requested', comments)
+      const res = await fetch('/api/decide', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      })
+      if (res.ok || res.status === 409) {
+        setSubmitState('confirmed_request_changes')
+      } else {
+        setClipboardJson(body)
+        setSubmitState('clipboard_error')
+      }
+    } catch {
+      const json = buildCodeReviewPayload('changes_requested', comments)
+      setClipboardJson(json)
+      setSubmitState('clipboard_error')
+    }
+  }
+
   // WR-04: focusedButton state removed — it was never read in rendering (dead code).
   // The imperative e.currentTarget.style.outline approach already works without state.
   function makeFocusHandlers(_id: string) {
@@ -65,8 +165,123 @@ export default function AppToolbar({
 
       {/* Right: controls */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        {/* Reserved: help / GitHub / theme — empty in Phase 25 (D-03) */}
-        <div />
+        {/* Phase 28 submit controls (replaces D-03 Reserved slot) */}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {(submitState === 'idle' || submitState === 'popover_open') && (
+            <>
+              <button
+                type="button"
+                className="submit-btn"
+                disabled={!canApprove}
+                title={!canApprove ? 'Cannot approve while comments exist' : undefined}
+                onClick={() => {
+                  if (shouldUseClipboard(connectivity)) {
+                    void handleApprove()
+                  } else {
+                    setSubmitState('popover_open')
+                  }
+                }}
+                style={{
+                  height: 32,
+                  paddingLeft: 16,
+                  paddingRight: 16,
+                  borderRadius: 6,
+                  border: 'none',
+                  background: 'var(--color-accent-approve)',
+                  color: '#fff',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: canApprove ? 'pointer' : 'default',
+                  opacity: canApprove ? 1 : 0.4,
+                  outline: 'none',
+                }}
+                onMouseOver={(e) => {
+                  if (canApprove) e.currentTarget.style.background = 'var(--color-accent-approve-hover)'
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'var(--color-accent-approve)'
+                }}
+                {...makeFocusHandlers('approve')}
+              >
+                {'Approve'}
+              </button>
+
+              <button
+                type="button"
+                className="submit-btn"
+                disabled={!canRequestChanges}
+                title={!canRequestChanges ? 'Add at least one comment before requesting changes' : undefined}
+                onClick={() => { void handleRequestChanges() }}
+                style={{
+                  height: 32,
+                  paddingLeft: 16,
+                  paddingRight: 16,
+                  borderRadius: 6,
+                  border: 'none',
+                  background: 'var(--color-accent-deny)',
+                  color: '#fff',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: canRequestChanges ? 'pointer' : 'default',
+                  opacity: canRequestChanges ? 1 : 0.4,
+                  outline: 'none',
+                }}
+                {...makeFocusHandlers('request-changes')}
+              >
+                {'Request Changes'}
+              </button>
+
+              <CodeReviewSubmitPopover
+                open={submitState === 'popover_open'}
+                onDismiss={() => setSubmitState('idle')}
+                onConfirm={(gi) => { void handleApprove(gi) }}
+              />
+            </>
+          )}
+
+          {submitState === 'confirmed_approve' && (
+            <div role="status" aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-accent-approve)' }}>{'Approved'}</span>
+              <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>{'You can close this tab.'}</span>
+            </div>
+          )}
+
+          {submitState === 'confirmed_request_changes' && (
+            <div role="status" aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-accent-deny)' }}>{'Review submitted'}</span>
+              <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>{'You can close this tab.'}</span>
+            </div>
+          )}
+
+          {submitState === 'clipboard_confirmed' && (
+            <div role="status" aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-accent-approve)' }}>{'Copied to clipboard'}</span>
+              <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>{'Paste into your Claude conversation.'}</span>
+            </div>
+          )}
+
+          {submitState === 'clipboard_error' && (
+            <div role="status" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-accent-deny)' }}>{'Clipboard write failed'}</span>
+                <button
+                  type="button"
+                  onClick={() => setSubmitState('idle')}
+                  style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text-secondary)', cursor: 'pointer' }}
+                >
+                  {'Dismiss'}
+                </button>
+              </div>
+              <textarea
+                readOnly
+                value={clipboardJson}
+                aria-label="JSON payload — copy and paste into Claude"
+                onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+                style={{ width: 320, height: 80, fontFamily: 'monospace', fontSize: 12, padding: 8, borderRadius: 4, border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-primary)', resize: 'vertical', cursor: 'text' }}
+              />
+            </div>
+          )}
+        </div>
 
         {/* Commits toggle button — Phase 26 */}
         <button
