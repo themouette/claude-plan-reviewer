@@ -771,16 +771,16 @@ Plans:
 
 ### Phase 28: Review Submission
 
-**Goal**: The submit bar enforces review discipline; submitting with comments returns structured per-file/per-hunk JSON feedback to the agent; approving with no comments returns a clean approval with an optional global message; clipboard fallback is preserved for offline mode
+**Goal**: The submit bar lets the reviewer send structured feedback to the agent; a single "Send Review" button opens a popover with an optional message; the payload (`{message?,comments?}`) is POSTed to `/api/decide` or falls back to clipboard; clipboard fallback is preserved for offline mode
 **Depends on**: Phase 27
 **Requirements**: SUBMIT-01, SUBMIT-02, SUBMIT-03, SUBMIT-04
 **Success Criteria** (what must be TRUE):
 
-  1. The "Approve" button is disabled when any comments exist; it is enabled with zero comments
-  2. "Request changes" is disabled when no comments exist; it is enabled with at least one comment
-  3. An optional global instruction text field is available alongside the Approve action
-  4. Submitting with comments produces structured JSON: `{"decision":"changes_requested","comments":[{"file":"...","hunk":"...","text":"..."},...]}` returned to the agent
-  5. When the server is unreachable, submission writes the same JSON to the clipboard using the new `buildCodeReviewPayload` function
+  1. A single always-enabled "Send Review" button is present; no Approve/Request-Changes split (D-06 removed per user direction during human verification)
+  2. Clicking "Send Review" opens a popover with an optional message textarea; confirm button enabled when `commentsCount > 0 || message.trim().length > 0`
+  3. An optional global message field is available in the popover alongside the confirm button
+  4. Submitting produces structured JSON `{message?,comments?}` — no `decision` field; agent decides outcome from payload
+  5. When the server is unreachable, submission writes the JSON to clipboard; falls back to readonly textarea only if clipboard is also blocked
 
 **Plans:** 3/3 plans complete
 Plans:
