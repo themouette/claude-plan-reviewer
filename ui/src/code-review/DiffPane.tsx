@@ -365,6 +365,8 @@ export default function DiffPane({
               <div
                 role="button"
                 tabIndex={0}
+                aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${file.filename}`}
+                aria-expanded={!isCollapsed}
                 onClick={() => onToggleFile?.(file.filename)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
