@@ -64,12 +64,20 @@ export default function AppToolbar({
     }
   }, [submitState])
 
+  async function writeToClipboard(json: string) {
+    try {
+      await navigator.clipboard.writeText(json)
+      setSubmitState('clipboard_confirmed')
+    } catch {
+      setClipboardJson(json)
+      setSubmitState('clipboard_error')
+    }
+  }
+
   async function handleSend(message?: string) {
     const json = buildReviewPayload(message, comments)
     if (shouldUseClipboard(connectivity)) {
-      navigator.clipboard.writeText(json)
-        .then(() => setSubmitState('clipboard_confirmed'))
-        .catch(() => { setClipboardJson(json); setSubmitState('clipboard_error') })
+      await writeToClipboard(json)
       return
     }
     try {
@@ -80,14 +88,13 @@ export default function AppToolbar({
       })
       if (res.ok || res.status === 409) {
         setSubmitState('confirmed')
-      } else {
-        setClipboardJson(json)
-        setSubmitState('clipboard_error')
+        return
       }
     } catch {
-      setClipboardJson(json)
-      setSubmitState('clipboard_error')
+      // network error — fall through to clipboard
     }
+    // POST unavailable — clipboard as fallback; textarea only if clipboard also fails
+    await writeToClipboard(json)
   }
 
   // WR-04: focusedButton state removed — it was never read in rendering (dead code).
