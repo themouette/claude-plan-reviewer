@@ -44,6 +44,9 @@ function FileDiffRenderer({
   const selectionRef = useRef<SelectedLineRange | null>(null)
   // Tracks which submitted comment bubble is hovered so we can re-show its range.
   const [hoveredCommentId, setHoveredCommentId] = useState<string | null>(null)
+  // Tracks the last submitted line-comment range so the highlight persists after form close.
+  // Cleared when the user starts a new drag (onLineSelectionStart).
+  const [submittedSelection, setSubmittedSelection] = useState<SelectedLineRange | null>(null)
 
   const fileDiffMetadata = useMemo(() => {
     if (file.old_content === undefined || file.new_content === undefined) return null
@@ -53,20 +56,23 @@ function FileDiffRenderer({
     )
   }, [file.filename, file.previous_filename, file.old_content, file.new_content])
 
-  if (fileDiffMetadata) {
-    // Build lineAnnotations from submitted line comments for this file
-    const submittedLineAnnotations: DiffLineAnnotation<{ commentId: string }>[] = comments
+  // Memoised so pierre only sees annotationsChanged=true when content actually changes,
+  // not on every hover-state re-render.
+  const lineAnnotations = useMemo<DiffLineAnnotation<{ commentId: string }>[]>(() => {
+    const submitted = comments
       .filter((c): c is Extract<CodeReviewComment, { type: 'line' }> => c.type === 'line' && c.file === file.filename)
       .map((c) => ({ side: c.side, lineNumber: c.endLineNumber ?? c.lineNumber, metadata: { commentId: c.id } }))
+    if (pendingLineAnchor?.file === file.filename) {
+      return [...submitted, {
+        side: pendingLineAnchor.side,
+        lineNumber: pendingLineAnchor.endLineNumber ?? pendingLineAnchor.lineNumber,
+        metadata: { commentId: '__pending__' },
+      }]
+    }
+    return submitted
+  }, [comments, file.filename, pendingLineAnchor])
 
-    // Append pending sentinel when this file has an open line-comment form
-    const lineAnnotations: DiffLineAnnotation<{ commentId: string }>[] = [
-      ...submittedLineAnnotations,
-      ...(pendingLineAnchor?.file === file.filename
-        ? [{ side: pendingLineAnchor.side, lineNumber: pendingLineAnchor.endLineNumber ?? pendingLineAnchor.lineNumber, metadata: { commentId: '__pending__' } }]
-        : []),
-    ]
-
+  if (fileDiffMetadata) {
     const pendingSelection: SelectedLineRange | null =
       pendingLineAnchor?.file === file.filename
         ? {
@@ -87,7 +93,7 @@ function FileDiffRenderer({
       <FileDiffComponent
         fileDiff={fileDiffMetadata}
         disableWorkerPool={true}
-        selectedLines={pendingSelection ?? hoveredCommentSelection ?? undefined}
+        selectedLines={pendingSelection ?? hoveredCommentSelection ?? submittedSelection ?? undefined}
         options={{
           diffStyle,
           expansionLineCount: 10,
@@ -97,6 +103,11 @@ function FileDiffRenderer({
           expandUnchanged: contextExpanded,
           enableGutterUtility: true,
           enableLineSelection: true,
+          onLineSelectionStart: () => {
+            // User started a new drag — clear the post-submit highlight and stale ref
+            setSubmittedSelection(null)
+            selectionRef.current = null
+          },
           onLineSelectionChange: (range) => { selectionRef.current = range },
           onLineSelectionEnd: (range) => { selectionRef.current = range },
         }}
@@ -106,10 +117,22 @@ function FileDiffRenderer({
             return (
               <HunkCommentForm
                 onSubmit={(text) => {
-                  onAddLineComment?.(file.filename, pendingLineAnchor!.lineNumber, ann.side, text, pendingLineAnchor!.endLineNumber)
+                  const anchor = pendingLineAnchor!
+                  // Remember submitted range so the highlight persists after form closes.
+                  setSubmittedSelection({
+                    start: anchor.lineNumber,
+                    end: anchor.endLineNumber ?? anchor.lineNumber,
+                    side: anchor.side,
+                  })
+                  // Consume and clear ref so the next single-line "+" click isn't stale.
+                  selectionRef.current = null
+                  onAddLineComment?.(file.filename, anchor.lineNumber, ann.side, text, anchor.endLineNumber)
                   setPendingLineAnchor(null)
                 }}
-                onCancel={() => setPendingLineAnchor(null)}
+                onCancel={() => {
+                  selectionRef.current = null
+                  setPendingLineAnchor(null)
+                }}
               />
             )
           }

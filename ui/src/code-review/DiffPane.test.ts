@@ -232,6 +232,25 @@ describe('DiffPane Phase 27: inline comment wiring', () => {
     expect(source).toContain('onMouseLeave')
   })
 
+  it('tracks submittedSelection state so highlight persists after form closes', () => {
+    expect(source).toContain('submittedSelection')
+    expect(source).toContain('setSubmittedSelection')
+  })
+
+  it('uses onLineSelectionStart to clear submittedSelection when new drag begins', () => {
+    expect(source).toContain('onLineSelectionStart')
+  })
+
+  it('selectedLines priority: pendingSelection ?? hoveredCommentSelection ?? submittedSelection ?? undefined', () => {
+    expect(source).toContain('submittedSelection ?? undefined')
+  })
+
+  it('clears selectionRef.current on form submit to avoid stale range for next single-line comment', () => {
+    // After submit, selectionRef is nulled so the next hover+click uses hovered.lineNumber fallback
+    const submitIdx = source.indexOf("selectionRef.current = null")
+    expect(submitIdx).toBeGreaterThan(-1)
+  })
+
   it('imports DiffLineAnnotation type from @pierre/diffs', () => {
     expect(source).toContain('DiffLineAnnotation')
   })
