@@ -65,10 +65,20 @@ function FileDiffRenderer({
         : []),
     ]
 
+    const pendingSelection: SelectedLineRange | null =
+      pendingLineAnchor?.file === file.filename
+        ? {
+            start: pendingLineAnchor.lineNumber,
+            end: pendingLineAnchor.endLineNumber ?? pendingLineAnchor.lineNumber,
+            side: pendingLineAnchor.side,
+          }
+        : null
+
     return (
       <FileDiffComponent
         fileDiff={fileDiffMetadata}
         disableWorkerPool={true}
+        selectedLines={pendingSelection}
         options={{
           diffStyle,
           expansionLineCount: 10,
