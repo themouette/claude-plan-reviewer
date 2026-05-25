@@ -165,3 +165,81 @@ describe('DiffPane', () => {
     expect(source).toContain('file.deletions')
   })
 })
+
+describe('DiffPane Phase 27: inline comment wiring', () => {
+  it('passes lineAnnotations to FileDiffComponent (non-partial path)', () => {
+    expect(source).toContain('lineAnnotations')
+  })
+
+  it('passes renderAnnotation to FileDiffComponent', () => {
+    expect(source).toContain('renderAnnotation')
+  })
+
+  it('passes renderGutterUtility to FileDiffComponent', () => {
+    expect(source).toContain('renderGutterUtility')
+  })
+
+  it('renders gutter + button with aria-label="Add comment to this line"', () => {
+    expect(source).toContain('aria-label="Add comment to this line"')
+  })
+
+  it('renders file-header trigger button with aria-label="Add file-level comment"', () => {
+    expect(source).toContain('aria-label="Add file-level comment"')
+  })
+
+  it('file header trigger button shows "+ Comment" text', () => {
+    expect(source).toContain('+ Comment')
+  })
+
+  it('uses pendingLineAnchor state for open line-comment form', () => {
+    expect(source).toContain('pendingLineAnchor')
+  })
+
+  it('uses pendingFileComment state for open file-comment form', () => {
+    expect(source).toContain('pendingFileComment')
+  })
+
+  it("uses '__pending__' sentinel for the pending annotation commentId", () => {
+    expect(source).toContain("'__pending__'")
+  })
+
+  it('imports and uses HunkCommentForm', () => {
+    expect(source).toContain('HunkCommentForm')
+  })
+
+  it('imports and uses CommentBubble', () => {
+    expect(source).toContain('CommentBubble')
+  })
+
+  it('calls getHoveredLine() as a function inside the click handler (Pitfall 3)', () => {
+    expect(source).toContain('getHoveredLine()')
+  })
+
+  it('imports DiffLineAnnotation type from @pierre/diffs', () => {
+    expect(source).toContain('DiffLineAnnotation')
+  })
+
+  it('imports AnnotationSide type from @pierre/diffs', () => {
+    expect(source).toContain('AnnotationSide')
+  })
+
+  it('calls e.stopPropagation() in the file-level comment trigger button', () => {
+    expect(source).toContain('e.stopPropagation()')
+  })
+
+  it('does not import from reviewer-v2 (Phase 27 still holds)', () => {
+    expect(source).not.toContain('reviewer-v2')
+  })
+
+  it('lineAnnotations prop on FileDiffComponent appears after disableWorkerPool in source', () => {
+    expect(source.indexOf('lineAnnotations=')).toBeGreaterThan(source.indexOf('disableWorkerPool'))
+  })
+
+  it('PatchDiff JSX block does not contain lineAnnotations (Pitfall 2 — binary/patch path is annotation-disabled)', () => {
+    const patchDiffMatch = source.match(/<PatchDiff[\s\S]*?\/>/)
+    expect(patchDiffMatch).not.toBeNull()
+    if (patchDiffMatch) {
+      expect(patchDiffMatch[0]).not.toContain('lineAnnotations')
+    }
+  })
+})
