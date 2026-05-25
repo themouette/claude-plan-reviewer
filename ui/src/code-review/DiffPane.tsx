@@ -72,6 +72,7 @@ function FileDiffRenderer({
           theme: DIFF_THEME,
           disableFileHeader: true,
           expandUnchanged: contextExpanded,
+          enableGutterUtility: true,
         }}
         lineAnnotations={lineAnnotations}
         renderAnnotation={(ann) => {
