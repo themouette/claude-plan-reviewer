@@ -32,6 +32,7 @@ export default function CodeReviewApp(): React.JSX.Element {
     lineNumber: number,
     side: 'additions' | 'deletions',
     text: string,
+    endLineNumber?: number,
   ) {
     addComment({
       id: crypto.randomUUID(),
@@ -39,6 +40,7 @@ export default function CodeReviewApp(): React.JSX.Element {
       file,
       side,
       lineNumber,
+      ...(endLineNumber !== undefined ? { endLineNumber } : {}),
       text,
       createdAt: new Date().toISOString(),
     })

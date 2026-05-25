@@ -33,11 +33,11 @@ function FileDiffRenderer({
   diffStyle: 'unified' | 'split'
   contextExpanded: boolean
   comments: CodeReviewComment[]
-  onAddLineComment?: (file: string, lineNumber: number, side: 'additions' | 'deletions', text: string) => void
+  onAddLineComment?: (file: string, lineNumber: number, side: 'additions' | 'deletions', text: string, endLineNumber?: number) => void
   onEditComment?: (id: string, text: string) => void
   onDeleteComment?: (id: string) => void
-  pendingLineAnchor: { file: string; lineNumber: number; side: AnnotationSide } | null
-  setPendingLineAnchor: (anchor: { file: string; lineNumber: number; side: AnnotationSide } | null) => void
+  pendingLineAnchor: { file: string; lineNumber: number; endLineNumber?: number; side: AnnotationSide } | null
+  setPendingLineAnchor: (anchor: { file: string; lineNumber: number; endLineNumber?: number; side: AnnotationSide } | null) => void
 }) {
   const fileDiffMetadata = useMemo(() => {
     if (file.old_content === undefined || file.new_content === undefined) return null
@@ -51,13 +51,13 @@ function FileDiffRenderer({
     // Build lineAnnotations from submitted line comments for this file
     const submittedLineAnnotations: DiffLineAnnotation<{ commentId: string }>[] = comments
       .filter((c): c is Extract<CodeReviewComment, { type: 'line' }> => c.type === 'line' && c.file === file.filename)
-      .map((c) => ({ side: c.side, lineNumber: c.lineNumber, metadata: { commentId: c.id } }))
+      .map((c) => ({ side: c.side, lineNumber: c.endLineNumber ?? c.lineNumber, metadata: { commentId: c.id } }))
 
     // Append pending sentinel when this file has an open line-comment form
     const lineAnnotations: DiffLineAnnotation<{ commentId: string }>[] = [
       ...submittedLineAnnotations,
       ...(pendingLineAnchor?.file === file.filename
-        ? [{ side: pendingLineAnchor.side, lineNumber: pendingLineAnchor.lineNumber, metadata: { commentId: '__pending__' } }]
+        ? [{ side: pendingLineAnchor.side, lineNumber: pendingLineAnchor.endLineNumber ?? pendingLineAnchor.lineNumber, metadata: { commentId: '__pending__' } }]
         : []),
     ]
 
@@ -73,6 +73,15 @@ function FileDiffRenderer({
           disableFileHeader: true,
           expandUnchanged: contextExpanded,
           enableGutterUtility: true,
+          enableLineSelection: true,
+          onGutterUtilityClick: (range) => {
+            setPendingLineAnchor({
+              file: file.filename,
+              lineNumber: range.start,
+              endLineNumber: range.end !== range.start ? range.end : undefined,
+              side: range.side ?? 'additions',
+            })
+          },
         }}
         lineAnnotations={lineAnnotations}
         renderAnnotation={(ann) => {
@@ -80,7 +89,7 @@ function FileDiffRenderer({
             return (
               <HunkCommentForm
                 onSubmit={(text) => {
-                  onAddLineComment?.(file.filename, ann.lineNumber, ann.side, text)
+                  onAddLineComment?.(file.filename, pendingLineAnchor!.lineNumber, ann.side, text, pendingLineAnchor!.endLineNumber)
                   setPendingLineAnchor(null)
                 }}
                 onCancel={() => setPendingLineAnchor(null)}
@@ -97,28 +106,26 @@ function FileDiffRenderer({
             />
           )
         }}
-        renderGutterUtility={(getHoveredLine) => (
+        renderGutterUtility={() => (
           <button
             type="button"
             aria-label="Add comment to this line"
-            onClick={() => {
-              const hovered = getHoveredLine()
-              if (!hovered) return
-              setPendingLineAnchor({ file: file.filename, lineNumber: hovered.lineNumber, side: hovered.side })
-            }}
             style={{
               width: 20,
               height: 20,
-              background: 'transparent',
+              background: 'var(--color-focus)',
               border: 'none',
-              borderRadius: 3,
+              borderRadius: '50%',
               cursor: 'pointer',
-              color: 'var(--color-text-secondary)',
+              color: '#fff',
               fontSize: 14,
-              fontWeight: 600,
+              fontWeight: 700,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              lineHeight: 1,
+              padding: 0,
+              flexShrink: 0,
             }}
           >
             +
@@ -164,7 +171,7 @@ export interface DiffPaneProps {
   onClearSelection?: () => void
   // Phase 27 additions — all optional; default values preserve existing call sites until 27-03 wires them
   comments?: CodeReviewComment[]
-  onAddLineComment?: (file: string, lineNumber: number, side: 'additions' | 'deletions', text: string) => void
+  onAddLineComment?: (file: string, lineNumber: number, side: 'additions' | 'deletions', text: string, endLineNumber?: number) => void
   onAddFileComment?: (file: string, text: string) => void
   onEditComment?: (id: string, text: string) => void
   onDeleteComment?: (id: string) => void
@@ -198,7 +205,7 @@ export default function DiffPane({
   onDeleteComment,
 }: DiffPaneProps): React.JSX.Element {
   // Phase 27: local state for pending annotation anchors (Pattern 4 Option A — DiffPane-local)
-  const [pendingLineAnchor, setPendingLineAnchor] = useState<{ file: string; lineNumber: number; side: AnnotationSide } | null>(null)
+  const [pendingLineAnchor, setPendingLineAnchor] = useState<{ file: string; lineNumber: number; endLineNumber?: number; side: AnnotationSide } | null>(null)
   const [pendingFileComment, setPendingFileComment] = useState<string | null>(null)
 
   // Lookup the active commit for per-commit title strip (D-06)

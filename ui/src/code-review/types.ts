@@ -29,6 +29,7 @@ export type CodeReviewComment =
       file: string
       side: 'additions' | 'deletions'
       lineNumber: number
+      endLineNumber?: number
       text: string
       createdAt: string
     }
