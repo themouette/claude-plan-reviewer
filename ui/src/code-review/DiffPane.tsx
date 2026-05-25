@@ -1,7 +1,10 @@
 import { Fragment, useMemo, useState } from 'react'
 import { FileDiff as FileDiffComponent, PatchDiff } from '@pierre/diffs/react'
 import { parseDiffFromFile } from '@pierre/diffs'
-import type { FileDiff, Commit } from './types'
+import type { DiffLineAnnotation, AnnotationSide } from '@pierre/diffs'
+import type { FileDiff, Commit, CodeReviewComment } from './types'
+import HunkCommentForm from './HunkCommentForm'
+import CommentBubble from './CommentBubble'
 
 // Theme read once at module scope (D-12 — no listener, stable across re-renders)
 // T-25-WIN: typeof guard covers SSR / test environments where matchMedia may be absent
@@ -19,10 +22,22 @@ function FileDiffRenderer({
   file,
   diffStyle,
   contextExpanded,
+  comments,
+  onAddLineComment,
+  onEditComment,
+  onDeleteComment,
+  pendingLineAnchor,
+  setPendingLineAnchor,
 }: {
   file: FileDiff
   diffStyle: 'unified' | 'split'
   contextExpanded: boolean
+  comments: CodeReviewComment[]
+  onAddLineComment?: (file: string, lineNumber: number, side: 'additions' | 'deletions', text: string) => void
+  onEditComment?: (id: string, text: string) => void
+  onDeleteComment?: (id: string) => void
+  pendingLineAnchor: { file: string; lineNumber: number; side: AnnotationSide } | null
+  setPendingLineAnchor: (anchor: { file: string; lineNumber: number; side: AnnotationSide } | null) => void
 }) {
   const fileDiffMetadata = useMemo(() => {
     if (file.old_content === undefined || file.new_content === undefined) return null
@@ -33,6 +48,19 @@ function FileDiffRenderer({
   }, [file.filename, file.previous_filename, file.old_content, file.new_content])
 
   if (fileDiffMetadata) {
+    // Build lineAnnotations from submitted line comments for this file
+    const submittedLineAnnotations: DiffLineAnnotation<{ commentId: string }>[] = comments
+      .filter((c): c is Extract<CodeReviewComment, { type: 'line' }> => c.type === 'line' && c.file === file.filename)
+      .map((c) => ({ side: c.side, lineNumber: c.lineNumber, metadata: { commentId: c.id } }))
+
+    // Append pending sentinel when this file has an open line-comment form
+    const lineAnnotations: DiffLineAnnotation<{ commentId: string }>[] = [
+      ...submittedLineAnnotations,
+      ...(pendingLineAnchor?.file === file.filename
+        ? [{ side: pendingLineAnchor.side, lineNumber: pendingLineAnchor.lineNumber, metadata: { commentId: '__pending__' } }]
+        : []),
+    ]
+
     return (
       <FileDiffComponent
         fileDiff={fileDiffMetadata}
@@ -45,6 +73,56 @@ function FileDiffRenderer({
           disableFileHeader: true,
           expandUnchanged: contextExpanded,
         }}
+        lineAnnotations={lineAnnotations}
+        renderAnnotation={(ann) => {
+          if (ann.metadata?.commentId === '__pending__') {
+            return (
+              <HunkCommentForm
+                onSubmit={(text) => {
+                  onAddLineComment?.(file.filename, ann.lineNumber, ann.side, text)
+                  setPendingLineAnchor(null)
+                }}
+                onCancel={() => setPendingLineAnchor(null)}
+              />
+            )
+          }
+          const c = comments.find((c) => c.id === ann.metadata?.commentId)
+          if (!c || c.type !== 'line') return null
+          return (
+            <CommentBubble
+              comment={c}
+              onEdit={(text) => onEditComment?.(c.id, text)}
+              onDelete={() => onDeleteComment?.(c.id)}
+            />
+          )
+        }}
+        renderGutterUtility={(getHoveredLine) => (
+          <button
+            type="button"
+            aria-label="Add comment to this line"
+            onClick={() => {
+              const hovered = getHoveredLine()
+              if (!hovered) return
+              setPendingLineAnchor({ file: file.filename, lineNumber: hovered.lineNumber, side: hovered.side })
+            }}
+            style={{
+              width: 20,
+              height: 20,
+              background: 'transparent',
+              border: 'none',
+              borderRadius: 3,
+              cursor: 'pointer',
+              color: 'var(--color-text-secondary)',
+              fontSize: 14,
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            +
+          </button>
+        )}
       />
     )
   }
@@ -83,6 +161,12 @@ export interface DiffPaneProps {
   // Subset summary shown when 1 < selected < total commits
   selectedCommits?: Commit[]
   onClearSelection?: () => void
+  // Phase 27 additions — all optional; default values preserve existing call sites until 27-03 wires them
+  comments?: CodeReviewComment[]
+  onAddLineComment?: (file: string, lineNumber: number, side: 'additions' | 'deletions', text: string) => void
+  onAddFileComment?: (file: string, text: string) => void
+  onEditComment?: (id: string, text: string) => void
+  onDeleteComment?: (id: string) => void
 }
 
 export default function DiffPane({
@@ -106,8 +190,17 @@ export default function DiffPane({
   onNextCommit,
   selectedCommits = [],
   onClearSelection,
+  comments = [],
+  onAddLineComment,
+  onAddFileComment,
+  onEditComment,
+  onDeleteComment,
 }: DiffPaneProps): React.JSX.Element {
   const [reloadFocused, setReloadFocused] = useState(false)
+
+  // Phase 27: local state for pending annotation anchors (Pattern 4 Option A — DiffPane-local)
+  const [pendingLineAnchor, setPendingLineAnchor] = useState<{ file: string; lineNumber: number; side: AnnotationSide } | null>(null)
+  const [pendingFileComment, setPendingFileComment] = useState<string | null>(null)
 
   // Lookup the active commit for per-commit title strip (D-06)
   const activeCommit =
@@ -329,11 +422,66 @@ export default function DiffPane({
                     <span style={{ color: 'var(--color-accent-deny)' }}>−{file.deletions}</span>
                   </span>
                 )}
+                {/* Phase 27 D-03: File-level comment trigger button */}
+                <button
+                  type="button"
+                  aria-label="Add file-level comment"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setPendingFileComment(file.filename)
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.outline = '2px solid var(--color-focus)'
+                    e.currentTarget.style.outlineOffset = '2px'
+                  }}
+                  onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
+                  style={{
+                    height: 24,
+                    padding: '0 8px',
+                    fontSize: 12,
+                    fontWeight: 400,
+                    background: 'transparent',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 4,
+                    color: 'var(--color-text-secondary)',
+                    cursor: 'pointer',
+                    marginLeft: 8,
+                  }}
+                >
+                  + Comment
+                </button>
               </div>
 
               {/* D-07: File body — hidden when collapsed */}
               {!isCollapsed && (
                 <>
+                  {/* Phase 27: File-level submitted comments — rendered between header and diff body */}
+                  {comments.filter((c) => c.type === 'file' && c.file === file.filename).length > 0 && (
+                    <div style={{ padding: '8px 16px', background: 'var(--color-bg)' }}>
+                      {comments
+                        .filter((c) => c.type === 'file' && c.file === file.filename)
+                        .map((c) => (
+                          <CommentBubble
+                            key={c.id}
+                            comment={c}
+                            onEdit={(text) => onEditComment?.(c.id, text)}
+                            onDelete={() => onDeleteComment?.(c.id)}
+                          />
+                        ))}
+                    </div>
+                  )}
+                  {/* Phase 27: Pending file-level comment form */}
+                  {pendingFileComment === file.filename && (
+                    <div style={{ padding: '8px 16px', background: 'var(--color-bg)' }}>
+                      <HunkCommentForm
+                        onSubmit={(text) => {
+                          onAddFileComment?.(file.filename, text)
+                          setPendingFileComment(null)
+                        }}
+                        onCancel={() => setPendingFileComment(null)}
+                      />
+                    </div>
+                  )}
                   {/* Binary file guard (Pitfall 5) */}
                   {file.patch === '[binary file]' ? (
                     <div
@@ -346,7 +494,17 @@ export default function DiffPane({
                       Binary file — no diff available
                     </div>
                   ) : (
-                    <FileDiffRenderer file={file} diffStyle={diffStyle} contextExpanded={contextExpanded} />
+                    <FileDiffRenderer
+                      file={file}
+                      diffStyle={diffStyle}
+                      contextExpanded={contextExpanded}
+                      comments={comments}
+                      onAddLineComment={onAddLineComment}
+                      onEditComment={onEditComment}
+                      onDeleteComment={onDeleteComment}
+                      pendingLineAnchor={pendingLineAnchor}
+                      setPendingLineAnchor={setPendingLineAnchor}
+                    />
                   )}
                 </>
               )}
