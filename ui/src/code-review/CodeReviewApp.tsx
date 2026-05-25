@@ -8,6 +8,7 @@ import type { DiffFetchSelector } from './hooks/useDiff'
 import { useCommits } from './hooks/useCommits'
 import { useCodeReviewAnnotations } from './hooks/useCodeReviewAnnotations'
 import type { Commit } from './types'
+import { useHeartbeat } from '../shared/useHeartbeat'
 
 export default function CodeReviewApp(): React.JSX.Element {
   const [diffStyle, setDiffStyle] = useState<'unified' | 'split'>('unified')
@@ -25,6 +26,8 @@ export default function CodeReviewApp(): React.JSX.Element {
 
   // Phase 27: comment state via useCodeReviewAnnotations reducer (D-08/D-09)
   const { comments, addComment, editComment, deleteComment } = useCodeReviewAnnotations()
+  // Phase 28: heartbeat connectivity for submit controls
+  const connectivity = useHeartbeat()
 
   // Phase 27: wrappers that generate id and createdAt before dispatching ADD_COMMENT
   function handleAddLineComment(
@@ -242,6 +245,10 @@ export default function CodeReviewApp(): React.JSX.Element {
         allFilesExpanded={allFilesExpanded}
         filesCount={files.length}
         onToggleAllFiles={handleToggleAllFiles}
+        comments={comments}
+        connectivity={connectivity}
+        onApprove={() => {}}
+        onRequestChanges={() => {}}
       />
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', position: 'relative' }}>
         {drawerOpen && (
