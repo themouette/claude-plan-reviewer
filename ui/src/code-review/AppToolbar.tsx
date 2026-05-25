@@ -167,7 +167,7 @@ export default function AppToolbar({
                 open={submitState === 'popover_open'}
                 onDismiss={() => setSubmitState('idle')}
                 onConfirm={(msg) => { void handleSend(msg) }}
-                canSend={comments.length > 0}
+                commentsCount={comments.length}
               />
             </>
           )}

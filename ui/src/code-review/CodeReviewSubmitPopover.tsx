@@ -4,18 +4,19 @@ export interface CodeReviewSubmitPopoverProps {
   open: boolean
   onDismiss: () => void
   onConfirm: (message?: string) => void
-  canSend: boolean
+  commentsCount: number
 }
 
 export default function CodeReviewSubmitPopover({
   open,
   onDismiss,
   onConfirm,
-  canSend,
+  commentsCount,
 }: CodeReviewSubmitPopoverProps): React.JSX.Element | null {
   const rootRef = useRef<HTMLDivElement>(null)
   const [message, setMessage] = useState('')
   const [prevOpen, setPrevOpen] = useState(open)
+  const canSend = commentsCount > 0 || message.trim().length > 0
 
   // Sync-during-render reset of message when popover closes
   if (prevOpen !== open) {

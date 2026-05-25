@@ -31,8 +31,9 @@ describe('CodeReviewSubmitPopover', () => {
     expect(source).toContain('var(--color-accent-approve)')
   })
 
-  it('Test 7: Source does NOT contain messageRequired (prop removed — message is always optional)', () => {
-    expect(source).not.toContain('messageRequired')
+  it('Test 7: Source contains commentsCount prop and computes canSend from it + message', () => {
+    expect(source).toContain('commentsCount')
+    expect(source).toContain('canSend')
   })
 
   it("Test 8: Source contains position: 'absolute' and top: 40 and right: 0 and minWidth: 320", () => {
