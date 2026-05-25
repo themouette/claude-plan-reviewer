@@ -1,51 +1,70 @@
 {
-  "version": "1.0",
-  "timestamp": "2026-05-22T22:01:36.923Z",
-  "phase": "22",
-  "phase_name": "submit-clipboard",
-  "phase_dir": ".planning/phases/22-submit-clipboard",
-  "plan": 4,
-  "task": 3,
-  "total_tasks": 3,
-  "status": "paused",
-  "completed_tasks": [
-    {"id": "22-01", "name": "offlineLabels banner constants", "status": "done", "commit": "93be279"},
-    {"id": "22-02", "name": "SubmitPopover component", "status": "done", "commit": "fca8d28"},
-    {"id": "22-03", "name": "SubmitControls gate logic + submit paths", "status": "done", "commit": "39d26a8"},
-    {"id": "22-04-task1", "name": "Strip ReviewerV2.tsx to clean pass-through", "status": "done", "commit": "35450e8"},
-    {"id": "22-04-task2", "name": "Wire SubmitControls + OfflineBanner into ReviewerV2Shell", "status": "done", "commit": "af4d073"},
-    {"id": "22-04-fix1", "name": "Online submit closes tab; clipboard_confirmed resets to idle after 3s", "status": "done", "commit": "e13fbf9"},
-    {"id": "22-04-fix2", "name": "Binary opens at /v2 so window.close() works after submit", "status": "done", "commit": "5dd54c9"}
-  ],
-  "remaining_tasks": [
-    {"id": "22-04-task3", "name": "Human verification of SUBMIT-01 + SUBMIT-02 user flow (9 gates)", "status": "awaiting_human"},
-    {"id": "post-plan", "name": "Code review (gsd:code-review 22)", "status": "not_started"},
-    {"id": "post-plan", "name": "Regression gate (cargo test + npm test)", "status": "not_started"},
-    {"id": "post-plan", "name": "Phase verification (gsd-verifier)", "status": "not_started"},
-    {"id": "post-plan", "name": "Roadmap / STATE update (phase.complete)", "status": "not_started"},
-    {"id": "post-plan", "name": "PROJECT.md evolution", "status": "not_started"}
-  ],
-  "blockers": [],
-  "human_actions_pending": [
-    {
-      "action": "Run 9 verification gates in the live app and type 'approved' (or describe which gate failed)",
-      "context": "Plan 22-04 is autonomous:false. All code is implemented and committed. Binary now opens at /v2 directly. Build with 'cargo build', run with 'cargo run -- review <file.md>', verify gates 1-9 described in the checkpoint, then type 'approved' to continue.",
-      "blocking": true
-    }
-  ],
-  "decisions": [
-    {
-      "decision": "Online submit (Approve/Send Feedback) closes tab after 500ms; clipboard_confirmed shows banner for 3s then resets to idle buttons",
-      "rationale": "User feedback at checkpoint: tab should close on online submit; clipboard offline path should let user re-submit or do something else",
-      "phase": "22"
-    },
-    {
-      "decision": "Binary opens browser at http://127.0.0.1:{port}/v2 instead of root",
-      "rationale": "window.close() only works on tabs with no navigation history. Opening at /v2 directly avoids the root→/v2 navigation that was blocking the close. v0.5 worked because it was already at root.",
-      "phase": "22"
-    }
-  ],
-  "uncommitted_files": [],
-  "next_action": "Present the 9 verification gates checkpoint to the user, wait for 'approved', then run code review → regression gate → phase verification → roadmap update → PROJECT.md update → offer_next",
-  "context_notes": "All 4 plans are implemented. Only human verification of the live UI remains before phase completion. Context was at ~70% when paused — recommend /clear then /gsd:execute-phase 22 to resume, which will spot-check summaries and skip to the post-checkpoint continuation flow."
+  "created": "2026-05-24T17:35:00Z",
+  "phase": "26",
+  "phase_name": "commit-navigation",
+  "status": "complete",
+  "branch": "gsd/v0.7.0-code-review",
+  "head_commit": "583d330",
+  "next_phase": "27",
+  "next_phase_name": "inline-comments",
+  "session_summary": "Phase 26 (commit navigation) fully executed and verified. All 3 plans complete, 449 tests passing. User approved all 7 smoke-test checks. Phase marked complete in ROADMAP/STATE/REQUIREMENTS.",
+  "pending_work": {
+    "description": "Code review (26-REVIEW.md) found 2 blockers and 5 warnings that need fixing before or during phase 27.",
+    "items": [
+      {
+        "id": "CR-01",
+        "severity": "blocker",
+        "file": "ui/src/code-review/hooks/useDiff.ts",
+        "lines": "63-64",
+        "description": "SHA interpolated directly into fetch URL without hex validation. A malformed server response could redirect to unintended endpoint (e.g. ../branch).",
+        "fix": "Validate SHA with /^[0-9a-f]{7,40}$/i before building the /api/diff/commit/{sha} URL."
+      },
+      {
+        "id": "CR-02",
+        "severity": "blocker",
+        "file": "ui/src/code-review/CodeReviewApp.tsx",
+        "lines": "67-74",
+        "description": "checkedCommitShas seeding effect re-seeds all commits whenever the user unchecks every item (guard is `length === 0`), silently overriding user intent. eslint-disable hides missing dep.",
+        "fix": "Replace the length===0 guard with a seededRef boolean sentinel that only fires once on initial commits load."
+      },
+      {
+        "id": "WR-01",
+        "severity": "warning",
+        "file": "ui/src/code-review/CodeReviewApp.tsx",
+        "lines": "82-83",
+        "description": "findIndex result used without -1 guard in keyboard handler. If sha is not found, commits[-1] is undefined.",
+        "fix": "Guard: `const idx = ...; if (idx === -1) return;`"
+      },
+      {
+        "id": "WR-02",
+        "severity": "warning",
+        "file": "ui/src/code-review/hooks/useDiff.ts",
+        "lines": "87-95",
+        "description": "fetchFilteredBranchDiff swallows all per-SHA errors — returns error:null even when every fetch fails, so user sees empty state instead of error/retry UI.",
+        "fix": "Collect per-SHA errors from Promise.allSettled, surface as error string when all fail."
+      },
+      {
+        "id": "WR-03",
+        "severity": "warning",
+        "file": "ui/src/code-review/CommitDrawer.tsx",
+        "lines": "109-170",
+        "description": "CommitRow <li> items have onClick but no role=button, tabIndex, or onKeyDown — keyboard/screen-reader users cannot interact.",
+        "fix": "Add role='button', tabIndex={0}, onKeyDown={e => e.key==='Enter' && onCommitClick(sha)}."
+      },
+      {
+        "id": "WR-04",
+        "severity": "warning",
+        "file": "ui/src/code-review/DiffPane.tsx",
+        "lines": "76-79",
+        "description": "No fallback when activeCommitSha doesn't match any loaded commit — title strip silently omits, no diagnostic.",
+        "fix": "Show fallback string (e.g. short_sha only) when commit lookup returns undefined."
+      }
+    ]
+  },
+  "how_to_start_next_session": "Run `/gsd:progress` to see updated roadmap. The code review findings above should be fixed — either inline before phase 27 planning, or as a gap-closure phase. Then proceed with `/gsd:discuss-phase 27` or `/gsd:plan-phase 27` for inline comments.",
+  "key_decisions_this_session": [
+    "CommitDrawer moved from inside <aside> to outer flex container (position:relative) — necessary because position:absolute inside overflow:auto gets CSS-clipped to the container boundary.",
+    "checkedCommitShas seeding uses length===0 guard (CR-02 flags this as a bug — seededRef is the correct fix).",
+    "No new backend routes in phase 26 — all diff/commit endpoints from phase 24 reused as planned."
+  ]
 }
