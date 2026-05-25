@@ -87,7 +87,7 @@ function FileDiffRenderer({
       <FileDiffComponent
         fileDiff={fileDiffMetadata}
         disableWorkerPool={true}
-        selectedLines={pendingSelection ?? hoveredCommentSelection}
+        selectedLines={pendingSelection ?? hoveredCommentSelection ?? undefined}
         options={{
           diffStyle,
           expansionLineCount: 10,
