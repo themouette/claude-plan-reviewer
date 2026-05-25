@@ -30,6 +30,20 @@ export default function CodeReviewApp(): React.JSX.Element {
 
   const { files, loading, error, refetch } = useDiff({ selector })
 
+  // CR-01: derive selectorKey here so we can reset contextExpanded when selector changes
+  const selectorKey =
+    selector.mode === 'commit'
+      ? `commit:${selector.sha}`
+      : selector.mode === 'branch-union'
+        ? `branch-union:${[...selectedCommitShas].sort().join(',')}`
+        : 'branch:'
+
+  // CR-01: reset contextExpanded whenever the selector changes so button label and
+  // spinner state are always consistent with the current commit/branch view
+  useEffect(() => {
+    setContextExpanded(false)
+  }, [selectorKey])
+
   function handleExpandAll() {
     if (contextExpanded) {
       setContextExpanded(false)
