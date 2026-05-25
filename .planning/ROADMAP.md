@@ -753,12 +753,19 @@ Plans:
   4. Each comment has edit (pencil) and delete (×) buttons; edit reopens the textarea; delete removes immediately
   5. The file list shows a badge with the count of comments on each file; zero-comment files show no badge
 
-**Plans:** 0/3 plans
+**Plans:** 3 plans
 Plans:
+**Wave 1**
 
-- [ ] 27-01-PLAN.md — Comment types + useCodeReviewAnnotations reducer + serialization tests (TDD)
-- [ ] 27-02-PLAN.md — HunkComment + FileComment components + comment positioning in DiffPane
-- [ ] 27-03-PLAN.md — Edit/delete controls + file list badges + session persistence + human verify
+- [ ] 27-01-PLAN.md — CodeReviewComment discriminated union + useCodeReviewAnnotations pure reducer + hook (TDD)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 27-02-PLAN.md — HunkCommentForm + CommentBubble components + DiffPane wiring (lineAnnotations + renderAnnotation + renderGutterUtility + file-header trigger)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 27-03-PLAN.md — CodeReviewApp state lift + commentCounts derivation + FileListPane badge + human verify
 
 **UI hint**: yes
 
