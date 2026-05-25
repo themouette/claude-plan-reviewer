@@ -106,7 +106,18 @@ export default function CommitDrawer({
               role="button"
               tabIndex={0}
               onClick={(e) => { if (e.shiftKey) e.preventDefault(); onCommitClick(commit.sha, e) }}
-              onKeyDown={(e) => { if (e.key === 'Enter') onCommitClick(commit.sha, e as unknown as React.MouseEvent) }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  // Keyboard activation always means plain single-select; construct a
+                  // minimal synthetic object rather than casting a KeyboardEvent.
+                  onCommitClick(commit.sha, {
+                    shiftKey: false,
+                    metaKey: false,
+                    ctrlKey: false,
+                  } as React.MouseEvent)
+                }
+              }}
               style={{
                 padding: '8px 16px',
                 display: 'flex',
