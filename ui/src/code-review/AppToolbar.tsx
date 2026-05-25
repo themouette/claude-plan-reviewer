@@ -169,67 +169,69 @@ export default function AppToolbar({
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
           {(submitState === 'idle' || submitState === 'popover_open') && (
             <>
-              <button
-                type="button"
-                className="submit-btn"
-                disabled={!canApprove}
-                title={!canApprove ? 'Cannot approve while comments exist' : undefined}
-                onClick={() => {
-                  if (shouldUseClipboard(connectivity)) {
-                    void handleApprove()
-                  } else {
-                    setSubmitState('popover_open')
-                  }
-                }}
-                style={{
-                  height: 32,
-                  paddingLeft: 16,
-                  paddingRight: 16,
-                  borderRadius: 6,
-                  border: 'none',
-                  background: 'var(--color-accent-approve)',
-                  color: '#fff',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: canApprove ? 'pointer' : 'default',
-                  opacity: canApprove ? 1 : 0.4,
-                  outline: 'none',
-                }}
-                onMouseOver={(e) => {
-                  if (canApprove) e.currentTarget.style.background = 'var(--color-accent-approve-hover)'
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.background = 'var(--color-accent-approve)'
-                }}
-                {...makeFocusHandlers('approve')}
-              >
-                {'Approve'}
-              </button>
+              <span title={!canApprove ? 'Cannot approve while comments exist' : undefined} style={{ display: 'inline-flex' }}>
+                <button
+                  type="button"
+                  className="submit-btn"
+                  disabled={!canApprove}
+                  onClick={() => {
+                    if (shouldUseClipboard(connectivity)) {
+                      void handleApprove()
+                    } else {
+                      setSubmitState('popover_open')
+                    }
+                  }}
+                  style={{
+                    height: 32,
+                    paddingLeft: 16,
+                    paddingRight: 16,
+                    borderRadius: 6,
+                    border: 'none',
+                    background: 'var(--color-accent-approve)',
+                    color: '#fff',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: canApprove ? 'pointer' : 'default',
+                    opacity: canApprove ? 1 : 0.4,
+                    outline: 'none',
+                  }}
+                  onMouseOver={(e) => {
+                    if (canApprove) e.currentTarget.style.background = 'var(--color-accent-approve-hover)'
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.background = 'var(--color-accent-approve)'
+                  }}
+                  {...makeFocusHandlers('approve')}
+                >
+                  {'Approve'}
+                </button>
+              </span>
 
-              <button
-                type="button"
-                className="submit-btn"
-                disabled={!canRequestChanges}
-                title={!canRequestChanges ? 'Add at least one comment before requesting changes' : undefined}
-                onClick={() => { void handleRequestChanges() }}
-                style={{
-                  height: 32,
-                  paddingLeft: 16,
-                  paddingRight: 16,
-                  borderRadius: 6,
-                  border: 'none',
-                  background: 'var(--color-accent-deny)',
-                  color: '#fff',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: canRequestChanges ? 'pointer' : 'default',
-                  opacity: canRequestChanges ? 1 : 0.4,
-                  outline: 'none',
-                }}
-                {...makeFocusHandlers('request-changes')}
-              >
-                {'Request Changes'}
-              </button>
+              <span title={!canRequestChanges ? 'Add at least one comment before requesting changes' : undefined} style={{ display: 'inline-flex' }}>
+                <button
+                  type="button"
+                  className="submit-btn"
+                  disabled={!canRequestChanges}
+                  onClick={() => { void handleRequestChanges() }}
+                  style={{
+                    height: 32,
+                    paddingLeft: 16,
+                    paddingRight: 16,
+                    borderRadius: 6,
+                    border: 'none',
+                    background: 'var(--color-accent-deny)',
+                    color: '#fff',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: canRequestChanges ? 'pointer' : 'default',
+                    opacity: canRequestChanges ? 1 : 0.4,
+                    outline: 'none',
+                  }}
+                  {...makeFocusHandlers('request-changes')}
+                >
+                  {'Request Changes'}
+                </button>
+              </span>
 
               <CodeReviewSubmitPopover
                 open={submitState === 'popover_open'}
