@@ -140,15 +140,22 @@ export function useDiff(opts?: { selector: DiffFetchSelector }): UseDiffResult {
         ? `branch-union:${[...selector.shas].sort().join(',')}`
         : 'branch:'
 
+  // WR-01: keep a ref to the latest selector so memoised callbacks always
+  // read the current selector, not the one captured when refetch was last rebuilt.
+  const selectorRef = useRef(selector)
+  selectorRef.current = selector
+
   // Dispatch: call the appropriate pure function based on selector mode.
   // Returns a FetchDiffResult-shaped promise for all modes.
+  // Reads selectorRef.current so it is not stale inside the memoised refetch callback.
   async function dispatch(contextLines?: number): Promise<FetchDiffResult> {
     const doFetch = globalThis.fetch.bind(globalThis)
-    if (selector.mode === 'commit') {
-      return fetchCommitDiffOnce(selector.sha, doFetch, contextLines)
+    const sel = selectorRef.current
+    if (sel.mode === 'commit') {
+      return fetchCommitDiffOnce(sel.sha, doFetch, contextLines)
     }
-    if (selector.mode === 'branch-union') {
-      return fetchFilteredBranchDiff(selector.shas, doFetch, contextLines)
+    if (sel.mode === 'branch-union') {
+      return fetchFilteredBranchDiff(sel.shas, doFetch, contextLines)
     }
     // Default: branch mode
     return fetchDiffOnce(doFetch, contextLines)
