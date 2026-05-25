@@ -84,4 +84,25 @@ describe('AppToolbar', () => {
   it('AppToolbar still does NOT import from reviewer-v2/', () => {
     expect(source).not.toContain('reviewer-v2/')
   })
+
+  // Phase 26.2 D-08: Expand Files / Collapse Files button
+  it('D-08: AppToolbarProps contains allFilesExpanded: boolean', () => {
+    expect(source).toContain('allFilesExpanded: boolean')
+  })
+
+  it('D-08: AppToolbarProps contains onToggleAllFiles:', () => {
+    expect(source).toContain('onToggleAllFiles:')
+  })
+
+  it("D-08: renders 'Expand Files' label", () => {
+    expect(source).toContain("'Expand Files'")
+  })
+
+  it("D-08: renders 'Collapse Files' label", () => {
+    expect(source).toContain("'Collapse Files'")
+  })
+
+  it("D-08: uses makeFocusHandlers('files-expand') for the second button", () => {
+    expect(source).toContain("makeFocusHandlers('files-expand')")
+  })
 })

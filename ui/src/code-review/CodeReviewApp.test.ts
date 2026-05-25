@@ -181,4 +181,33 @@ describe('CodeReviewApp', () => {
   it('still does not import from reviewer-v2/', () => {
     expect(source).not.toContain('reviewer-v2/')
   })
+
+  // Phase 26.2 D-07/D-08: collapsedFiles state and handlers
+  it('D-07: declares collapsedFiles state with useState<Set<string>>(new Set())', () => {
+    expect(source).toContain('collapsedFiles')
+    expect(source).toContain('useState<Set<string>>')
+  })
+
+  it('D-07: declares handleToggleFile function', () => {
+    expect(source).toContain('handleToggleFile')
+  })
+
+  it('D-08: declares handleToggleAllFiles function', () => {
+    expect(source).toContain('handleToggleAllFiles')
+  })
+
+  it('D-08: derives allFilesExpanded from collapsedFiles.size === 0', () => {
+    expect(source).toContain('allFilesExpanded')
+    expect(source).toContain('collapsedFiles.size === 0')
+  })
+
+  it('D-08: passes allFilesExpanded and onToggleAllFiles to AppToolbar', () => {
+    expect(source).toContain('allFilesExpanded={allFilesExpanded}')
+    expect(source).toContain('onToggleAllFiles={handleToggleAllFiles}')
+  })
+
+  it('D-07: passes collapsedFiles and onToggleFile to DiffPane', () => {
+    expect(source).toContain('collapsedFiles={collapsedFiles}')
+    expect(source).toContain('onToggleFile={handleToggleFile}')
+  })
 })

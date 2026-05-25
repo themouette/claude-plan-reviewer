@@ -8,6 +8,9 @@ export interface AppToolbarProps {
   onExpandAll: () => void
   commitsOpen: boolean
   onCommitsToggle: () => void
+  // Phase 26.2 D-08 additions — file expand/collapse
+  allFilesExpanded: boolean
+  onToggleAllFiles: () => void
 }
 
 export default function AppToolbar({
@@ -18,6 +21,8 @@ export default function AppToolbar({
   onExpandAll,
   commitsOpen,
   onCommitsToggle,
+  allFilesExpanded,
+  onToggleAllFiles,
 }: AppToolbarProps): React.JSX.Element {
   const [focusedButton, setFocusedButton] = useState<string | null>(null)
 
@@ -147,6 +152,27 @@ export default function AppToolbar({
           {...makeFocusHandlers('expand')}
         >
           {contextLoading ? 'Loading...' : contextExpanded ? 'Collapse' : 'Expand All'}
+        </button>
+
+        {/* D-08: Expand Files / Collapse Files — toggles per-file collapse state */}
+        <button
+          type="button"
+          onClick={onToggleAllFiles}
+          style={{
+            height: 32,
+            padding: '0 16px',
+            border: '1px solid var(--color-border)',
+            borderRadius: 6,
+            fontSize: 14,
+            cursor: 'pointer',
+            outline: 'none',
+            background: 'var(--color-surface)',
+            color: allFilesExpanded ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+            fontWeight: allFilesExpanded ? 600 : 400,
+          }}
+          {...makeFocusHandlers('files-expand')}
+        >
+          {allFilesExpanded ? 'Collapse Files' : 'Expand Files'}
         </button>
       </div>
     </header>

@@ -60,6 +60,9 @@ export interface DiffPaneProps {
   // Phase 26.2 D-05 additions — optional; default values preserve existing call sites
   allSelected?: boolean  // default false — when true + branchName set, renders "diff from branch" label
   branchName?: string    // default '' — branch label shown when allSelected is true
+  // Phase 26.2 D-07/D-09 additions — optional; default values preserve existing call sites
+  collapsedFiles?: Set<string>              // default new Set() — filenames that are collapsed
+  onToggleFile?: (filename: string) => void // default undefined — callback to toggle collapse
 }
 
 export default function DiffPane({
@@ -74,6 +77,8 @@ export default function DiffPane({
   commits = [],
   allSelected = false,
   branchName = '',
+  collapsedFiles = new Set<string>(),
+  onToggleFile,
 }: DiffPaneProps): React.JSX.Element {
   const [reloadFocused, setReloadFocused] = useState(false)
 
@@ -216,56 +221,105 @@ export default function DiffPane({
     // State 4: Diff content
     return (
       <>
-        {files.map((file, index) => (
-          <Fragment key={`${file.filename}-${index}`}>
-            {/* Anchor div — scroll target and IntersectionObserver target (D-09) */}
-            <div id={`file-${index}`} aria-label={file.filename} />
+        {/* D-09: Global stats strip — rendered once above all files, NOT inside the map */}
+        <div
+          style={{
+            background: 'var(--color-surface)',
+            borderBottom: '1px solid var(--color-border)',
+            padding: '6px 16px',
+            flexShrink: 0,
+            fontSize: 12,
+            color: 'var(--color-text-secondary)',
+            display: 'flex',
+            gap: 16,
+          }}
+        >
+          <span>{files.length === 1 ? '1 file changed' : `${files.length} files changed`}</span>
+          <span style={{ color: 'var(--color-accent-approve)' }}>+{files.reduce((s, f) => s + f.additions, 0)}</span>
+          <span style={{ color: 'var(--color-accent-deny)' }}>−{files.reduce((s, f) => s + f.deletions, 0)}</span>
+        </div>
 
-            {/* File header */}
-            <div
-              style={{
-                background: 'var(--color-surface)',
-                borderBottom: '1px solid var(--color-border)',
-                padding: '8px 16px',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: 'var(--color-text-primary)',
-                }}
-              >
-                {file.filename.split('/').pop() ?? file.filename}
-              </span>
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 400,
-                  color: 'var(--color-text-secondary)',
-                  marginLeft: 8,
-                }}
-              >
-                {file.filename}
-              </span>
-            </div>
+        {files.map((file, index) => {
+          const isCollapsed = collapsedFiles?.has(file.filename) ?? false
+          return (
+            <Fragment key={`${file.filename}-${index}`}>
+              {/* Anchor div — scroll target and IntersectionObserver target (D-09); stays outside collapse so jump-to works when file is collapsed */}
+              <div id={`file-${index}`} aria-label={file.filename} />
 
-            {/* Binary file guard (Pitfall 5) */}
-            {file.patch === '[binary file]' ? (
+              {/* D-07: File header — acts as collapse toggle with chevron */}
               <div
+                role="button"
+                tabIndex={0}
+                onClick={() => onToggleFile?.(file.filename)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onToggleFile?.(file.filename)
+                  }
+                }}
                 style={{
-                  padding: 16,
-                  color: 'var(--color-text-secondary)',
-                  fontSize: 14,
+                  background: 'var(--color-surface)',
+                  borderBottom: '1px solid var(--color-border)',
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
                 }}
               >
-                Binary file — no diff available
+                {/* D-07: Chevron indicating collapsed/expanded state */}
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: 'var(--color-text-secondary)',
+                    marginRight: 8,
+                  }}
+                >
+                  {isCollapsed ? '▶' : '▼'}
+                </span>
+                <span
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: 'var(--color-text-primary)',
+                  }}
+                >
+                  {file.filename.split('/').pop() ?? file.filename}
+                </span>
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 400,
+                    color: 'var(--color-text-secondary)',
+                    marginLeft: 8,
+                  }}
+                >
+                  {file.filename}
+                </span>
               </div>
-            ) : (
-              <FileDiffRenderer file={file} diffStyle={diffStyle} />
-            )}
-          </Fragment>
-        ))}
+
+              {/* D-07: File body — hidden when collapsed */}
+              {!isCollapsed && (
+                <>
+                  {/* Binary file guard (Pitfall 5) */}
+                  {file.patch === '[binary file]' ? (
+                    <div
+                      style={{
+                        padding: 16,
+                        color: 'var(--color-text-secondary)',
+                        fontSize: 14,
+                      }}
+                    >
+                      Binary file — no diff available
+                    </div>
+                  ) : (
+                    <FileDiffRenderer file={file} diffStyle={diffStyle} />
+                  )}
+                </>
+              )}
+            </Fragment>
+          )
+        })}
       </>
     )
   }

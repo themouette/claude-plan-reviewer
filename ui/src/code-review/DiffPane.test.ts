@@ -117,4 +117,51 @@ describe('DiffPane', () => {
   it("D-05: renders 'diff from branch' label when allSelected is true", () => {
     expect(source).toContain('diff from branch')
   })
+
+  // Phase 26.2 D-09: global stats strip
+  it('D-09: renders global stats strip with files changed text', () => {
+    expect(source).toContain('files changed')
+  })
+
+  it('D-09: uses files.reduce( to sum additions and deletions', () => {
+    expect(source).toContain('files.reduce(')
+  })
+
+  it('D-09: uses var(--color-accent-approve) for additions color', () => {
+    expect(source).toContain('var(--color-accent-approve)')
+  })
+
+  it('D-09: stats strip is placed before files.map( in State 4 (not inside the map callback)', () => {
+    // The stats strip div must appear before the files.map( call in source
+    expect(source.indexOf('files changed')).toBeLessThan(source.indexOf('files.map('))
+  })
+
+  // Phase 26.2 D-07: per-file collapsible wrapper
+  it('D-07: DiffPaneProps contains collapsedFiles optional prop', () => {
+    expect(source).toContain('collapsedFiles')
+  })
+
+  it('D-07: DiffPaneProps contains onToggleFile optional prop', () => {
+    expect(source).toContain('onToggleFile')
+  })
+
+  it('D-07: renders collapsed chevron ▶', () => {
+    expect(source).toContain('▶')
+  })
+
+  it('D-07: renders expanded chevron ▼', () => {
+    expect(source).toContain('▼')
+  })
+
+  it('D-07: uses isCollapsed to conditionally render file body', () => {
+    expect(source).toContain('isCollapsed')
+    expect(source).toContain('!isCollapsed')
+  })
+
+  it('D-07: per-file headers do NOT show per-file +N -N additions/deletions (stats are in global strip and FileListPane only)', () => {
+    // Per-file headers must not render file.additions or file.deletions inline
+    // (additions/deletions are only summed globally via files.reduce, not per-file in the header)
+    expect(source).not.toContain('file.additions')
+    expect(source).not.toContain('file.deletions')
+  })
 })

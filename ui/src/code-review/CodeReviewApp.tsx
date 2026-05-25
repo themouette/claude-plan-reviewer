@@ -14,6 +14,8 @@ export default function CodeReviewApp(): React.JSX.Element {
   // Phase 26.2 D-02: single selectedCommitShas replaces the old tri-state (viewMode + activeCommitSha + multi-select)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedCommitShas, setSelectedCommitShas] = useState<string[]>([])
+  // Phase 26.2 D-07: per-file collapse state — empty set = all files expanded by default
+  const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set())
 
   const diffPaneRef = useRef<HTMLDivElement>(null)
   const { commits, loading: commitsLoading, error: commitsError } = useCommits()
@@ -93,6 +95,33 @@ export default function CodeReviewApp(): React.JSX.Element {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedCommitShas, commits])
 
+  // D-07: toggle a single file's collapsed state
+  function handleToggleFile(filename: string) {
+    setCollapsedFiles((prev) => {
+      const next = new Set(prev)
+      if (next.has(filename)) {
+        next.delete(filename)
+      } else {
+        next.add(filename)
+      }
+      return next
+    })
+  }
+
+  // D-08: global expand/collapse all files
+  function handleToggleAllFiles() {
+    if (collapsedFiles.size === 0) {
+      // All currently expanded — collapse all
+      setCollapsedFiles(new Set(files.map((f) => f.filename)))
+    } else {
+      // Some or all collapsed — expand all
+      setCollapsedFiles(new Set())
+    }
+  }
+
+  // D-08: derive allFilesExpanded for AppToolbar button label
+  const allFilesExpanded = collapsedFiles.size === 0
+
   // D-05: derive branchName and allSelected for DiffPane branch label
   const allSelected = commits.length > 0 && selectedCommitShas.length === commits.length
   const branchName = commits[0]?.branches?.[0] ?? 'HEAD'
@@ -109,6 +138,8 @@ export default function CodeReviewApp(): React.JSX.Element {
         onExpandAll={handleExpandAll}
         commitsOpen={drawerOpen}
         onCommitsToggle={handleCommitsToggle}
+        allFilesExpanded={allFilesExpanded}
+        onToggleAllFiles={handleToggleAllFiles}
       />
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', position: 'relative' }}>
         {drawerOpen && (
@@ -149,6 +180,8 @@ export default function CodeReviewApp(): React.JSX.Element {
           commits={commits}
           branchName={branchName}
           allSelected={allSelected}
+          collapsedFiles={collapsedFiles}
+          onToggleFile={handleToggleFile}
         />
       </div>
     </div>
