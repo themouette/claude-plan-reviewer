@@ -42,6 +42,9 @@ function FileDiffRenderer({
   // Tracks the active drag-selection so the gutter button click can use the full range.
   // A ref avoids re-renders on every pointer-move event during drag.
   const selectionRef = useRef<SelectedLineRange | null>(null)
+  // Persists the last submitted range so the selection highlight survives form submission.
+  // Cleared when the user starts a new drag.
+  const [committedSelection, setCommittedSelection] = useState<SelectedLineRange | null>(null)
 
   const fileDiffMetadata = useMemo(() => {
     if (file.old_content === undefined || file.new_content === undefined) return null
@@ -78,7 +81,7 @@ function FileDiffRenderer({
       <FileDiffComponent
         fileDiff={fileDiffMetadata}
         disableWorkerPool={true}
-        selectedLines={pendingSelection}
+        selectedLines={pendingSelection ?? committedSelection}
         options={{
           diffStyle,
           expansionLineCount: 10,
@@ -88,6 +91,7 @@ function FileDiffRenderer({
           expandUnchanged: contextExpanded,
           enableGutterUtility: true,
           enableLineSelection: true,
+          onLineSelectionStart: () => { setCommittedSelection(null) },
           onLineSelectionChange: (range) => { selectionRef.current = range },
           onLineSelectionEnd: (range) => { selectionRef.current = range },
         }}
@@ -97,6 +101,7 @@ function FileDiffRenderer({
             return (
               <HunkCommentForm
                 onSubmit={(text) => {
+                  setCommittedSelection(pendingSelection)
                   onAddLineComment?.(file.filename, pendingLineAnchor!.lineNumber, ann.side, text, pendingLineAnchor!.endLineNumber)
                   setPendingLineAnchor(null)
                 }}
