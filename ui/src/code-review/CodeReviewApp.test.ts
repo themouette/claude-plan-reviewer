@@ -82,10 +82,6 @@ describe('CodeReviewApp', () => {
     expect(source).toContain('width: 240')
   })
 
-  it('does NOT call useHeartbeat (RESEARCH Open Question 1)', () => {
-    expect(source).not.toContain('useHeartbeat')
-  })
-
   it('does NOT import from reviewer-v2/', () => {
     expect(source).not.toContain('reviewer-v2/')
   })
@@ -270,5 +266,25 @@ describe('CodeReviewApp', () => {
 
   it('Phase 27: does not import from reviewer-v2/ (preserved)', () => {
     expect(source).not.toContain('reviewer-v2')
+  })
+
+  // Phase 28: useHeartbeat wiring + connectivity + AppToolbar props
+  it("Phase 28: imports useHeartbeat from '../shared/useHeartbeat'", () => {
+    expect(source).toContain("from '../shared/useHeartbeat'")
+    expect(source).toContain('useHeartbeat')
+  })
+
+  it('Phase 28: assigns useHeartbeat() result to connectivity', () => {
+    expect(source).toMatch(/const\s+connectivity\s*=\s*useHeartbeat\(\)/)
+  })
+
+  it('Phase 28: passes connectivity and comments to AppToolbar', () => {
+    expect(source).toContain('connectivity={connectivity}')
+    expect(source).toContain('comments={comments}')
+  })
+
+  it('Phase 28: passes onApprove and onRequestChanges to AppToolbar', () => {
+    expect(source).toContain('onApprove=')
+    expect(source).toContain('onRequestChanges=')
   })
 })
