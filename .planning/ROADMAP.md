@@ -782,11 +782,16 @@ Plans:
   4. Submitting with comments produces structured JSON: `{"decision":"changes_requested","comments":[{"file":"...","hunk":"...","text":"..."},...]}` returned to the agent
   5. When the server is unreachable, submission writes the same JSON to the clipboard using the existing `buildClipboardPayload` utility
 
-**Plans:** 0/2 plans
+**Plans:** 3 plans
 Plans:
+**Wave 1**
 
-- [ ] 28-01-PLAN.md — buildCodeReviewPayload + submission JSON schema + Vitest tests (TDD)
-- [ ] 28-02-PLAN.md — SubmitBar component + approve/request-changes gates + clipboard fallback wiring
+- [ ] 28-01-PLAN.md — Move connectivity.ts + useHeartbeat.ts from reviewer-v2/ to shared/; update reviewer-v2 imports + ESLint rule
+- [ ] 28-02-PLAN.md — buildCodeReviewPayload pure serializer + Vitest tests (TDD)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 28-03-PLAN.md — CodeReviewSubmitPopover + AppToolbar submit controls + CodeReviewApp wiring + human verification
 
 **UI hint**: yes
 
@@ -848,5 +853,5 @@ Plans:
 | 26.1. Commit Navigation Bug Fixes | v0.7.0 | 1/1 | Complete   | 2026-05-24 |
 | 26.2. Commit Navigation UX Polish | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
 | 27. Inline Comments | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
-| 28. Review Submission | v0.7.0 | 0/2 | Not started | - |
+| 28. Review Submission | v0.7.0 | 0/3 | Not started | - |
 | 29. Code Review Integration | v0.7.0 | 0/2 | Not started | - |
