@@ -1,7 +1,7 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useMemo, useRef, useState } from 'react'
 import { FileDiff as FileDiffComponent, PatchDiff } from '@pierre/diffs/react'
 import { parseDiffFromFile } from '@pierre/diffs'
-import type { DiffLineAnnotation, AnnotationSide } from '@pierre/diffs'
+import type { DiffLineAnnotation, AnnotationSide, SelectedLineRange } from '@pierre/diffs'
 import type { FileDiff, Commit, CodeReviewComment } from './types'
 import HunkCommentForm from './HunkCommentForm'
 import CommentBubble from './CommentBubble'
@@ -39,6 +39,10 @@ function FileDiffRenderer({
   pendingLineAnchor: { file: string; lineNumber: number; endLineNumber?: number; side: AnnotationSide } | null
   setPendingLineAnchor: (anchor: { file: string; lineNumber: number; endLineNumber?: number; side: AnnotationSide } | null) => void
 }) {
+  // Tracks the active drag-selection so the gutter button click can use the full range.
+  // A ref avoids re-renders on every pointer-move event during drag.
+  const selectionRef = useRef<SelectedLineRange | null>(null)
+
   const fileDiffMetadata = useMemo(() => {
     if (file.old_content === undefined || file.new_content === undefined) return null
     return parseDiffFromFile(
@@ -74,14 +78,8 @@ function FileDiffRenderer({
           expandUnchanged: contextExpanded,
           enableGutterUtility: true,
           enableLineSelection: true,
-          onGutterUtilityClick: (range) => {
-            setPendingLineAnchor({
-              file: file.filename,
-              lineNumber: range.start,
-              endLineNumber: range.end !== range.start ? range.end : undefined,
-              side: range.side ?? 'additions',
-            })
-          },
+          onLineSelectionChange: (range) => { selectionRef.current = range },
+          onLineSelectionEnd: (range) => { selectionRef.current = range },
         }}
         lineAnnotations={lineAnnotations}
         renderAnnotation={(ann) => {
@@ -106,10 +104,24 @@ function FileDiffRenderer({
             />
           )
         }}
-        renderGutterUtility={() => (
+        renderGutterUtility={(getHoveredLine) => (
           <button
             type="button"
             aria-label="Add comment to this line"
+            onClick={() => {
+              const hovered = getHoveredLine()
+              if (!hovered) return
+              const sel = selectionRef.current
+              const start = sel?.start ?? hovered.lineNumber
+              const end = sel?.end ?? hovered.lineNumber
+              const side = sel?.side ?? hovered.side
+              setPendingLineAnchor({
+                file: file.filename,
+                lineNumber: start,
+                endLineNumber: end !== start ? end : undefined,
+                side,
+              })
+            }}
             style={{
               width: 20,
               height: 20,

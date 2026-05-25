@@ -211,12 +211,16 @@ describe('DiffPane Phase 27: inline comment wiring', () => {
     expect(source).toContain('CommentBubble')
   })
 
-  it('uses onGutterUtilityClick for line-comment trigger (provides SelectedLineRange for multi-line)', () => {
-    expect(source).toContain('onGutterUtilityClick')
+  it('calls getHoveredLine() as a function inside the click handler (Pitfall 3)', () => {
+    expect(source).toContain('getHoveredLine()')
   })
 
   it('enables line selection for multi-line comment support', () => {
     expect(source).toContain('enableLineSelection: true')
+  })
+
+  it('tracks drag selection via selectionRef for multi-line range support', () => {
+    expect(source).toContain('selectionRef')
   })
 
   it('imports DiffLineAnnotation type from @pierre/diffs', () => {
