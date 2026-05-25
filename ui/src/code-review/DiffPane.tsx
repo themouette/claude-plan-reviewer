@@ -355,6 +355,7 @@ export default function DiffPane({
 
         {files.map((file, index) => {
           const isCollapsed = collapsedFiles?.has(file.filename) ?? false
+          const fileComments = comments.filter((c) => c.type === 'file' && c.file === file.filename)
           return (
             <Fragment key={file.filename}>
               {/* Anchor div — scroll target and IntersectionObserver target (D-09); stays outside collapse so jump-to works when file is collapsed */}
@@ -450,18 +451,16 @@ export default function DiffPane({
               {!isCollapsed && (
                 <>
                   {/* Phase 27: File-level submitted comments — rendered between header and diff body */}
-                  {comments.filter((c) => c.type === 'file' && c.file === file.filename).length > 0 && (
+                  {fileComments.length > 0 && (
                     <div style={{ padding: '8px 16px', background: 'var(--color-bg)' }}>
-                      {comments
-                        .filter((c) => c.type === 'file' && c.file === file.filename)
-                        .map((c) => (
-                          <CommentBubble
-                            key={c.id}
-                            comment={c}
-                            onEdit={(text) => onEditComment?.(c.id, text)}
-                            onDelete={() => onDeleteComment?.(c.id)}
-                          />
-                        ))}
+                      {fileComments.map((c) => (
+                        <CommentBubble
+                          key={c.id}
+                          comment={c}
+                          onEdit={(text) => onEditComment?.(c.id, text)}
+                          onDelete={() => onDeleteComment?.(c.id)}
+                        />
+                      ))}
                     </div>
                   )}
                   {/* Phase 27: Pending file-level comment form */}
