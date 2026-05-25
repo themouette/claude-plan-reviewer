@@ -13,6 +13,7 @@ import { useHeartbeat } from '../shared/useHeartbeat'
 export default function CodeReviewApp(): React.JSX.Element {
   const [diffStyle, setDiffStyle] = useState<'unified' | 'split'>('unified')
   const [contextExpanded, setContextExpanded] = useState(false)
+  const [lastSelectorKey, setLastSelectorKey] = useState('')
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   // Phase 26.2 D-02: single selectedCommitShas replaces the old tri-state (viewMode + activeCommitSha + multi-select)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -88,11 +89,11 @@ export default function CodeReviewApp(): React.JSX.Element {
         ? `branch-union:${[...selectedCommitShas].sort().join(',')}`
         : 'branch:'
 
-  // CR-01: reset contextExpanded whenever the selector changes so button label and
-  // spinner state are always consistent with the current commit/branch view
-  useEffect(() => {
+  // CR-01: reset contextExpanded whenever the selector changes (sync-during-render)
+  if (lastSelectorKey !== selectorKey) {
+    setLastSelectorKey(selectorKey)
     setContextExpanded(false)
-  }, [selectorKey])
+  }
 
   function handleExpandAll() {
     if (contextExpanded) {

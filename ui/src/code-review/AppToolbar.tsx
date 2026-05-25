@@ -99,7 +99,7 @@ export default function AppToolbar({
 
   // WR-04: focusedButton state removed — it was never read in rendering (dead code).
   // The imperative e.currentTarget.style.outline approach already works without state.
-  function makeFocusHandlers(_id: string) {
+  function makeFocusHandlers() {
     return {
       onFocus: (e: React.FocusEvent<HTMLButtonElement>) => {
         e.currentTarget.style.outline = '2px solid var(--color-focus)'
@@ -165,7 +165,7 @@ export default function AppToolbar({
                 onMouseOut={(e) => {
                   e.currentTarget.style.background = 'var(--color-accent-approve)'
                 }}
-                {...makeFocusHandlers('send-review')}
+                {...makeFocusHandlers()}
               >
                 {'Send Review'}
               </button>
@@ -232,7 +232,7 @@ export default function AppToolbar({
             color: commitsOpen ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
             fontWeight: commitsOpen ? 600 : 400,
           }}
-          {...makeFocusHandlers('commits')}
+          {...makeFocusHandlers()}
         >
           {'Commits'}
         </button>
@@ -266,7 +266,7 @@ export default function AppToolbar({
                     : 'var(--color-text-secondary)',
                 fontWeight: diffStyle === style ? 600 : 400,
               }}
-              {...makeFocusHandlers(`layout-${style}`)}
+              {...makeFocusHandlers()}
             >
               {style === 'unified' ? 'Unified' : 'Side-by-side'}
             </button>
@@ -292,7 +292,7 @@ export default function AppToolbar({
               : 'var(--color-text-secondary)',
             fontWeight: contextExpanded ? 600 : 400,
           }}
-          {...makeFocusHandlers('expand')}
+          {...makeFocusHandlers()}
         >
           {contextLoading ? 'Loading...' : contextExpanded ? 'Collapse' : 'Expand All'}
         </button>
@@ -314,7 +314,7 @@ export default function AppToolbar({
             color: allFilesExpanded ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
             fontWeight: allFilesExpanded ? 600 : 400,
           }}
-          {...makeFocusHandlers('files-expand')}
+          {...makeFocusHandlers()}
         >
           {allFilesExpanded ? 'Collapse Files' : 'Expand Files'}
         </button>

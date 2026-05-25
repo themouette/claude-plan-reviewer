@@ -77,8 +77,8 @@ describe('AppToolbar', () => {
     expect(source).toContain('var(--color-text-secondary)')
   })
 
-  it("Commits button uses makeFocusHandlers('commits')", () => {
-    expect(source).toContain("makeFocusHandlers('commits')")
+  it('Commits button uses makeFocusHandlers()', () => {
+    expect(source).toContain('makeFocusHandlers()')
   })
 
   it('AppToolbar still does NOT import from reviewer-v2/', () => {
@@ -102,8 +102,8 @@ describe('AppToolbar', () => {
     expect(source).toContain("'Collapse Files'")
   })
 
-  it("D-08: uses makeFocusHandlers('files-expand') for the second button", () => {
-    expect(source).toContain("makeFocusHandlers('files-expand')")
+  it('D-08: uses makeFocusHandlers() for the files expand/collapse button', () => {
+    expect(source).toContain('makeFocusHandlers()')
   })
 
   // Phase 28 additions: single Send Review button
