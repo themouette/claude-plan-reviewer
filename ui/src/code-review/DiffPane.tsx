@@ -242,7 +242,7 @@ export default function DiffPane({
         {files.map((file, index) => {
           const isCollapsed = collapsedFiles?.has(file.filename) ?? false
           return (
-            <Fragment key={`${file.filename}-${index}`}>
+            <Fragment key={file.filename}>
               {/* Anchor div — scroll target and IntersectionObserver target (D-09); stays outside collapse so jump-to works when file is collapsed */}
               <div id={`file-${index}`} aria-label={file.filename} />
 
