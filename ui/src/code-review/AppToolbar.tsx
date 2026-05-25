@@ -1,5 +1,3 @@
-import { useState } from 'react'
-
 export interface AppToolbarProps {
   diffStyle: 'unified' | 'split'
   contextExpanded: boolean
@@ -26,24 +24,19 @@ export default function AppToolbar({
   filesCount,
   onToggleAllFiles,
 }: AppToolbarProps): React.JSX.Element {
-  const [focusedButton, setFocusedButton] = useState<string | null>(null)
-
-  function makeFocusHandlers(id: string) {
+  // WR-04: focusedButton state removed — it was never read in rendering (dead code).
+  // The imperative e.currentTarget.style.outline approach already works without state.
+  function makeFocusHandlers(_id: string) {
     return {
       onFocus: (e: React.FocusEvent<HTMLButtonElement>) => {
-        setFocusedButton(id)
         e.currentTarget.style.outline = '2px solid var(--color-focus)'
         e.currentTarget.style.outlineOffset = '2px'
       },
       onBlur: (e: React.FocusEvent<HTMLButtonElement>) => {
-        setFocusedButton(null)
         e.currentTarget.style.outline = 'none'
       },
     }
   }
-
-  // suppress unused variable warning — focusedButton used for tracking only
-  void focusedButton
 
   return (
     <header
