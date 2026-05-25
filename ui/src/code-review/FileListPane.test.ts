@@ -107,4 +107,37 @@ describe('FileListPane', () => {
   it('does not use files.map( — tree rendering replaces flat map', () => {
     expect(source).not.toContain('files.map(')
   })
+
+  // Phase 27: commentCounts prop + badge rendering (D-10)
+  it('Phase 27: accepts commentCounts prop', () => {
+    expect(source).toContain('commentCounts')
+  })
+
+  it('Phase 27: renders badge using commentCounts[file.filename]', () => {
+    expect(source).toContain('commentCounts[file.filename]')
+  })
+
+  it('Phase 27: badge is guarded by > 0 condition', () => {
+    expect(source).toContain('> 0')
+  })
+
+  it('Phase 27: badge background uses var(--color-focus)', () => {
+    expect(source).toContain('var(--color-focus)')
+  })
+
+  it('Phase 27: badge has borderRadius: 10 (pill shape)', () => {
+    expect(source).toContain('borderRadius: 10')
+  })
+
+  it("Phase 27: badge has padding: '2px 8px' (exact spec)", () => {
+    expect(source).toContain("padding: '2px 8px'")
+  })
+
+  it('Phase 27: badge appears after basename and before showCounts (source order)', () => {
+    const badgePos = source.indexOf('commentCounts[file.filename]')
+    const basenamePos = source.indexOf('{basename}')
+    const showCountsPos = source.indexOf('{showCounts')
+    expect(badgePos).toBeGreaterThan(basenamePos)
+    expect(badgePos).toBeLessThan(showCountsPos)
+  })
 })

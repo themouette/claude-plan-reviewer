@@ -210,4 +210,65 @@ describe('CodeReviewApp', () => {
     expect(source).toContain('collapsedFiles={collapsedFiles}')
     expect(source).toContain('onToggleFile={handleToggleFile}')
   })
+
+  // Phase 27: comments state ownership + commentCounts + wiring (D-08/D-09/D-10)
+  it('Phase 27: imports useCodeReviewAnnotations hook', () => {
+    expect(source).toContain('useCodeReviewAnnotations')
+    expect(source).toContain("from './hooks/useCodeReviewAnnotations'")
+  })
+
+  it('Phase 27: calls useCodeReviewAnnotations and destructures addComment, editComment, deleteComment', () => {
+    expect(source).toContain('addComment')
+    expect(source).toContain('editComment')
+    expect(source).toContain('deleteComment')
+  })
+
+  it('Phase 27: handleAddLineComment uses crypto.randomUUID() for id generation', () => {
+    expect(source).toContain('crypto.randomUUID()')
+  })
+
+  it('Phase 27: handleAddLineComment uses new Date().toISOString() for createdAt', () => {
+    expect(source).toContain('new Date().toISOString()')
+  })
+
+  it('Phase 27: derives commentCounts with useMemo (D-10)', () => {
+    expect(source).toContain('commentCounts')
+    expect(source).toContain('useMemo')
+  })
+
+  it('Phase 27: commentCounts loop body uses counts[c.file]', () => {
+    expect(source).toContain('counts[c.file]')
+  })
+
+  it('Phase 27: passes commentCounts to FileListPane (D-10)', () => {
+    expect(source).toContain('commentCounts={commentCounts}')
+  })
+
+  it('Phase 27: passes comments to DiffPane', () => {
+    expect(source).toContain('comments={comments}')
+  })
+
+  it('Phase 27: passes onAddLineComment={handleAddLineComment} to DiffPane', () => {
+    expect(source).toContain('onAddLineComment={handleAddLineComment}')
+  })
+
+  it('Phase 27: passes onAddFileComment={handleAddFileComment} to DiffPane', () => {
+    expect(source).toContain('onAddFileComment={handleAddFileComment}')
+  })
+
+  it('Phase 27: passes onEditComment={editComment} to DiffPane', () => {
+    expect(source).toContain('onEditComment={editComment}')
+  })
+
+  it('Phase 27: passes onDeleteComment={deleteComment} to DiffPane', () => {
+    expect(source).toContain('onDeleteComment={deleteComment}')
+  })
+
+  it('Phase 27: does not reset comments to empty array (D-09: persistence across commit nav)', () => {
+    expect(source).not.toMatch(/(setComments|setComment)\s*\(\s*\[\s*\]\s*\)/)
+  })
+
+  it('Phase 27: does not import from reviewer-v2/ (preserved)', () => {
+    expect(source).not.toContain('reviewer-v2')
+  })
 })
