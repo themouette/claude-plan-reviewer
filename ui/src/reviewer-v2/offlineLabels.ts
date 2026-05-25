@@ -1,4 +1,4 @@
-import type { ConnectivityStatus } from './connectivity'
+import type { ConnectivityStatus } from '../shared/connectivity'
 import { serializeAnnotations } from './serializeAnnotations'
 import type { Annotation } from './types'
 
