@@ -35,32 +35,36 @@ Declared values (must be multiples of 4):
 | Token | Value | Usage |
 |-------|-------|-------|
 | xs | 4px | Gap between icon buttons in bubble footer; margin between type tag and controls |
-| sm | 8px | Textarea internal padding; bubble card padding (8px 12px); button internal padding; gap between Submit/Cancel buttons |
+| sm | 8px | Textarea internal padding; bubble card padding (8px 12px); button internal padding; gap between Submit/Dismiss buttons |
 | md | 16px | File header row padding (8px 16px); diff pane section padding; file list item padding |
 | lg | 24px | Depth indent step in file list (`16 + depth * 16`) |
 | xl | 32px | — |
 | 2xl | 48px | Empty/error state top padding |
 | 3xl | 64px | — |
 
-Exceptions:
-- Comment gutter `+` button: 20×20px minimum tap target (matches existing `bubble-icon-btn` 20×20px pattern from `CommentBubble.tsx`).
+Exceptions (inherited from existing codebase — NOT new values introduced by Phase 27):
+- Comment gutter `+` button and icon buttons: **20×20px** — inherited pre-existing constraint from the `bubble-icon-btn` pattern in `ui/src/reviewer-v2/CommentBubble.tsx` (line 193–204). Phase 27 must match this pattern for visual consistency; it is not a new spacing choice.
 - File comment trigger button in file header: 24px height (matches existing prev/next navigation buttons in `DiffPane.tsx`).
 - Textarea minimum height: 64px (established in `AnnotationForm.tsx` and `CommentBubble.tsx`).
 
-Source: `ui/src/code-review/DiffPane.tsx` (file header `padding: 8px 16px`, button `height: 24`); `ui/src/reviewer-v2/CommentBubble.tsx` (bubble padding, icon button 20×20); `ui/src/reviewer-v2/AnnotationForm.tsx` (textarea 64px min-height).
+Source: `ui/src/code-review/DiffPane.tsx` (file header `padding: 8px 16px`, button `height: 24`); `ui/src/reviewer-v2/CommentBubble.tsx` (bubble padding, icon button 20×20 pre-existing); `ui/src/reviewer-v2/AnnotationForm.tsx` (textarea 64px min-height).
 
 ---
 
 ## Typography
 
+2-stop scale — 12px for metadata/labels/badges, 14px for body/input/filename:
+
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body / comment text | 14px | 400 | 1.5 |
-| Label / metadata (timestamp, filename path) | 12px | 400 | 1.4 |
 | Filename basename (file header) | 14px | 600 | 1.2 |
 | Textarea input | 14px | 400 | inherited (1.5) |
+| Label / metadata (timestamp, filename path, button labels, badge count) | 12px | 400 (labels) / 600 (badge) | 1.4 |
 
 Font family for all elements: inherit from `body` (system-ui stack). Textarea and bubble text use `fontFamily: 'inherit'` explicitly.
+
+Note: The existing `reviewer-v2/CommentBubble.tsx` uses 13px for the type tag badge. Phase 27's new `CommentBubble` component consolidates to 12px for the badge count to eliminate the 11/12/13px cluster and maintain a clean 2-stop scale.
 
 Source: `ui/src/code-review/DiffPane.tsx` (file header `fontSize: 14, fontWeight: 600`; metadata `fontSize: 12`); `ui/src/reviewer-v2/CommentBubble.tsx` (comment text `fontSize: 14, fontWeight: 400, lineHeight: 1.5`); `ui/src/reviewer-v2/AnnotationForm.tsx` (textarea `fontSize: 14`).
 
@@ -119,14 +123,14 @@ Structure:
     padding=8px
   />
   <div justifyContent=flex-end gap=8px marginTop=8px>
-    <button "Cancel"
-      height=28px padding=0 8px fontSize=13px fontWeight=400
+    <button "Dismiss"
+      height=28px padding=0 8px fontSize=12px fontWeight=400
       background=transparent color=var(--color-text-secondary)
       border=none borderRadius=4px
       focus: outline=2px solid var(--color-focus) outlineOffset=2px
     />
     <button "Add Comment"
-      height=28px padding=0 12px fontSize=13px fontWeight=600
+      height=28px padding=0 12px fontSize=12px fontWeight=600
       background=var(--color-focus) color=#fff
       border=none borderRadius=4px
       focus: outline=2px solid var(--color-focus) outlineOffset=2px
@@ -139,7 +143,7 @@ Keyboard contract:
 - `Cmd+Enter` / `Ctrl+Enter`: submit
 - `Escape`: cancel / close form
 
-Source: `ui/src/reviewer-v2/AnnotationForm.tsx` (established pattern — adapted for inline diff context, not floating/fixed positioned).
+Source: `ui/src/reviewer-v2/AnnotationForm.tsx` (established pattern — adapted for inline diff context, not floating/fixed positioned; "Dismiss" button label confirmed at line 117).
 
 ### `CommentBubble` (`CommentBubble.tsx`)
 
@@ -165,6 +169,7 @@ Structure:
       hover: color=var(--color-text-primary)
       focus: outline=2px solid var(--color-focus)
       class=bubble-icon-btn (transition: color 0.1s ease)
+      [inherited 20×20px from pre-existing bubble-icon-btn pattern]
     />
     <button aria-label="Delete comment" ×
       width=20px height=20px fontSize=16px
@@ -173,27 +178,29 @@ Structure:
       hover: color=var(--color-accent-deny)
       focus: outline=2px solid var(--color-focus)
       class=bubble-icon-btn (transition: color 0.1s ease)
+      [inherited 20×20px from pre-existing bubble-icon-btn pattern]
     />
   </div>
 
   [when editing — replaces text + controls]
   <textarea ... (same spec as HunkCommentForm textarea) />
   <div justifyContent=flex-end gap=4px marginTop=8px>
-    <button "Cancel" height=28px ... />
-    <button "Save Changes" height=28px background=var(--color-focus) ... />
+    <button "Discard Changes" height=28px fontSize=12px fontWeight=400 ... />
+    <button "Save Changes" height=28px fontSize=12px fontWeight=600 background=var(--color-focus) ... />
   </div>
 </article>
 ```
 
 Difference from `reviewer-v2/CommentBubble.tsx`: no `position: absolute`, no `top` prop, no compact/expanded collapse states, no bidirectional hover cross-highlight. This is a static inline card — no floating layout needed (per RESEARCH.md "State of the Art").
 
-Source: `ui/src/reviewer-v2/CommentBubble.tsx` (icon characters, button dimensions, color tokens, edit/delete pattern); CONTEXT.md D-05 ("reviewer-v2-style bubble").
+Source: `ui/src/reviewer-v2/CommentBubble.tsx` (icon characters, button dimensions 20×20px pre-existing, color tokens, edit/delete pattern; "Discard Changes" label confirmed at line 256, "Save Changes" at line 267).
 
 ### Gutter `+` Button (inline in `DiffPane.tsx` via `renderGutterUtility`)
 
 ```
 <button type="button" aria-label="Add comment to this line"
   width=20px height=20px
+  [inherited 20×20px from pre-existing bubble-icon-btn pattern in CommentBubble.tsx]
   background=transparent border=none
   borderRadius=3px cursor=pointer
   color=var(--color-text-secondary)
@@ -234,7 +241,7 @@ Appears after the change counts span when `commentCounts[filename] > 0`. Zero-co
 ```
 <span
   background=var(--color-focus) color=#fff
-  borderRadius=10px fontSize=11px fontWeight=600
+  borderRadius=10px fontSize=12px fontWeight=600
   padding=1px 6px marginLeft=6px
   flexShrink=0
 >
@@ -242,7 +249,7 @@ Appears after the change counts span when `commentCounts[filename] > 0`. Zero-co
 </span>
 ```
 
-Source: CONTEXT.md D-10 (badge spec literal), RESEARCH.md Code Example "Badge in FileListPane".
+Source: CONTEXT.md D-10 (badge spec literal), RESEARCH.md Code Example "Badge in FileListPane". fontSize updated from 11px to 12px to conform to the 2-stop typography scale.
 
 ---
 
@@ -270,7 +277,7 @@ Source: CONTEXT.md D-10 (badge spec literal), RESEARCH.md Code Example "Badge in
 | State | Visual |
 |-------|--------|
 | Default | Card with left border accent, text, timestamp, edit/delete icon buttons visible |
-| Edit mode | Textarea replaces text; "Save Changes" and "Cancel" buttons replace icon buttons |
+| Edit mode | Textarea replaces text; "Save Changes" and "Discard Changes" buttons replace icon buttons |
 | Deleting | Immediate removal — no confirmation dialog |
 
 ### File Comment Trigger Button States
@@ -289,9 +296,9 @@ Source: CONTEXT.md D-10 (badge spec literal), RESEARCH.md Code Example "Badge in
 |---------|------|
 | Primary CTA — line comment form | **Add Comment** |
 | Primary CTA — file comment form | **Add Comment** (same — context disambiguated by placement) |
-| Cancel action (forms) | **Cancel** |
+| Cancel action (forms — dismiss without saving) | **Dismiss** |
 | Edit save action | **Save Changes** |
-| Edit cancel action | **Cancel** |
+| Edit cancel action | **Discard Changes** |
 | Gutter button label | `aria-label="Add comment to this line"` |
 | File comment trigger label | `aria-label="Add file-level comment"` |
 | Textarea placeholder | **Add a comment…** |
@@ -303,11 +310,13 @@ Source: CONTEXT.md D-10 (badge spec literal), RESEARCH.md Code Example "Badge in
 | Error state | Not applicable — comments are session state only, no fetch errors |
 | Destructive action: delete | Immediate; no confirmation copy needed (per CONTEXT.md D-05: "clicking × removes the bubble immediately with no confirmation dialog") |
 
+"Dismiss" matches the exact label used in `ui/src/reviewer-v2/AnnotationForm.tsx` (line 117). "Discard Changes" matches the exact label used in `ui/src/reviewer-v2/CommentBubble.tsx` (line 256).
+
 Keyboard shortcuts to surface in tooltips (or aria-describedby if practical):
 - Form submit: `Cmd+Enter` / `Ctrl+Enter`
 - Form cancel: `Escape`
 
-Source: `ui/src/reviewer-v2/AnnotationForm.tsx` ("Add a comment…" placeholder, "Dismiss"/"Post Comment" — adapted for code review context); CONTEXT.md COMMENT-03 success criteria ("clicking × removes the bubble immediately with no confirmation dialog").
+Source: `ui/src/reviewer-v2/AnnotationForm.tsx` ("Add a comment…" placeholder, "Dismiss" cancel label — line 117); `ui/src/reviewer-v2/CommentBubble.tsx` ("Discard Changes" edit cancel — line 256, "Save Changes" edit submit — line 267); CONTEXT.md COMMENT-03 success criteria ("clicking × removes the bubble immediately with no confirmation dialog").
 
 ---
 
