@@ -158,10 +158,10 @@ describe('DiffPane', () => {
     expect(source).toContain('!isCollapsed')
   })
 
-  it('D-07: per-file headers do NOT show per-file +N -N additions/deletions (stats are in global strip and FileListPane only)', () => {
-    // Per-file headers must not render file.additions or file.deletions inline
-    // (additions/deletions are only summed globally via files.reduce, not per-file in the header)
-    expect(source).not.toContain('file.additions')
-    expect(source).not.toContain('file.deletions')
+  it('D-07: per-file headers show +N -N additions/deletions (consistent with FileListPane)', () => {
+    // Per-file headers must render file.additions and file.deletions so numbers
+    // in the header match the FileListPane sidebar (same data source).
+    expect(source).toContain('file.additions')
+    expect(source).toContain('file.deletions')
   })
 })

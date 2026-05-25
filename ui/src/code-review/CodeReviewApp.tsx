@@ -6,6 +6,7 @@ import DiffPane from './DiffPane'
 import { useDiff } from './hooks/useDiff'
 import type { DiffFetchSelector } from './hooks/useDiff'
 import { useCommits } from './hooks/useCommits'
+import type { Commit } from './types'
 
 export default function CodeReviewApp(): React.JSX.Element {
   const [diffStyle, setDiffStyle] = useState<'unified' | 'split'>('unified')
@@ -16,6 +17,8 @@ export default function CodeReviewApp(): React.JSX.Element {
   const [selectedCommitShas, setSelectedCommitShas] = useState<string[]>([])
   // Phase 26.2 D-07: per-file collapse state — empty set = all files expanded by default
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set())
+  // anchorCommitSha tracks the last non-shift-click for correct range-select behaviour
+  const [anchorCommitSha, setAnchorCommitSha] = useState<string | null>(null)
 
   const diffPaneRef = useRef<HTMLDivElement>(null)
   const { commits, loading: commitsLoading, error: commitsError } = useCommits()
@@ -65,27 +68,28 @@ export default function CodeReviewApp(): React.JSX.Element {
 
   // D-03: handleCommitClick implements click / CMD+click / Shift+click selection
   function handleCommitClick(sha: string, event: React.MouseEvent) {
-    if (event.shiftKey && selectedCommitShas.length > 0) {
-      // Shift+click: range-select from last selected to clicked commit
-      const anchor = selectedCommitShas[selectedCommitShas.length - 1]
-      const anchorIdx = commits.findIndex((c) => c.sha === anchor)
+    if (event.shiftKey && anchorCommitSha !== null) {
+      // Shift+click: replace selection with the range from anchor to clicked commit.
+      // Anchor stays unchanged so repeated shift-clicks always extend from the same point.
+      const anchorIdx = commits.findIndex((c) => c.sha === anchorCommitSha)
       const clickIdx = commits.findIndex((c) => c.sha === sha)
       if (anchorIdx !== -1 && clickIdx !== -1) {
         const start = Math.min(anchorIdx, clickIdx)
         const end = Math.max(anchorIdx, clickIdx)
-        const range = commits.slice(start, end + 1).map((c) => c.sha)
-        setSelectedCommitShas((prev) => Array.from(new Set([...prev, ...range])))
+        setSelectedCommitShas(commits.slice(start, end + 1).map((c) => c.sha))
         return
       }
     }
     if (event.metaKey || event.ctrlKey) {
-      // CMD/Ctrl+click: toggle sha in selection
+      // CMD/Ctrl+click: toggle sha in selection, anchor moves to this commit
+      setAnchorCommitSha(sha)
       setSelectedCommitShas((prev) =>
         prev.includes(sha) ? prev.filter((s) => s !== sha) : [...prev, sha],
       )
       return
     }
-    // Plain click: replace selection with single commit
+    // Plain click: replace selection with single commit, reset anchor
+    setAnchorCommitSha(sha)
     setSelectedCommitShas([sha])
   }
 
@@ -102,8 +106,15 @@ export default function CodeReviewApp(): React.JSX.Element {
       if (selectedCommitShas.length !== 1 || commits.length === 0) return
       const idx = commits.findIndex((c) => c.sha === selectedCommitShas[0])
       if (idx === -1) return
-      if (e.key === 'ArrowLeft' && idx > 0) setSelectedCommitShas([commits[idx - 1].sha])
-      else if (e.key === 'ArrowRight' && idx < commits.length - 1) setSelectedCommitShas([commits[idx + 1].sha])
+      if (e.key === 'ArrowLeft' && idx > 0) {
+        const sha = commits[idx - 1].sha
+        setAnchorCommitSha(sha)
+        setSelectedCommitShas([sha])
+      } else if (e.key === 'ArrowRight' && idx < commits.length - 1) {
+        const sha = commits[idx + 1].sha
+        setAnchorCommitSha(sha)
+        setSelectedCommitShas([sha])
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -143,6 +154,36 @@ export default function CodeReviewApp(): React.JSX.Element {
   const branchName = commits[0]?.branches?.[0] ?? 'HEAD'
   // Pass activeCommitSha for backwards compatibility with DiffPane's per-commit title strip
   const activeCommitSha = selectedCommitShas.length === 1 ? selectedCommitShas[0] : null
+
+  // Prev/next navigation when exactly one commit is selected
+  const activeCommitIdx =
+    activeCommitSha !== null ? commits.findIndex((c) => c.sha === activeCommitSha) : -1
+  const hasPrevCommit = activeCommitIdx > 0
+  const hasNextCommit = activeCommitIdx >= 0 && activeCommitIdx < commits.length - 1
+
+  function handlePrevCommit() {
+    if (!hasPrevCommit) return
+    const sha = commits[activeCommitIdx - 1].sha
+    setAnchorCommitSha(sha)
+    setSelectedCommitShas([sha])
+  }
+
+  function handleNextCommit() {
+    if (!hasNextCommit) return
+    const sha = commits[activeCommitIdx + 1].sha
+    setAnchorCommitSha(sha)
+    setSelectedCommitShas([sha])
+  }
+
+  function handleClearSelection() {
+    setSelectedCommitShas([])
+    setAnchorCommitSha(null)
+  }
+
+  // Ordered list of selected Commit objects (preserves commit list order)
+  const selectedCommits: Commit[] = selectedCommitShas
+    .map((sha) => commits.find((c) => c.sha === sha))
+    .filter((c): c is Commit => c !== undefined)
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -199,6 +240,13 @@ export default function CodeReviewApp(): React.JSX.Element {
           allSelected={allSelected}
           collapsedFiles={collapsedFiles}
           onToggleFile={handleToggleFile}
+          contextExpanded={contextExpanded}
+          hasPrevCommit={hasPrevCommit}
+          hasNextCommit={hasNextCommit}
+          onPrevCommit={handlePrevCommit}
+          onNextCommit={handleNextCommit}
+          selectedCommits={selectedCommits}
+          onClearSelection={handleClearSelection}
         />
       </div>
     </div>

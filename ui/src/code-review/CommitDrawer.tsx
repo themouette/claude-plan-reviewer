@@ -105,7 +105,8 @@ export default function CommitDrawer({
               key={commit.sha}
               role="button"
               tabIndex={0}
-              onClick={(e) => { if (e.shiftKey) e.preventDefault(); onCommitClick(commit.sha, e) }}
+              onMouseDown={(e) => { if (e.shiftKey) e.preventDefault() }}
+              onClick={(e) => { onCommitClick(commit.sha, e) }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()

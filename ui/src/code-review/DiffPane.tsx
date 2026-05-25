@@ -13,12 +13,16 @@ const DIFF_THEME: 'github-dark' | 'github-light' =
 
 // Renders one file diff. Uses FileDiffComponent (non-partial, expansion enabled) when
 // old_content + new_content are present; falls back to PatchDiff for binary files.
+// contextExpanded maps to Pierre's expandUnchanged — when true, all context lines are shown.
+// For the PatchDiff path, the parent refetches with context=999 instead.
 function FileDiffRenderer({
   file,
   diffStyle,
+  contextExpanded,
 }: {
   file: FileDiff
   diffStyle: 'unified' | 'split'
+  contextExpanded: boolean
 }) {
   const fileDiffMetadata = useMemo(() => {
     if (file.old_content === undefined || file.new_content === undefined) return null
@@ -33,7 +37,14 @@ function FileDiffRenderer({
       <FileDiffComponent
         fileDiff={fileDiffMetadata}
         disableWorkerPool={true}
-        options={{ diffStyle, expansionLineCount: 10, collapsedContextThreshold: 3, theme: DIFF_THEME }}
+        options={{
+          diffStyle,
+          expansionLineCount: 10,
+          collapsedContextThreshold: 3,
+          theme: DIFF_THEME,
+          disableFileHeader: true,
+          expandUnchanged: contextExpanded,
+        }}
       />
     )
   }
@@ -63,6 +74,15 @@ export interface DiffPaneProps {
   // Phase 26.2 D-07/D-09 additions — optional; default values preserve existing call sites
   collapsedFiles?: Set<string>              // default new Set() — filenames that are collapsed
   onToggleFile?: (filename: string) => void // default undefined — callback to toggle collapse
+  contextExpanded?: boolean                 // default false — when true, all context lines shown
+  // Prev/next navigation when a single commit is shown
+  hasPrevCommit?: boolean
+  hasNextCommit?: boolean
+  onPrevCommit?: () => void
+  onNextCommit?: () => void
+  // Subset summary shown when 1 < selected < total commits
+  selectedCommits?: Commit[]
+  onClearSelection?: () => void
 }
 
 export default function DiffPane({
@@ -79,6 +99,13 @@ export default function DiffPane({
   branchName = '',
   collapsedFiles = new Set<string>(),
   onToggleFile,
+  contextExpanded = false,
+  hasPrevCommit = false,
+  hasNextCommit = false,
+  onPrevCommit,
+  onNextCommit,
+  selectedCommits = [],
+  onClearSelection,
 }: DiffPaneProps): React.JSX.Element {
   const [reloadFocused, setReloadFocused] = useState(false)
 
@@ -296,6 +323,12 @@ export default function DiffPane({
                 >
                   {file.filename}
                 </span>
+                {file.additions + file.deletions > 0 && (
+                  <span style={{ marginLeft: 'auto', fontSize: 12, flexShrink: 0, display: 'flex', gap: 6 }}>
+                    <span style={{ color: 'var(--color-accent-approve)' }}>+{file.additions}</span>
+                    <span style={{ color: 'var(--color-accent-deny)' }}>−{file.deletions}</span>
+                  </span>
+                )}
               </div>
 
               {/* D-07: File body — hidden when collapsed */}
@@ -313,7 +346,7 @@ export default function DiffPane({
                       Binary file — no diff available
                     </div>
                   ) : (
-                    <FileDiffRenderer file={file} diffStyle={diffStyle} />
+                    <FileDiffRenderer file={file} diffStyle={diffStyle} contextExpanded={contextExpanded} />
                   )}
                 </>
               )}
@@ -363,6 +396,46 @@ export default function DiffPane({
           >
             {activeCommit.author} · {activeCommit.date}
           </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+            <button
+              type="button"
+              disabled={!hasPrevCommit}
+              onClick={onPrevCommit}
+              style={{
+                height: 24,
+                padding: '0 10px',
+                border: '1px solid var(--color-border)',
+                borderRadius: 4,
+                fontSize: 12,
+                cursor: hasPrevCommit ? 'pointer' : 'default',
+                background: 'var(--color-surface)',
+                color: 'var(--color-text-secondary)',
+                opacity: hasPrevCommit ? 1 : 0.4,
+                outline: 'none',
+              }}
+            >
+              ← Prev
+            </button>
+            <button
+              type="button"
+              disabled={!hasNextCommit}
+              onClick={onNextCommit}
+              style={{
+                height: 24,
+                padding: '0 10px',
+                border: '1px solid var(--color-border)',
+                borderRadius: 4,
+                fontSize: 12,
+                cursor: hasNextCommit ? 'pointer' : 'default',
+                background: 'var(--color-surface)',
+                color: 'var(--color-text-secondary)',
+                opacity: hasNextCommit ? 1 : 0.4,
+                outline: 'none',
+              }}
+            >
+              Next →
+            </button>
+          </div>
         </div>
       )}
       {/* WR-04: Fallback strip when activeCommitSha is not found in commits list */}
@@ -404,6 +477,50 @@ export default function DiffPane({
             }}
           >
             {`diff from branch ${branchName}`}
+          </div>
+        </div>
+      )}
+      {/* Subset summary — renders when 1 < selected < total */}
+      {!allSelected && selectedCommits.length > 1 && (
+        <div
+          style={{
+            background: 'var(--color-surface)',
+            borderBottom: '1px solid var(--color-border)',
+            padding: '8px 16px',
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)' }}>
+            {selectedCommits.length} commits selected
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+            {Object.entries(
+              selectedCommits.reduce<Record<string, number>>((acc, c) => {
+                acc[c.author] = (acc[c.author] ?? 0) + 1
+                return acc
+              }, {}),
+            )
+              .map(([author, count]) => (count > 1 ? `${author} (${count})` : author))
+              .join(', ')}
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={onClearSelection}
+              style={{
+                height: 24,
+                padding: '0 10px',
+                border: '1px solid var(--color-border)',
+                borderRadius: 4,
+                fontSize: 12,
+                cursor: 'pointer',
+                background: 'var(--color-surface)',
+                color: 'var(--color-text-secondary)',
+                outline: 'none',
+              }}
+            >
+              Clear selection
+            </button>
           </div>
         </div>
       )}
