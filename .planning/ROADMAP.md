@@ -780,7 +780,7 @@ Plans:
   2. "Request changes" is disabled when no comments exist; it is enabled with at least one comment
   3. An optional global instruction text field is available alongside the Approve action
   4. Submitting with comments produces structured JSON: `{"decision":"changes_requested","comments":[{"file":"...","hunk":"...","text":"..."},...]}` returned to the agent
-  5. When the server is unreachable, submission writes the same JSON to the clipboard using the existing `buildClipboardPayload` utility
+  5. When the server is unreachable, submission writes the same JSON to the clipboard using the new `buildCodeReviewPayload` function
 
 **Plans:** 3 plans
 Plans:
