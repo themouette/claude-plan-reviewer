@@ -7,7 +7,7 @@ export type CommentAction =
   | { type: 'DELETE_COMMENT'; id: string }
 
 export function reduceAnnotations(
-  state: CodeReviewComment[],
+  state: readonly CodeReviewComment[],
   action: CommentAction,
 ): CodeReviewComment[] {
   switch (action.type) {
