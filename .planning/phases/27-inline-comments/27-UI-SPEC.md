@@ -92,6 +92,8 @@ Accent (`--color-focus`) reserved for:
 
 Destructive (`--color-accent-deny`) reserved for: delete icon button hover color only. No confirmation dialog — delete is immediate (per D-05/CONTEXT.md).
 
+Focal point: Primary visual anchor is the accent left border (`borderLeft: 3px solid var(--color-focus)`) on submitted `CommentBubble` cards, which makes inline comments visually distinct from diff content at a glance. The `Add Comment` button (accent background, white text) is the primary CTA focal point in the comment form.
+
 Source: `ui/src/index.css` (full token definitions); `ui/src/code-review/DiffPane.tsx` (established surface/border usage); `ui/src/code-review/FileListPane.tsx` (focus border, active state); CONTEXT.md D-06, D-10.
 
 ---
@@ -221,7 +223,7 @@ Placed at the trailing end of the file header row (after the additions/deletions
 
 ```
 <button type="button" aria-label="Add file-level comment"
-  height=24px padding=0 10px
+  height=24px padding=0 8px
   fontSize=12px fontWeight=400
   background=transparent
   border=1px solid var(--color-border)
@@ -242,14 +244,14 @@ Appears after the change counts span when `commentCounts[filename] > 0`. Zero-co
 <span
   background=var(--color-focus) color=#fff
   borderRadius=10px fontSize=12px fontWeight=600
-  padding=1px 6px marginLeft=6px
+  padding=2px 8px marginLeft=8px
   flexShrink=0
 >
   {count}
 </span>
 ```
 
-Source: CONTEXT.md D-10 (badge spec literal), RESEARCH.md Code Example "Badge in FileListPane". fontSize updated from 11px to 12px to conform to the 2-stop typography scale.
+Source: CONTEXT.md D-10 (badge spec literal), RESEARCH.md Code Example "Badge in FileListPane". fontSize updated from 11px to 12px to conform to the 2-stop typography scale. padding updated from `1px 6px` to `2px 8px` and marginLeft from 6px to 8px to conform to the 4-point spacing scale.
 
 ---
 
@@ -296,7 +298,7 @@ Source: CONTEXT.md D-10 (badge spec literal), RESEARCH.md Code Example "Badge in
 |---------|------|
 | Primary CTA — line comment form | **Add Comment** |
 | Primary CTA — file comment form | **Add Comment** (same — context disambiguated by placement) |
-| Cancel action (forms — dismiss without saving) | **Dismiss** |
+| Cancel action (forms — dismiss without saving) | **Dismiss** (codebase-consistency choice — matches `AnnotationForm.tsx` line 117 verbatim) |
 | Edit save action | **Save Changes** |
 | Edit cancel action | **Discard Changes** |
 | Gutter button label | `aria-label="Add comment to this line"` |
@@ -309,8 +311,6 @@ Source: CONTEXT.md D-10 (badge spec literal), RESEARCH.md Code Example "Badge in
 | Empty comment pane | No empty state UI needed — `+` gutter button is the discovery surface |
 | Error state | Not applicable — comments are session state only, no fetch errors |
 | Destructive action: delete | Immediate; no confirmation copy needed (per CONTEXT.md D-05: "clicking × removes the bubble immediately with no confirmation dialog") |
-
-"Dismiss" matches the exact label used in `ui/src/reviewer-v2/AnnotationForm.tsx` (line 117). "Discard Changes" matches the exact label used in `ui/src/reviewer-v2/CommentBubble.tsx` (line 256).
 
 Keyboard shortcuts to surface in tooltips (or aria-describedby if practical):
 - Form submit: `Cmd+Enter` / `Ctrl+Enter`
