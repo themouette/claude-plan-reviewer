@@ -356,6 +356,14 @@ export default function DiffPane({
         {files.map((file, index) => {
           const isCollapsed = collapsedFiles?.has(file.filename) ?? false
           const fileComments = comments.filter((c) => c.type === 'file' && c.file === file.filename)
+          // CR-01: wraps onToggleFile to clear stale pendingFileComment when collapsing
+          function handleToggleFile() {
+            if (!isCollapsed) {
+              // file is currently expanded — about to be collapsed; clear pending form
+              setPendingFileComment((prev) => (prev === file.filename ? null : prev))
+            }
+            onToggleFile?.(file.filename)
+          }
           return (
             <Fragment key={file.filename}>
               {/* Anchor div — scroll target and IntersectionObserver target (D-09); stays outside collapse so jump-to works when file is collapsed */}
@@ -367,11 +375,11 @@ export default function DiffPane({
                 tabIndex={0}
                 aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${file.filename}`}
                 aria-expanded={!isCollapsed}
-                onClick={() => onToggleFile?.(file.filename)}
+                onClick={handleToggleFile}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
-                    onToggleFile?.(file.filename)
+                    handleToggleFile()
                   }
                 }}
                 style={{
@@ -425,6 +433,10 @@ export default function DiffPane({
                   aria-label="Add file-level comment"
                   onClick={(e) => {
                     e.stopPropagation()
+                    // CR-01: auto-expand so the form renders immediately
+                    if (isCollapsed) {
+                      onToggleFile?.(file.filename)
+                    }
                     setPendingFileComment(file.filename)
                   }}
                   onFocus={(e) => {
