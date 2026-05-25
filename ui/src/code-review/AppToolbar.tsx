@@ -173,8 +173,9 @@ export default function AppToolbar({
                 <button
                   type="button"
                   className="submit-btn"
-                  disabled={!canApprove}
+                  aria-disabled={!canApprove}
                   onClick={() => {
+                    if (!canApprove) return
                     if (shouldUseClipboard(connectivity)) {
                       void handleApprove()
                     } else {
@@ -194,6 +195,7 @@ export default function AppToolbar({
                     cursor: canApprove ? 'pointer' : 'default',
                     opacity: canApprove ? 1 : 0.4,
                     outline: 'none',
+                    pointerEvents: canApprove ? 'auto' : 'none',
                   }}
                   onMouseOver={(e) => {
                     if (canApprove) e.currentTarget.style.background = 'var(--color-accent-approve-hover)'
@@ -211,8 +213,11 @@ export default function AppToolbar({
                 <button
                   type="button"
                   className="submit-btn"
-                  disabled={!canRequestChanges}
-                  onClick={() => { void handleRequestChanges() }}
+                  aria-disabled={!canRequestChanges}
+                  onClick={() => {
+                    if (!canRequestChanges) return
+                    void handleRequestChanges()
+                  }}
                   style={{
                     height: 32,
                     paddingLeft: 16,
@@ -226,6 +231,7 @@ export default function AppToolbar({
                     cursor: canRequestChanges ? 'pointer' : 'default',
                     opacity: canRequestChanges ? 1 : 0.4,
                     outline: 'none',
+                    pointerEvents: canRequestChanges ? 'auto' : 'none',
                   }}
                   {...makeFocusHandlers('request-changes')}
                 >
