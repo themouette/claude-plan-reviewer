@@ -16,7 +16,9 @@ export default function HunkCommentForm({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   function handleSubmit() {
-    onSubmit(textareaRef.current?.value ?? '')
+    const text = textareaRef.current?.value?.trim() ?? ''
+    if (!text) return
+    onSubmit(text)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
