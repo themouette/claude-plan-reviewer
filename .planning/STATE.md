@@ -4,8 +4,8 @@ milestone: v0.7.0
 milestone_name: Code Review
 status: executing
 stopped_at: Phase 27 UI-SPEC approved
-last_updated: "2026-05-25T13:20:52.563Z"
-last_activity: 2026-05-25 -- Phase 27 planning complete
+last_updated: "2026-05-25T13:26:32.988Z"
+last_activity: 2026-05-25 -- Phase 27 execution started
 progress:
   total_phases: 8
   completed_phases: 5
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 26.2 — commit-navigation-ux-polish
+**Current focus:** Phase 27 — inline-comments
 
 ## Current Position
 
-Phase: 26.2 — COMPLETE
+Phase: 27 (inline-comments) — EXECUTING
 Plan: 1 of 3
-Status: Ready to execute
-Last activity: 2026-05-25 -- Phase 27 planning complete
+Status: Executing Phase 27
+Last activity: 2026-05-25 -- Phase 27 execution started
 
 ## Performance Metrics
 
