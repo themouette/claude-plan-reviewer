@@ -104,28 +104,42 @@ fn time_to_iso8601(t: &git2::Time) -> String {
 
 // --- Commit DTO mapping ---
 
-fn commit_to_dto(c: &git2::Commit, repo: &git2::Repository) -> Commit {
-    let sha = c.id().to_string();
-    let short_sha = sha.chars().take(7).collect();
-    let commit_sha = c.id();
-
-    let mut branches: Vec<String> = Vec::new();
-    let mut tags: Vec<String> = Vec::new();
-
+/// Build a map from OID → (branches, tags) by iterating all repository
+/// references exactly once. Used by try_list_commits to avoid the O(refs × commits)
+/// complexity of calling repo.references() inside commit_to_dto for every commit.
+fn build_oid_ref_map(
+    repo: &git2::Repository,
+) -> std::collections::HashMap<git2::Oid, (Vec<String>, Vec<String>)> {
+    let mut map: std::collections::HashMap<git2::Oid, (Vec<String>, Vec<String>)> =
+        std::collections::HashMap::new();
     if let Ok(refs) = repo.references() {
         for r in refs.flatten() {
             if let Ok(peeled) = r.peel_to_commit()
-                && peeled.id() == commit_sha
                 && let Some(name) = r.shorthand()
             {
+                let entry = map.entry(peeled.id()).or_default();
                 if r.is_branch() {
-                    branches.push(name.to_string());
+                    entry.0.push(name.to_string());
                 } else if r.is_tag() {
-                    tags.push(name.to_string());
+                    entry.1.push(name.to_string());
                 }
             }
         }
     }
+    map
+}
+
+/// Map a git2::Commit to a Commit DTO.
+/// Accepts a prebuilt OID→refs map so the caller can build it once for all
+/// commits in a revwalk (O(1) per commit instead of O(refs) per commit).
+fn commit_to_dto(
+    c: &git2::Commit,
+    oid_to_refs: &std::collections::HashMap<git2::Oid, (Vec<String>, Vec<String>)>,
+) -> Commit {
+    let sha = c.id().to_string();
+    let short_sha = sha.chars().take(7).collect();
+
+    let (branches, tags) = oid_to_refs.get(&c.id()).cloned().unwrap_or_default();
 
     Commit {
         short_sha,
@@ -303,13 +317,17 @@ fn try_list_commits(repo_path: &std::path::Path) -> Option<CommitList> {
     // Pitfall 3 — hide must be called before iteration
     let _ = walk.hide(base_oid);
 
+    // WR-05: build the OID→refs map once before the revwalk so commit_to_dto
+    // can look up branches/tags in O(1) instead of O(refs) per commit.
+    let oid_to_refs = build_oid_ref_map(&repo);
+
     // Collect up to COMMIT_LIMIT + 1 so we can detect truncation without
     // walking the full history.
     let mut commits: Vec<Commit> = walk
         .filter_map(|r| {
             let oid = r.ok()?;
             let c = repo.find_commit(oid).ok()?;
-            Some(commit_to_dto(&c, &repo))
+            Some(commit_to_dto(&c, &oid_to_refs))
         })
         .take(COMMIT_LIMIT + 1)
         .collect();
