@@ -197,8 +197,6 @@ export default function DiffPane({
   onEditComment,
   onDeleteComment,
 }: DiffPaneProps): React.JSX.Element {
-  const [reloadFocused, setReloadFocused] = useState(false)
-
   // Phase 27: local state for pending annotation anchors (Pattern 4 Option A — DiffPane-local)
   const [pendingLineAnchor, setPendingLineAnchor] = useState<{ file: string; lineNumber: number; side: AnnotationSide } | null>(null)
   const [pendingFileComment, setPendingFileComment] = useState<string | null>(null)
@@ -208,9 +206,6 @@ export default function DiffPane({
     viewMode === 'commit' && activeCommitSha !== null
       ? (commits.find((c) => c.sha === activeCommitSha) ?? null)
       : null
-
-  // suppress unused variable warning
-  void reloadFocused
 
   function renderContent() {
     // State 1: Loading (no files yet)
@@ -288,12 +283,10 @@ export default function DiffPane({
               outline: 'none',
             }}
             onFocus={(e) => {
-              setReloadFocused(true)
               e.currentTarget.style.outline = '2px solid var(--color-focus)'
               e.currentTarget.style.outlineOffset = '2px'
             }}
             onBlur={(e) => {
-              setReloadFocused(false)
               e.currentTarget.style.outline = 'none'
             }}
           >
