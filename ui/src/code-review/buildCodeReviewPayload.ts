@@ -1,16 +1,11 @@
 import type { CodeReviewComment } from './types'
 import type { ConnectivityStatus } from '../shared/connectivity'
 
-// The D-01 submission schema decision type
-export type ReviewDecision = 'approved' | 'changes_requested'
-
-// Internal output shapes for the D-01 JSON schema
 interface LineCommentOutput {
   file: string
   line: number
   side: 'additions' | 'deletions'
   text: string
-  // Field name chosen: endLine (not endLineNumber) — matches D-01 "Claude's-discretion" note in CONTEXT.md
   endLine?: number
 }
 
@@ -21,35 +16,32 @@ interface FileCommentOutput {
 
 type CommentOutput = LineCommentOutput | FileCommentOutput
 
-interface CodeReviewPayload {
-  decision: ReviewDecision
-  global_instruction?: string
+interface ReviewPayload {
+  message?: string
   comments?: CommentOutput[]
 }
 
 /**
- * Pure serializer for the D-01 code review submission schema.
+ * Pure serializer for the code review submission payload.
  *
  * Contract:
- * - `global_instruction` is OMITTED (not null) when blank or whitespace-only.
- * - `comments` is OMITTED (not []) when the decision is 'approved' and the list is empty.
+ * - `message` is OMITTED when blank or whitespace-only.
+ * - `comments` is OMITTED when the array is empty.
  * - Internal fields (id, type, createdAt, lineNumber) are stripped from each comment.
  * - For line comments, lineNumber maps to `line` and endLineNumber (if present) maps to `endLine`.
+ * - At least one of message or comments must be present for a meaningful payload.
  */
-export function buildCodeReviewPayload(
-  decision: ReviewDecision,
+export function buildReviewPayload(
+  message: string | undefined,
   comments: CodeReviewComment[],
-  globalInstruction?: string,
 ): string {
-  const payload: CodeReviewPayload = { decision }
+  const payload: ReviewPayload = {}
 
-  // Conditionally assign global_instruction — omit when blank or whitespace-only
-  const trimmedInstruction = globalInstruction?.trim()
-  if (trimmedInstruction) {
-    payload.global_instruction = trimmedInstruction
+  const trimmedMessage = message?.trim()
+  if (trimmedMessage) {
+    payload.message = trimmedMessage
   }
 
-  // Conditionally assign comments — omit when empty
   if (comments.length > 0) {
     payload.comments = comments.map(serializeComment)
   }
@@ -61,7 +53,6 @@ function serializeComment(c: CodeReviewComment): CommentOutput {
   if (c.type === 'file') {
     return { file: c.file, text: c.text }
   }
-  // type === 'line': map lineNumber -> line, endLineNumber -> endLine (when present)
   const output: LineCommentOutput = {
     file: c.file,
     line: c.lineNumber,

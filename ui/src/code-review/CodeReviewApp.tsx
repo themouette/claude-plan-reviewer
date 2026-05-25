@@ -247,8 +247,7 @@ export default function CodeReviewApp(): React.JSX.Element {
         onToggleAllFiles={handleToggleAllFiles}
         comments={comments}
         connectivity={connectivity}
-        onApprove={() => {}}
-        onRequestChanges={() => {}}
+        onReviewSent={() => {}}
       />
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', position: 'relative' }}>
         {drawerOpen && (

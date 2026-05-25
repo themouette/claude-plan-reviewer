@@ -283,8 +283,7 @@ describe('CodeReviewApp', () => {
     expect(source).toContain('comments={comments}')
   })
 
-  it('Phase 28: passes onApprove and onRequestChanges to AppToolbar', () => {
-    expect(source).toContain('onApprove=')
-    expect(source).toContain('onRequestChanges=')
+  it('Phase 28: passes onReviewSent to AppToolbar', () => {
+    expect(source).toContain('onReviewSent=')
   })
 })

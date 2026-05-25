@@ -3,13 +3,15 @@ import { useEffect, useRef, useState } from 'react'
 export interface CodeReviewSubmitPopoverProps {
   open: boolean
   onDismiss: () => void
-  onConfirm: (globalInstruction?: string) => void
+  onConfirm: (message?: string) => void
+  canSend: boolean
 }
 
 export default function CodeReviewSubmitPopover({
   open,
   onDismiss,
   onConfirm,
+  canSend,
 }: CodeReviewSubmitPopoverProps): React.JSX.Element | null {
   const rootRef = useRef<HTMLDivElement>(null)
   const [message, setMessage] = useState('')
@@ -53,7 +55,7 @@ export default function CodeReviewSubmitPopover({
       ref={rootRef}
       role="dialog"
       aria-modal="true"
-      aria-label="Approve review"
+      aria-label="Send review"
       style={{
         position: 'absolute',
         top: 40,
@@ -68,8 +70,8 @@ export default function CodeReviewSubmitPopover({
       }}
     >
       <textarea
-        aria-label="Global instruction (optional)"
-        placeholder="Leave an instruction for the agent (optional)"
+        aria-label="Message (optional)"
+        placeholder="Leave a message for the agent (optional)"
         autoFocus
         value={message}
         rows={4}
@@ -103,6 +105,7 @@ export default function CodeReviewSubmitPopover({
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
         <button
           type="button"
+          disabled={!canSend}
           onClick={() => { onConfirm(message.trim() || undefined) }}
           style={{
             height: 32,
@@ -114,8 +117,8 @@ export default function CodeReviewSubmitPopover({
             color: '#fff',
             fontSize: 14,
             fontWeight: 600,
-            cursor: 'pointer',
-            opacity: 1,
+            cursor: canSend ? 'pointer' : 'default',
+            opacity: canSend ? 1 : 0.4,
           }}
           onFocus={(e) => {
             e.currentTarget.style.outline = '2px solid var(--color-focus)'
@@ -123,7 +126,7 @@ export default function CodeReviewSubmitPopover({
           }}
           onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
         >
-          Confirm Approve
+          Send Review
         </button>
       </div>
     </div>

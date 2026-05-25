@@ -1,121 +1,100 @@
 import { describe, it, expect } from 'vitest'
-import {
-  buildCodeReviewPayload,
-  shouldUseClipboard,
-} from './buildCodeReviewPayload'
+import { buildReviewPayload, shouldUseClipboard } from './buildCodeReviewPayload'
 import type { CodeReviewComment } from './types'
 
-// Shared fixtures
-const lineFixture: CodeReviewComment = {
-  id: 'x',
+const lineComment: CodeReviewComment = {
+  id: 'c1',
   type: 'line',
   file: 'src/foo.ts',
+  lineNumber: 10,
   side: 'additions',
-  lineNumber: 42,
-  text: 'Use const here',
-  createdAt: '2026-05-25T00:00:00Z',
+  text: 'nit: rename this',
+  createdAt: '2026-01-01T00:00:00Z',
 }
 
-const fileFixture: CodeReviewComment = {
-  id: 'y',
+const fileComment: CodeReviewComment = {
+  id: 'c2',
   type: 'file',
   file: 'src/bar.ts',
-  text: 'Missing exports',
-  createdAt: '2026-05-25T00:00:00Z',
+  text: 'missing tests',
+  createdAt: '2026-01-01T00:00:00Z',
 }
 
-describe('buildCodeReviewPayload', () => {
-  it('case 1: approved with no comments — returns exact JSON string with no comments key', () => {
-    const result = buildCodeReviewPayload('approved', [])
-    expect(result).toBe('{"decision":"approved"}')
-    expect('comments' in JSON.parse(result)).toBe(false)
+const lineCommentWithEnd: CodeReviewComment = {
+  id: 'c3',
+  type: 'line',
+  file: 'src/baz.ts',
+  lineNumber: 5,
+  endLineNumber: 8,
+  side: 'deletions',
+  text: 'remove this block',
+  createdAt: '2026-01-01T00:00:00Z',
+}
+
+describe('buildReviewPayload', () => {
+  it('returns {} when message is blank and no comments', () => {
+    expect(buildReviewPayload(undefined, [])).toBe('{}')
   })
 
-  it('case 2: approved with non-blank globalInstruction — includes trimmed global_instruction and no comments key', () => {
-    const result = buildCodeReviewPayload('approved', [], 'Update the docs')
-    const parsed = JSON.parse(result)
-    expect(parsed.global_instruction).toBe('Update the docs')
-    expect('comments' in parsed).toBe(false)
+  it('returns message only when no comments', () => {
+    expect(buildReviewPayload('looks good', [])).toBe('{"message":"looks good"}')
   })
 
-  it('case 3: approved with whitespace-only globalInstruction — omits global_instruction key', () => {
-    const result = buildCodeReviewPayload('approved', [], '   ')
-    expect(result).toBe('{"decision":"approved"}')
+  it('omits message when whitespace-only', () => {
+    expect(buildReviewPayload('   ', [])).toBe('{}')
   })
 
-  it('case 4: globalInstruction is trimmed in output', () => {
-    const result = buildCodeReviewPayload('approved', [], '  hello  ')
-    const parsed = JSON.parse(result)
-    expect(parsed.global_instruction).toBe('hello')
+  it('trims whitespace from message', () => {
+    expect(buildReviewPayload('  nice  ', [])).toBe('{"message":"nice"}')
   })
 
-  it('case 5: changes_requested with a line comment — strips internal fields and maps lineNumber to line', () => {
-    const result = buildCodeReviewPayload('changes_requested', [lineFixture])
-    const parsed = JSON.parse(result)
-    expect(parsed.decision).toBe('changes_requested')
-    expect(parsed.comments[0]).toEqual({
-      file: 'src/foo.ts',
-      line: 42,
-      side: 'additions',
-      text: 'Use const here',
-    })
-    // Internal fields must NOT appear in output
-    expect('type' in parsed.comments[0]).toBe(false)
-    expect('id' in parsed.comments[0]).toBe(false)
-    expect('createdAt' in parsed.comments[0]).toBe(false)
-    expect('lineNumber' in parsed.comments[0]).toBe(false)
+  it('returns comments only when no message', () => {
+    const result = JSON.parse(buildReviewPayload(undefined, [lineComment]))
+    expect(result).not.toHaveProperty('message')
+    expect(result.comments).toHaveLength(1)
   })
 
-  it('case 6: changes_requested with a file comment — emits only file and text, no line or side', () => {
-    const result = buildCodeReviewPayload('changes_requested', [fileFixture])
-    const parsed = JSON.parse(result)
-    expect(parsed.comments[0]).toEqual({
-      file: 'src/bar.ts',
-      text: 'Missing exports',
-    })
-    expect('line' in parsed.comments[0]).toBe(false)
-    expect('side' in parsed.comments[0]).toBe(false)
+  it('includes both message and comments when both provided', () => {
+    const result = JSON.parse(buildReviewPayload('overall lgtm', [lineComment]))
+    expect(result.message).toBe('overall lgtm')
+    expect(result.comments).toHaveLength(1)
   })
 
-  it('case 7: line comment with endLineNumber — emits endLine (not endLineNumber) with the correct value', () => {
-    const rangeFixture: CodeReviewComment = {
-      ...lineFixture,
-      endLineNumber: 50,
-    }
-    const result = buildCodeReviewPayload('changes_requested', [rangeFixture])
-    const parsed = JSON.parse(result)
-    // endLine is the chosen JSON key (documented in buildCodeReviewPayload.ts)
-    expect((parsed.comments[0].endLine ?? parsed.comments[0].endLineNumber) === 50).toBe(true)
+  it('strips internal fields from a line comment', () => {
+    const result = JSON.parse(buildReviewPayload(undefined, [lineComment]))
+    const c = result.comments[0]
+    expect(c).toEqual({ file: 'src/foo.ts', line: 10, side: 'additions', text: 'nit: rename this' })
+    expect(c).not.toHaveProperty('id')
+    expect(c).not.toHaveProperty('type')
+    expect(c).not.toHaveProperty('createdAt')
+    expect(c).not.toHaveProperty('lineNumber')
   })
 
-  it('case 8: mixed line + file comments — preserves order and correct shapes for both', () => {
-    const result = buildCodeReviewPayload('changes_requested', [
-      lineFixture,
-      fileFixture,
-    ])
-    const parsed = JSON.parse(result)
-    expect(parsed.comments).toHaveLength(2)
-    // Index 0 is the line comment
-    expect(parsed.comments[0]).toEqual({
-      file: 'src/foo.ts',
-      line: 42,
-      side: 'additions',
-      text: 'Use const here',
-    })
-    // Index 1 is the file comment
-    expect(parsed.comments[1]).toEqual({
-      file: 'src/bar.ts',
-      text: 'Missing exports',
-    })
+  it('strips internal fields from a file comment', () => {
+    const result = JSON.parse(buildReviewPayload(undefined, [fileComment]))
+    const c = result.comments[0]
+    expect(c).toEqual({ file: 'src/bar.ts', text: 'missing tests' })
+    expect(c).not.toHaveProperty('line')
+    expect(c).not.toHaveProperty('side')
+  })
+
+  it('emits endLine when endLineNumber is set', () => {
+    const result = JSON.parse(buildReviewPayload(undefined, [lineCommentWithEnd]))
+    expect(result.comments[0].endLine).toBe(8)
+  })
+
+  it('omits endLine when endLineNumber is absent', () => {
+    const result = JSON.parse(buildReviewPayload(undefined, [lineComment]))
+    expect(result.comments[0]).not.toHaveProperty('endLine')
   })
 })
 
 describe('shouldUseClipboard', () => {
-  it('returns true when status is offline', () => {
+  it('returns true when offline', () => {
     expect(shouldUseClipboard('offline')).toBe(true)
   })
 
-  it('returns false when status is online', () => {
+  it('returns false when online', () => {
     expect(shouldUseClipboard('online')).toBe(false)
   })
 })

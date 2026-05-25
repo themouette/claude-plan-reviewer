@@ -11,20 +11,20 @@ describe('CodeReviewSubmitPopover', () => {
     expect(typeof CodeReviewSubmitPopover).toBe('function')
   })
 
-  it('Test 2: Source contains aria-label="Approve review" literal (NOT "Send feedback")', () => {
-    expect(source).toContain('aria-label="Approve review"')
+  it('Test 2: Source contains aria-label="Send review"', () => {
+    expect(source).toContain('aria-label="Send review"')
   })
 
-  it("Test 3: Source contains the textarea label string 'Global instruction (optional)'", () => {
-    expect(source).toContain('Global instruction (optional)')
+  it("Test 3: Source contains the textarea label string 'Message (optional)'", () => {
+    expect(source).toContain('Message (optional)')
   })
 
-  it("Test 4: Source contains the textarea placeholder 'Leave an instruction for the agent (optional)'", () => {
-    expect(source).toContain('Leave an instruction for the agent (optional)')
+  it("Test 4: Source contains the textarea placeholder 'Leave a message for the agent (optional)'", () => {
+    expect(source).toContain('Leave a message for the agent (optional)')
   })
 
-  it("Test 5: Source contains the submit button label 'Confirm Approve'", () => {
-    expect(source).toContain('Confirm Approve')
+  it("Test 5: Source contains the submit button label 'Send Review'", () => {
+    expect(source).toContain('Send Review')
   })
 
   it('Test 6: Source contains var(--color-accent-approve) (the submit button background — green, NOT red)', () => {

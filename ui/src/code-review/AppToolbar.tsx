@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CodeReviewComment } from './types'
 import type { ConnectivityStatus } from '../shared/connectivity'
-import { buildCodeReviewPayload, shouldUseClipboard } from './buildCodeReviewPayload'
+import { buildReviewPayload, shouldUseClipboard } from './buildCodeReviewPayload'
 import CodeReviewSubmitPopover from './CodeReviewSubmitPopover'
 
 export interface AppToolbarProps {
@@ -19,8 +19,7 @@ export interface AppToolbarProps {
   // Phase 28 additions: submit controls
   comments: CodeReviewComment[]
   connectivity: ConnectivityStatus
-  onApprove: (globalInstruction?: string) => void
-  onRequestChanges: () => void
+  onReviewSent: () => void
 }
 
 export default function AppToolbar({
@@ -40,20 +39,16 @@ export default function AppToolbar({
   type SubmitState =
     | 'idle'
     | 'popover_open'
-    | 'confirmed_approve'
-    | 'confirmed_request_changes'
+    | 'confirmed'
     | 'clipboard_confirmed'
     | 'clipboard_error'
 
   const [submitState, setSubmitState] = useState<SubmitState>('idle')
   const [clipboardJson, setClipboardJson] = useState('')
 
-  const canApprove = comments.length === 0
-  const canRequestChanges = comments.length > 0
-
-  // Auto-close tab after confirmed states (500ms)
+  // Auto-close tab after confirmed state (500ms)
   useEffect(() => {
-    if (submitState === 'confirmed_approve' || submitState === 'confirmed_request_changes') {
+    if (submitState === 'confirmed') {
       const id = window.setTimeout(() => {
         try { window.close() } catch { /* browser may block window.close() — ignore */ }
       }, 500)
@@ -68,57 +63,28 @@ export default function AppToolbar({
       return () => clearTimeout(id)
     }
   }, [submitState])
-  async function handleApprove(globalInstruction?: string) {
-    if (shouldUseClipboard(connectivity)) {
-      const json = buildCodeReviewPayload('approved', comments, globalInstruction)
-      navigator.clipboard.writeText(json)
-        .then(() => setSubmitState('clipboard_confirmed'))
-        .catch(() => { setClipboardJson(json); setSubmitState('clipboard_error') })
-      return
-    }
-    try {
-      const body = buildCodeReviewPayload('approved', comments, globalInstruction)
-      const res = await fetch('/api/decide', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-      })
-      if (res.ok || res.status === 409) {
-        setSubmitState('confirmed_approve')
-      } else {
-        setClipboardJson(body)
-        setSubmitState('clipboard_error')
-      }
-    } catch {
-      const json = buildCodeReviewPayload('approved', comments, globalInstruction)
-      setClipboardJson(json)
-      setSubmitState('clipboard_error')
-    }
-  }
 
-  async function handleRequestChanges() {
+  async function handleSend(message?: string) {
+    const json = buildReviewPayload(message, comments)
     if (shouldUseClipboard(connectivity)) {
-      const json = buildCodeReviewPayload('changes_requested', comments)
       navigator.clipboard.writeText(json)
         .then(() => setSubmitState('clipboard_confirmed'))
         .catch(() => { setClipboardJson(json); setSubmitState('clipboard_error') })
       return
     }
     try {
-      const body = buildCodeReviewPayload('changes_requested', comments)
       const res = await fetch('/api/decide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body,
+        body: json,
       })
       if (res.ok || res.status === 409) {
-        setSubmitState('confirmed_request_changes')
+        setSubmitState('confirmed')
       } else {
-        setClipboardJson(body)
+        setClipboardJson(json)
         setSubmitState('clipboard_error')
       }
     } catch {
-      const json = buildCodeReviewPayload('changes_requested', comments)
       setClipboardJson(json)
       setSubmitState('clipboard_error')
     }
@@ -169,94 +135,46 @@ export default function AppToolbar({
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
           {(submitState === 'idle' || submitState === 'popover_open') && (
             <>
-              <span title={!canApprove ? 'Cannot approve while comments exist' : undefined} style={{ display: 'inline-flex' }}>
-                <button
-                  type="button"
-                  className="submit-btn"
-                  aria-disabled={!canApprove}
-                  onClick={() => {
-                    if (!canApprove) return
-                    if (shouldUseClipboard(connectivity)) {
-                      void handleApprove()
-                    } else {
-                      setSubmitState('popover_open')
-                    }
-                  }}
-                  style={{
-                    height: 32,
-                    paddingLeft: 16,
-                    paddingRight: 16,
-                    borderRadius: 6,
-                    border: 'none',
-                    background: 'var(--color-accent-approve)',
-                    color: '#fff',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: canApprove ? 'pointer' : 'default',
-                    opacity: canApprove ? 1 : 0.4,
-                    outline: 'none',
-                    pointerEvents: canApprove ? 'auto' : 'none',
-                  }}
-                  onMouseOver={(e) => {
-                    if (canApprove) e.currentTarget.style.background = 'var(--color-accent-approve-hover)'
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.background = 'var(--color-accent-approve)'
-                  }}
-                  {...makeFocusHandlers('approve')}
-                >
-                  {'Approve'}
-                </button>
-              </span>
-
-              <span title={!canRequestChanges ? 'Add at least one comment before requesting changes' : undefined} style={{ display: 'inline-flex' }}>
-                <button
-                  type="button"
-                  className="submit-btn"
-                  aria-disabled={!canRequestChanges}
-                  onClick={() => {
-                    if (!canRequestChanges) return
-                    void handleRequestChanges()
-                  }}
-                  style={{
-                    height: 32,
-                    paddingLeft: 16,
-                    paddingRight: 16,
-                    borderRadius: 6,
-                    border: 'none',
-                    background: 'var(--color-accent-deny)',
-                    color: '#fff',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: canRequestChanges ? 'pointer' : 'default',
-                    opacity: canRequestChanges ? 1 : 0.4,
-                    outline: 'none',
-                    pointerEvents: canRequestChanges ? 'auto' : 'none',
-                  }}
-                  {...makeFocusHandlers('request-changes')}
-                >
-                  {'Request Changes'}
-                </button>
-              </span>
+              <button
+                type="button"
+                className="submit-btn"
+                onClick={() => setSubmitState('popover_open')}
+                style={{
+                  height: 32,
+                  paddingLeft: 16,
+                  paddingRight: 16,
+                  borderRadius: 6,
+                  border: 'none',
+                  background: 'var(--color-accent-approve)',
+                  color: '#fff',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'var(--color-accent-approve-hover)'
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'var(--color-accent-approve)'
+                }}
+                {...makeFocusHandlers('send-review')}
+              >
+                {'Send Review'}
+              </button>
 
               <CodeReviewSubmitPopover
                 open={submitState === 'popover_open'}
                 onDismiss={() => setSubmitState('idle')}
-                onConfirm={(gi) => { void handleApprove(gi) }}
+                onConfirm={(msg) => { void handleSend(msg) }}
+                canSend={comments.length > 0}
               />
             </>
           )}
 
-          {submitState === 'confirmed_approve' && (
+          {submitState === 'confirmed' && (
             <div role="status" aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-accent-approve)' }}>{'Approved'}</span>
-              <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>{'You can close this tab.'}</span>
-            </div>
-          )}
-
-          {submitState === 'confirmed_request_changes' && (
-            <div role="status" aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-accent-deny)' }}>{'Review submitted'}</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-accent-approve)' }}>{'Review sent'}</span>
               <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>{'You can close this tab.'}</span>
             </div>
           )}
