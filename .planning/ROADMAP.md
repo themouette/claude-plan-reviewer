@@ -866,8 +866,8 @@ Plans:
 **Goal:** Fix 422 regression in POST /api/decide when the code-review frontend submits {message?, comments?} (no behavior key); unblock the code-review submit path with no frontend changes
 **Requirements**: TBD
 **Depends on:** Phase 29
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 29.1-01-PLAN.md — Add failing integration test server_cycle_code_review_submit (RED state)
-- [ ] 29.1-02-PLAN.md — Fix post_decide handler to accept serde_json::Value with key-presence dispatch (GREEN state)
+- [x] 29.1-02-PLAN.md — Fix post_decide handler to accept serde_json::Value with key-presence dispatch (GREEN state)
