@@ -67,18 +67,6 @@ impl HookOutput {
         }
     }
 
-    pub fn allow_with_message(message: String) -> Self {
-        HookOutput {
-            hook_specific_output: HookSpecificOutput {
-                hook_event_name: "PermissionRequest".to_string(),
-                decision: PermissionDecision {
-                    behavior: "allow".to_string(),
-                    message: Some(message),
-                },
-            },
-        }
-    }
-
     pub fn deny(message: String) -> Self {
         HookOutput {
             hook_specific_output: HookSpecificOutput {
@@ -90,4 +78,18 @@ impl HookOutput {
             },
         }
     }
+}
+
+/// Build a PreToolUse advisory output that injects context into Claude's
+/// conversation without blocking the tool call.
+///
+/// This is the correct format for passing reviewer feedback to the agent when
+/// approving — Claude Code surfaces `additionalContext` as conversation context.
+pub fn pre_tool_use_advisory(context: &str) -> serde_json::Value {
+    serde_json::json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": context
+        }
+    })
 }

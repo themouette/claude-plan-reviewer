@@ -425,7 +425,7 @@ mod tests {
 }
 
 use clap::{Parser, Subcommand};
-use hook::{HookInput, HookOutput};
+use hook::{HookInput, HookOutput, pre_tool_use_advisory};
 use server::Decision;
 
 #[derive(Parser, Debug)]
@@ -1040,17 +1040,18 @@ fn run_pre_pr_hook_flow(no_browser: bool, port: u16) {
         "/code-review",
     ));
 
-    // Write Claude Code PreToolUse hook output — the hookSpecificOutput wrapper is required
-    // for "deny" to actually block the Bash tool call. For "allow" with reviewer feedback,
-    // we include the message so the agent can see the reviewer's notes.
+    // Write Claude Code PreToolUse hook output.
+    // - "deny": hookSpecificOutput with PermissionRequest decision blocks the Bash call.
+    // - "allow" with feedback: hookSpecificOutput with additionalContext injects the
+    //   reviewer's notes into Claude's conversation context without blocking.
+    // - "allow" with no feedback: no stdout — Claude Code treats empty stdout as allow.
     match decision.behavior.as_str() {
         "allow" => {
             if let Some(feedback) = build_code_review_feedback(&decision) {
-                let hook_output = HookOutput::allow_with_message(feedback);
-                serde_json::to_writer(std::io::stdout(), &hook_output)
+                let advisory = pre_tool_use_advisory(&feedback);
+                serde_json::to_writer(std::io::stdout(), &advisory)
                     .expect("failed to write hook output");
             }
-            // No feedback and allow = no stdout — Claude Code treats missing hookSpecificOutput as allow.
         }
         _ => {
             let hook_output = HookOutput::deny(
