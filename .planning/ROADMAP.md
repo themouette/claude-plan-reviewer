@@ -809,12 +809,12 @@ Plans:
 
   5. Existing `plan-reviewer install` behavior for annotate/review-hook is unchanged
 
-**Plans:** 0/2 plans
+**Plans:** 1/2 plans executed
 Plans:
 
 **Wave 1**
 
-- [ ] 29-01-PLAN.md — `code-review` subcommand + Rust server route to open `/code-review` URL
+- [x] 29-01-PLAN.md — `code-review` subcommand + Rust server route to open `/code-review` URL
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -859,4 +859,4 @@ Plans:
 | 26.2. Commit Navigation UX Polish | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
 | 27. Inline Comments | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
 | 28. Review Submission | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
-| 29. Code Review Integration | v0.7.0 | 0/2 | Not started | - |
+| 29. Code Review Integration | v0.7.0 | 1/2 | In Progress|  |
