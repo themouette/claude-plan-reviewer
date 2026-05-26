@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildTree, type FileNode, type DirNode } from './fileTree'
+import { buildTree, flattenTree, type FileNode, type DirNode } from './fileTree'
 import type { FileDiff } from './types'
 
 function makeFile(filename: string): FileDiff {
@@ -85,5 +85,33 @@ describe('buildTree', () => {
     expect(tree).toHaveLength(2)
     expect(tree[0].kind).toBe('dir')
     expect(tree[1].kind).toBe('file')
+  })
+})
+
+describe('flattenTree', () => {
+  it('returns files in tree render order (dirs before files at each level)', () => {
+    // git diff order: README.md (0), src/index.ts (1), src/lib/util.ts (2)
+    // tree order: src/ dir → src/lib/util.ts, src/index.ts, then README.md
+    const files = [makeFile('README.md'), makeFile('src/index.ts'), makeFile('src/lib/util.ts')]
+    const flat = flattenTree(buildTree(files))
+    expect(flat.map((n) => n.file.filename)).toEqual([
+      'src/lib/util.ts',
+      'src/index.ts',
+      'README.md',
+    ])
+  })
+
+  it('reordering by flattenTree index produces tree-stable sort', () => {
+    // git diff order scrambles files across dirs
+    const files = [makeFile('src/main.rs'), makeFile('ui/App.tsx'), makeFile('src/lib.rs')]
+    const flat = flattenTree(buildTree(files))
+    expect(flat.map((n) => n.file.filename)).toEqual(['src/main.rs', 'src/lib.rs', 'ui/App.tsx'])
+  })
+
+  it('round-trips: buildTree(sortedFiles) produces same filenames in same order', () => {
+    const files = [makeFile('src/main.rs'), makeFile('ui/App.tsx'), makeFile('src/lib.rs')]
+    const sortedFiles = flattenTree(buildTree(files)).map((n) => n.file)
+    const flat2 = flattenTree(buildTree(sortedFiles))
+    expect(flat2.map((n) => n.file.filename)).toEqual(sortedFiles.map((f) => f.filename))
   })
 })

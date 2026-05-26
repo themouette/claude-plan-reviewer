@@ -7,6 +7,7 @@ import { useDiff } from './hooks/useDiff'
 import type { DiffFetchSelector } from './hooks/useDiff'
 import { useCommits } from './hooks/useCommits'
 import { useCodeReviewAnnotations } from './hooks/useCodeReviewAnnotations'
+import { buildTree, flattenTree } from './fileTree'
 import type { Commit } from './types'
 import { useHeartbeat } from '../shared/useHeartbeat'
 
@@ -80,6 +81,9 @@ export default function CodeReviewApp(): React.JSX.Element {
         : { mode: 'branch' }
 
   const { files, loading, error, refetch } = useDiff({ selector })
+
+  // Reorder files to match tree order (dirs-first) so the diff pane and file tree are in sync
+  const sortedFiles = useMemo(() => flattenTree(buildTree(files)).map((n) => n.file), [files])
 
   // CR-01: derive selectorKey here so we can reset contextExpanded when selector changes
   const selectorKey =
@@ -271,7 +275,7 @@ export default function CodeReviewApp(): React.JSX.Element {
           }}
         >
           <FileListPane
-            files={files}
+            files={sortedFiles}
             activeIndex={activeIndex}
             diffPaneRef={diffPaneRef}
             onActiveIndexChange={setActiveIndex}
@@ -279,7 +283,7 @@ export default function CodeReviewApp(): React.JSX.Element {
           />
         </aside>
         <DiffPane
-          files={files}
+          files={sortedFiles}
           loading={loading}
           error={error}
           diffStyle={diffStyle}

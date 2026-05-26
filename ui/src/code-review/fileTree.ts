@@ -73,6 +73,18 @@ function convertTrie(trie: TrieNode, basePath: string): TreeNode[] {
   return [...dirNodes, ...fileNodes]
 }
 
+export function flattenTree(nodes: TreeNode[]): FileNode[] {
+  const result: FileNode[] = []
+  for (const node of nodes) {
+    if (node.kind === 'file') {
+      result.push(node)
+    } else {
+      result.push(...flattenTree(node.children))
+    }
+  }
+  return result
+}
+
 export function buildTree(files: FileDiff[]): TreeNode[] {
   const root: TrieNode = { files: [], dirs: new Map() }
 
