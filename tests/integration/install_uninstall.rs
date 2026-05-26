@@ -520,3 +520,144 @@ fn uninstall_gemini_after_install_removes_hook() {
 
     drop(home);
 }
+
+// ---------------------------------------------------------------------------
+// Plan 29-02: code-review.md + PreToolUse integration tests
+// ---------------------------------------------------------------------------
+
+/// Install claude creates commands/code-review.md with the code-review content.
+///
+/// Phase 29-02: install() writes commands/code-review.md with the plugin-namespaced
+/// heading, allowed-tools declaration, run_in_background instruction, and the
+/// plan-reviewer code-review command.
+#[test]
+fn install_claude_creates_commands_code_review_md() {
+    let home = tempfile::TempDir::new().unwrap();
+
+    Command::cargo_bin("plan-reviewer")
+        .unwrap()
+        .env("HOME", home.path())
+        .args(["install", "claude"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("code-review command written to"));
+
+    let cr_path = home
+        .path()
+        .join(".local/share/plan-reviewer/claude-plugin/commands/code-review.md");
+    assert!(cr_path.exists(), "commands/code-review.md must be created");
+
+    let content = std::fs::read_to_string(&cr_path).unwrap();
+    assert!(
+        content.contains("# /plan-reviewer:code-review"),
+        "code-review.md must contain plugin-namespaced heading"
+    );
+    assert!(
+        content.contains("allowed-tools: Bash"),
+        "code-review.md must declare allowed-tools: Bash"
+    );
+    assert!(
+        content.contains("plan-reviewer code-review"),
+        "code-review.md must contain 'plan-reviewer code-review' command"
+    );
+    assert!(
+        content.contains("run_in_background"),
+        "code-review.md must instruct Claude to use run_in_background"
+    );
+
+    drop(home);
+}
+
+/// Install claude writes a PreToolUse array to hooks.json AND preserves PermissionRequest.
+///
+/// Phase 29-02: hooks.json must contain BOTH PermissionRequest (existing ExitPlanMode)
+/// AND PreToolUse (new Bash matcher for plan-reviewer pre-pr-hook) arrays.
+#[test]
+fn install_claude_writes_pre_tool_use_hook_in_hooks_json() {
+    let home = tempfile::TempDir::new().unwrap();
+
+    Command::cargo_bin("plan-reviewer")
+        .unwrap()
+        .env("HOME", home.path())
+        .args(["install", "claude"])
+        .assert()
+        .success();
+
+    let hooks_json_path = home
+        .path()
+        .join(".local/share/plan-reviewer/claude-plugin/hooks/hooks.json");
+    let content = std::fs::read_to_string(&hooks_json_path).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+    // PreToolUse entry assertions
+    let pre_tool_use = json["hooks"]["PreToolUse"]
+        .as_array()
+        .expect("PreToolUse must exist in hooks.json");
+    assert_eq!(
+        pre_tool_use[0]["matcher"].as_str(),
+        Some("Bash"),
+        "PreToolUse matcher must be 'Bash'"
+    );
+    assert_eq!(
+        pre_tool_use[0]["hooks"][0]["command"].as_str(),
+        Some("plan-reviewer pre-pr-hook"),
+        "PreToolUse command must be 'plan-reviewer pre-pr-hook'"
+    );
+    assert_eq!(
+        pre_tool_use[0]["hooks"][0]["timeout"].as_i64(),
+        Some(600_000),
+        "PreToolUse timeout must be 600000"
+    );
+
+    // PermissionRequest must still be present (Pitfall 5)
+    let perm_req = json["hooks"]["PermissionRequest"]
+        .as_array()
+        .expect("PermissionRequest must still be present after PreToolUse added");
+    assert_eq!(
+        perm_req[0]["matcher"].as_str(),
+        Some("ExitPlanMode"),
+        "PermissionRequest matcher must remain 'ExitPlanMode'"
+    );
+
+    drop(home);
+}
+
+/// Uninstall claude removes commands/code-review.md (whole plugin dir removed).
+///
+/// Phase 29-02: uninstall() calls remove_dir_all(&plugin_dir) which removes all
+/// files in the plugin directory, including the new commands/code-review.md.
+#[test]
+fn uninstall_claude_removes_code_review_md() {
+    let home = tempfile::TempDir::new().unwrap();
+
+    // Install first
+    Command::cargo_bin("plan-reviewer")
+        .unwrap()
+        .env("HOME", home.path())
+        .args(["install", "claude"])
+        .assert()
+        .success();
+
+    let cr_path = home
+        .path()
+        .join(".local/share/plan-reviewer/claude-plugin/commands/code-review.md");
+    assert!(
+        cr_path.exists(),
+        "precondition: code-review.md must exist after install"
+    );
+
+    // Uninstall
+    Command::cargo_bin("plan-reviewer")
+        .unwrap()
+        .env("HOME", home.path())
+        .args(["uninstall", "claude"])
+        .assert()
+        .success();
+
+    assert!(
+        !cr_path.exists(),
+        "code-review.md must be removed by uninstall (whole plugin dir removed)"
+    );
+
+    drop(home);
+}
