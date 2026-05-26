@@ -37,15 +37,15 @@ clipboard degraded mode preserved, no v1 code coupling.
 
 ## Current State
 
-v0.6.0 shipped 2026-05-22. v0.7.0 milestone (Code Review) in progress — Phase 26 complete (commit navigation: CommitDrawer overlay, per-commit diff, keyboard nav, DIFF-05 multi-commit union).
+v0.6.0 shipped 2026-05-22. v0.7.0 milestone (Code Review) complete — Phase 29 done (code review integration: `code-review` + `pre-pr-hook` subcommands, install/uninstall wiring).
 
 - **Binary**: `plan-reviewer` — single static Rust binary
-- **Subcommands**: `install [integration]`, `uninstall [integration]`, `update [--check] [--version X] [-y]`, `review <file>`, `review-hook`
-- **Supported integrations**: Claude Code (full plugin model — hook + slash command), opencode (JS plugin), Gemini CLI (extension directory)
+- **Subcommands**: `install [integration]`, `uninstall [integration]`, `update [--check] [--version X] [-y]`, `review <file>`, `review-hook`, `code-review`, `pre-pr-hook`
+- **Supported integrations**: Claude Code (full plugin model — hook + slash command + pre-PR hook + code-review slash command), opencode (JS plugin), Gemini CLI (extension directory)
 - **Distribution**: cargo-dist releases for darwin-arm64, darwin-x64, linux-musl-arm64, linux-musl-x64
-- **UI**: ReviewerV2 (React+TS) — 3-column markdown annotation UI at root URL; v1 removed
+- **UI**: ReviewerV2 (React+TS) — 3-column markdown annotation UI at root URL; `/code-review` route for branch diff review
 - **Offline resilience**: heartbeat polling, offline banner, clipboard submit path, slash command paste fallback — all complete
-- **Known tech debt**: 4 code review warnings (WR-01–WR-04 across prior milestones)
+- **Known tech debt**: WR-01 (CancellationToken drop on server start — survivable via process::exit watchdog)
 
 ## Requirements
 
@@ -177,4 +177,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-23 — Phase 24 complete (backend diff API)*
+*Last updated: 2026-05-26 — Phase 29 complete (code review integration — v0.7.0 milestone done)*
