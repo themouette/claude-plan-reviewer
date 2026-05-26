@@ -10,8 +10,9 @@ mod update;
 #[cfg(test)]
 mod tests {
     use super::{
-        Cli, Commands, build_gemini_output, build_opencode_output, extract_command_from_tool_input,
-        extract_plan_content, is_pr_command,
+        build_gemini_output, build_opencode_output, build_review_url,
+        extract_command_from_tool_input, extract_plan_content, is_pr_command,
+        should_trigger_code_review, Cli, Commands,
     };
     use crate::hook;
     use crate::hook::HookOutput;
@@ -107,6 +108,51 @@ mod tests {
         );
         assert!(!is_pr_command("echo hi"), "echo hi should not match");
         assert!(!is_pr_command(""), "empty string should not match");
+    }
+
+    // -----------------------------------------------------------------------
+    // Task 2: build_review_url + should_trigger_code_review tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_async_main_builds_url_with_path() {
+        assert_eq!(build_review_url(8080, "/"), "http://127.0.0.1:8080/");
+        assert_eq!(
+            build_review_url(3000, "/code-review"),
+            "http://127.0.0.1:3000/code-review"
+        );
+        assert_eq!(
+            build_review_url(0, "/code-review"),
+            "http://127.0.0.1:0/code-review"
+        );
+    }
+
+    #[test]
+    fn test_run_pre_pr_hook_flow_exits_silently_on_non_pr_command() {
+        let raw = r#"{"session_id":"s","cwd":"/tmp","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"npm install"}}"#;
+        let hi: hook::HookInput = serde_json::from_str(raw).unwrap();
+        assert!(!should_trigger_code_review(&hi));
+    }
+
+    #[test]
+    fn test_run_pre_pr_hook_flow_triggers_on_gh_pr_create() {
+        let raw = r#"{"session_id":"s","cwd":"/tmp","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"gh pr create --base main"}}"#;
+        let hi: hook::HookInput = serde_json::from_str(raw).unwrap();
+        assert!(should_trigger_code_review(&hi));
+    }
+
+    #[test]
+    fn test_run_pre_pr_hook_flow_triggers_on_git_push() {
+        let raw = r#"{"session_id":"s","cwd":"/tmp","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git push origin feature/foo"}}"#;
+        let hi: hook::HookInput = serde_json::from_str(raw).unwrap();
+        assert!(should_trigger_code_review(&hi));
+    }
+
+    #[test]
+    fn test_run_pre_pr_hook_flow_handles_missing_command_field() {
+        let raw = r#"{"session_id":"s","cwd":"/tmp","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{}}"#;
+        let hi: hook::HookInput = serde_json::from_str(raw).unwrap();
+        assert!(!should_trigger_code_review(&hi));
     }
 
     #[test]
