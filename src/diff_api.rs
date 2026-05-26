@@ -155,8 +155,8 @@ fn commit_to_dto(
 
 // --- Per-file diff extraction ---
 
-/// Read blob content as UTF-8. Returns `Some("")` for the zero OID (added/deleted side),
-/// `None` for binary blobs or encoding errors.
+/// Read blob content as UTF-8 from a git object. Returns `Some("")` for the zero OID
+/// (absent side of an add/delete), `None` for binary blobs or encoding errors.
 fn extract_blob_content(repo: &git2::Repository, oid: git2::Oid) -> Option<String> {
     if oid.is_zero() {
         return Some(String::new());
@@ -166,6 +166,28 @@ fn extract_blob_content(repo: &git2::Repository, oid: git2::Oid) -> Option<Strin
         return None;
     }
     String::from_utf8(blob.content().to_vec()).ok()
+}
+
+/// Read new-side file content.
+///
+/// For committed files the OID is non-zero and we read from the git object store.
+/// For workdir files (staged or unstaged changes not yet committed) the OID is zero;
+/// we read directly from the working tree so uncommitted changes are visible.
+fn extract_new_content(
+    repo: &git2::Repository,
+    oid: git2::Oid,
+    path: Option<&std::path::Path>,
+) -> Option<String> {
+    if !oid.is_zero() {
+        return extract_blob_content(repo, oid);
+    }
+    // Zero OID = workdir file — read from disk.
+    let full_path = repo.workdir()?.join(path?);
+    let bytes = std::fs::read(&full_path).ok()?;
+    if bytes.contains(&0u8) {
+        return None; // treat files with NUL bytes as binary
+    }
+    String::from_utf8(bytes).ok()
 }
 
 fn build_file_diffs(diff: &git2::Diff, repo: &git2::Repository) -> Vec<FileDiff> {
@@ -213,7 +235,8 @@ fn build_file_diffs(diff: &git2::Diff, repo: &git2::Repository) -> Vec<FileDiff>
                     Err(_) => String::new(),
                 };
                 let old_content = extract_blob_content(repo, delta.old_file().id());
-                let new_content = extract_blob_content(repo, delta.new_file().id());
+                let new_content =
+                    extract_new_content(repo, delta.new_file().id(), delta.new_file().path());
                 file_diffs.push(FileDiff {
                     filename,
                     previous_filename,
@@ -274,14 +297,15 @@ fn try_branch_diff(repo_path: &std::path::Path, context_lines: u32) -> Option<Ve
 
     let base_commit = repo.find_commit(base_oid).ok()?;
     let base_tree = base_commit.tree().ok()?;
-    let head_tree = head.tree().ok()?;
 
     let mut opts = git2::DiffOptions::new();
     opts.old_prefix("a/").new_prefix("b/");
     opts.context_lines(context_lines);
 
+    // diff_tree_to_workdir_with_index: base → workdir (staged + unstaged).
+    // This includes committed branch changes AND any uncommitted work in progress.
     let diff = repo
-        .diff_tree_to_tree(Some(&base_tree), Some(&head_tree), Some(&mut opts))
+        .diff_tree_to_workdir_with_index(Some(&base_tree), Some(&mut opts))
         .ok()?;
 
     Some(build_file_diffs(&diff, &repo))
