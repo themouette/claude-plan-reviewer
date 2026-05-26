@@ -860,3 +860,14 @@ Plans:
 | 27. Inline Comments | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
 | 28. Review Submission | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
 | 29. Code Review Integration | v0.7.0 | 2/2 | Complete    | 2026-05-26 |
+
+### Phase 29.1: Fix POST /api/decide schema mismatch — code-review payload (INSERTED)
+
+**Goal:** Fix 422 regression in POST /api/decide when the code-review frontend submits {message?, comments?} (no behavior key); unblock the code-review submit path with no frontend changes
+**Requirements**: TBD
+**Depends on:** Phase 29
+**Plans:** 2 plans
+
+Plans:
+- [ ] 29.1-01-PLAN.md — Add failing integration test server_cycle_code_review_submit (RED state)
+- [ ] 29.1-02-PLAN.md — Fix post_decide handler to accept serde_json::Value with key-presence dispatch (GREEN state)
