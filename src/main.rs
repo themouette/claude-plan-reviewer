@@ -10,8 +10,8 @@ mod update;
 #[cfg(test)]
 mod tests {
     use super::{
-        extract_command_from_tool_input, is_pr_command, Cli, Commands, build_gemini_output,
-        build_opencode_output, extract_plan_content,
+        Cli, Commands, build_gemini_output, build_opencode_output, extract_command_from_tool_input,
+        extract_plan_content, is_pr_command,
     };
     use crate::hook;
     use crate::hook::HookOutput;
@@ -24,8 +24,7 @@ mod tests {
 
     #[test]
     fn test_cli_code_review_subcommand_parses() {
-        let cli =
-            Cli::try_parse_from(["plan-reviewer", "code-review"]).expect("parse failed");
+        let cli = Cli::try_parse_from(["plan-reviewer", "code-review"]).expect("parse failed");
         assert!(
             matches!(cli.command, Some(Commands::CodeReview)),
             "expected Commands::CodeReview"
@@ -52,8 +51,7 @@ mod tests {
 
     #[test]
     fn test_cli_pre_pr_hook_subcommand_parses() {
-        let cli =
-            Cli::try_parse_from(["plan-reviewer", "pre-pr-hook"]).expect("parse failed");
+        let cli = Cli::try_parse_from(["plan-reviewer", "pre-pr-hook"]).expect("parse failed");
         assert!(
             matches!(cli.command, Some(Commands::PrePrHook)),
             "expected Commands::PrePrHook; CLI name must be exactly 'pre-pr-hook'"
@@ -92,12 +90,21 @@ mod tests {
     fn test_is_pr_command_matches() {
         // Positive cases
         assert!(is_pr_command("gh pr create"), "gh pr create");
-        assert!(is_pr_command("gh pr create --base main"), "gh pr create --base main");
-        assert!(is_pr_command("git push origin main"), "git push origin main");
+        assert!(
+            is_pr_command("gh pr create --base main"),
+            "gh pr create --base main"
+        );
+        assert!(
+            is_pr_command("git push origin main"),
+            "git push origin main"
+        );
         assert!(is_pr_command("  git push"), "leading whitespace + git push");
         // Negative cases
         assert!(!is_pr_command("git status"), "git status should not match");
-        assert!(!is_pr_command("npm install"), "npm install should not match");
+        assert!(
+            !is_pr_command("npm install"),
+            "npm install should not match"
+        );
         assert!(!is_pr_command("echo hi"), "echo hi should not match");
         assert!(!is_pr_command(""), "empty string should not match");
     }
@@ -374,6 +381,16 @@ enum Commands {
         #[arg(short = 'y', long)]
         yes: bool,
     },
+    /// Open the code review UI for the current git branch.
+    ///
+    /// Starts the local server and opens the browser at /code-review.
+    /// Does not read stdin.
+    CodeReview,
+    /// Claude Code PreToolUse hook handler.
+    ///
+    /// Reads stdin JSON, filters by tool_input.command, exits 0 silently when
+    /// the command is not a PR/push, otherwise delegates to the code-review flow.
+    PrePrHook,
 }
 
 /// Extract plan Markdown from hook input.
@@ -427,6 +444,29 @@ fn build_opencode_output(decision: &Decision) -> serde_json::Value {
             obj
         }
     }
+}
+
+/// Extract the `command` field from a `ToolInput`'s extra map.
+///
+/// PreToolUse Bash events carry the shell command in `tool_input.command`.
+/// Because `ToolInput.extra` captures arbitrary keys via `#[serde(flatten)]`,
+/// this helper isolates the JSON-shape dependency from filtering logic.
+#[allow(dead_code)] // used by run_pre_pr_hook_flow (Task 2) — remove once wired
+fn extract_command_from_tool_input(tool_input: &hook::ToolInput) -> Option<&str> {
+    tool_input
+        .extra
+        .get("command")
+        .and_then(serde_json::Value::as_str)
+}
+
+/// Return `true` if `cmd` looks like a PR-creating or push command.
+///
+/// Matches `gh pr create ...` and `git push ...` (with optional leading whitespace).
+/// Uses explicit `starts_with` — no regex dependency.
+#[allow(dead_code)] // used by should_trigger_code_review (Task 2) — remove once wired
+fn is_pr_command(cmd: &str) -> bool {
+    let t = cmd.trim_start();
+    t.starts_with("gh pr create") || t.starts_with("git push")
 }
 
 fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
@@ -541,6 +581,14 @@ fn main() {
         }) => {
             // update subcommand: does NOT read stdin
             update::run_update(*check, version.clone(), *yes);
+        }
+        Some(Commands::CodeReview) => {
+            // Placeholder: wired in Task 2 (run_code_review_flow)
+            todo!("CodeReview flow — implemented in Task 2")
+        }
+        Some(Commands::PrePrHook) => {
+            // Placeholder: wired in Task 2 (run_pre_pr_hook_flow)
+            todo!("PrePrHook flow — implemented in Task 2")
         }
         None => {
             if let Some(ref plan_file) = cli.plan_file {
