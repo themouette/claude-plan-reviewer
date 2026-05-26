@@ -120,6 +120,16 @@ impl Integration for ClaudeIntegration {
                         "matcher": "ExitPlanMode",
                         "hooks": [{"type": "command", "command": "plan-reviewer review-hook"}]
                     }
+                ],
+                "PreToolUse": [
+                    {
+                        "matcher": "Bash",
+                        "hooks": [{
+                            "type": "command",
+                            "command": "plan-reviewer pre-pr-hook",
+                            "timeout": 600_000
+                        }]
+                    }
                 ]
             }
         });
@@ -231,6 +241,60 @@ impl Integration for ClaudeIntegration {
         println!(
             "plan-reviewer: annotate command written to {}",
             annotate_path.display()
+        );
+
+        // Write commands/code-review.md
+        let code_review_content = concat!(
+            "---\n",
+            "description: Open the code review UI for the current git branch\n",
+            "allowed-tools: Bash\n",
+            "---\n",
+            "\n",
+            "# /plan-reviewer:code-review\n",
+            "\n",
+            "Open the diff viewer for the current git branch in the plan-reviewer browser UI.\n",
+            "Use this before creating a PR to review and annotate the changes.\n",
+            "\n",
+            "## Step 1 — Launch the review\n",
+            "\n",
+            "Run the following via the Bash tool with `run_in_background: true`:\n",
+            "\n",
+            "```bash\n",
+            "plan-reviewer code-review\n",
+            "```\n",
+            "\n",
+            "The process opens a local browser tab at `/code-review` showing the current branch diff.\n",
+            "It exits when the review is submitted in the browser or when the 540-second server timeout fires.\n",
+            "\n",
+            "## Step 2 — Handle the result\n",
+            "\n",
+            "The background process exits when the user submits the review or the timeout fires.\n",
+            "\n",
+            "**If stdout contains JSON:**\n",
+            "\n",
+            "- **On `{\"behavior\":\"allow\"}`:**\n",
+            "  Say: \"Review complete, proceeding with PR creation.\"\n",
+            "\n",
+            "- **On `{\"behavior\":\"deny\",\"message\":\"<feedback>\"}`:**\n",
+            "  Say: \"Review feedback received: <feedback>\".\n",
+            "  Treat the message as revision instructions and propose how to address it BEFORE creating the PR.\n",
+            "\n",
+            "**If no output (empty stdout):**\n",
+            "\n",
+            "Say: \"The code review process exited without a result.\"\n",
+            "Ask the user if they want to proceed with PR creation.\n",
+        );
+        let code_review_path = commands_dir.join("code-review.md");
+        if let Err(e) = std::fs::write(&code_review_path, code_review_content) {
+            return Err(format!(
+                "cannot write {}: {}",
+                code_review_path.display(),
+                e
+            ));
+        }
+        println!(
+            "plan-reviewer: code-review command written to {}",
+            code_review_path.display()
         );
 
         // ------------------------------------------------------------------
@@ -1313,7 +1377,10 @@ mod tests {
         let pre_tool_use = json["hooks"]["PreToolUse"]
             .as_array()
             .expect("PreToolUse must be a non-empty array");
-        assert!(!pre_tool_use.is_empty(), "PreToolUse array must not be empty");
+        assert!(
+            !pre_tool_use.is_empty(),
+            "PreToolUse array must not be empty"
+        );
         assert_eq!(
             pre_tool_use[0]["matcher"].as_str(),
             Some("Bash"),
