@@ -9,11 +9,98 @@ mod update;
 
 #[cfg(test)]
 mod tests {
-    use super::{Cli, Commands, build_gemini_output, build_opencode_output, extract_plan_content};
+    use super::{
+        extract_command_from_tool_input, is_pr_command, Cli, Commands, build_gemini_output,
+        build_opencode_output, extract_plan_content,
+    };
     use crate::hook;
     use crate::hook::HookOutput;
     use crate::server;
     use clap::Parser;
+
+    // -----------------------------------------------------------------------
+    // Task 1: New subcommand parse tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_cli_code_review_subcommand_parses() {
+        let cli =
+            Cli::try_parse_from(["plan-reviewer", "code-review"]).expect("parse failed");
+        assert!(
+            matches!(cli.command, Some(Commands::CodeReview)),
+            "expected Commands::CodeReview"
+        );
+    }
+
+    #[test]
+    fn test_cli_code_review_with_no_browser_and_port() {
+        let cli = Cli::try_parse_from([
+            "plan-reviewer",
+            "--no-browser",
+            "--port",
+            "4242",
+            "code-review",
+        ])
+        .expect("parse failed");
+        assert!(
+            matches!(cli.command, Some(Commands::CodeReview)),
+            "expected Commands::CodeReview"
+        );
+        assert!(cli.no_browser, "--no-browser should be true");
+        assert_eq!(cli.port, 4242, "--port should be 4242");
+    }
+
+    #[test]
+    fn test_cli_pre_pr_hook_subcommand_parses() {
+        let cli =
+            Cli::try_parse_from(["plan-reviewer", "pre-pr-hook"]).expect("parse failed");
+        assert!(
+            matches!(cli.command, Some(Commands::PrePrHook)),
+            "expected Commands::PrePrHook; CLI name must be exactly 'pre-pr-hook'"
+        );
+    }
+
+    #[test]
+    fn test_extract_command_from_tool_input_present() {
+        let mut extra = serde_json::Map::new();
+        extra.insert(
+            "command".to_string(),
+            serde_json::Value::String("gh pr create --base main".to_string()),
+        );
+        let tool_input = hook::ToolInput {
+            plan: None,
+            plan_path: None,
+            extra,
+        };
+        assert_eq!(
+            extract_command_from_tool_input(&tool_input),
+            Some("gh pr create --base main")
+        );
+    }
+
+    #[test]
+    fn test_extract_command_from_tool_input_missing() {
+        let tool_input = hook::ToolInput {
+            plan: None,
+            plan_path: None,
+            extra: serde_json::Map::new(),
+        };
+        assert_eq!(extract_command_from_tool_input(&tool_input), None);
+    }
+
+    #[test]
+    fn test_is_pr_command_matches() {
+        // Positive cases
+        assert!(is_pr_command("gh pr create"), "gh pr create");
+        assert!(is_pr_command("gh pr create --base main"), "gh pr create --base main");
+        assert!(is_pr_command("git push origin main"), "git push origin main");
+        assert!(is_pr_command("  git push"), "leading whitespace + git push");
+        // Negative cases
+        assert!(!is_pr_command("git status"), "git status should not match");
+        assert!(!is_pr_command("npm install"), "npm install should not match");
+        assert!(!is_pr_command("echo hi"), "echo hi should not match");
+        assert!(!is_pr_command(""), "empty string should not match");
+    }
 
     #[test]
     fn test_cli_port_flag_default_zero() {
