@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.7.0
 milestone_name: Code Review
-status: milestone_complete
-stopped_at: Milestone complete (Phase 29 was final phase)
-last_updated: 2026-05-26T07:06:23.832Z
-last_activity: 2026-05-26 -- Phase 29 execution started
+status: executing
+stopped_at: context exhaustion at 82% (2026-05-25)
+last_updated: "2026-05-26T11:13:40.971Z"
+last_activity: 2026-05-26 -- Phase 29.1 planning complete
 progress:
-  total_phases: 8
-  completed_phases: 7
-  total_plans: 20
-  completed_plans: 75
-  percent: 88
+  total_phases: 9
+  completed_phases: 8
+  total_plans: 22
+  completed_plans: 20
+  percent: 89
 ---
 
 # Project State
@@ -28,8 +28,8 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 Phase: 29
 Plan: Not started
 Phase: 29 (Code Review Integration) — NEXT
-Status: Milestone complete
-Last activity: 2026-05-26
+Status: Ready to execute
+Last activity: 2026-05-26 -- Phase 29.1 planning complete
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Recent decisions affecting current work:
 
 - v0.6.0 milestone started: Phases 17-23 added (Markdown Annotator v2)
 - Phase 23 (Regression Tests) can run in parallel with Phase 22 (Submit) — both depend only on Phase 17
+- Phase 29.1 inserted after Phase 29: Fix POST /api/decide schema mismatch — code-review payload (URGENT)
 
 ### Pending Todos
 
