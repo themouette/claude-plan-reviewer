@@ -37,7 +37,7 @@ clipboard degraded mode preserved, no v1 code coupling.
 
 ## Current State
 
-v0.6.0 shipped 2026-05-22. v0.7.0 milestone (Code Review) complete — Phase 29 done (code review integration: `code-review` + `pre-pr-hook` subcommands, install/uninstall wiring).
+v0.6.0 shipped 2026-05-22. v0.7.0 milestone (Code Review) complete — Phase 29 done (code review integration: `code-review` + `pre-pr-hook` subcommands, install/uninstall wiring). Phase 29.1 complete — fixed POST /api/decide schema mismatch: handler now accepts `serde_json::Value` with key-presence dispatch, unblocking code-review submit path.
 
 - **Binary**: `plan-reviewer` — single static Rust binary
 - **Subcommands**: `install [integration]`, `uninstall [integration]`, `update [--check] [--version X] [-y]`, `review <file>`, `review-hook`, `code-review`, `pre-pr-hook`
@@ -177,4 +177,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-26 — Phase 29 complete (code review integration — v0.7.0 milestone done)*
+*Last updated: 2026-05-26 — Phase 29.1 complete (fix POST /api/decide schema mismatch — v0.7.0 fully done)*
