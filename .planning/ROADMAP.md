@@ -809,7 +809,7 @@ Plans:
 
   5. Existing `plan-reviewer install` behavior for annotate/review-hook is unchanged
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 
 **Wave 1**
@@ -818,7 +818,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 29-02-PLAN.md — Install/uninstall: code-review.md slash command + pre-PR hook wiring + integration tests
+- [x] 29-02-PLAN.md — Install/uninstall: code-review.md slash command + pre-PR hook wiring + integration tests
 
 ## Progress
 
@@ -859,4 +859,4 @@ Plans:
 | 26.2. Commit Navigation UX Polish | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
 | 27. Inline Comments | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
 | 28. Review Submission | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
-| 29. Code Review Integration | v0.7.0 | 1/2 | In Progress|  |
+| 29. Code Review Integration | v0.7.0 | 2/2 | Complete   | 2026-05-26 |
