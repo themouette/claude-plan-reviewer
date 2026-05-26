@@ -609,6 +609,7 @@ fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
         plan_md,
         "Approve".to_string(),
         "Deny".to_string(),
+        server::ReviewMode::PlanReview,
         "/",
     ));
 
@@ -658,6 +659,7 @@ fn run_review_flow(no_browser: bool, port: u16, file: &str, approve_label: &str,
         plan_md,
         approve_label.to_string(),
         deny_label.to_string(),
+        server::ReviewMode::PlanReview,
         "/",
     ));
 
@@ -767,6 +769,7 @@ fn run_hook_flow(no_browser: bool, port: u16) {
         plan_md,
         "Approve".to_string(),
         "Deny".to_string(),
+        server::ReviewMode::PlanReview,
         "/",
     ));
 
@@ -799,11 +802,12 @@ async fn async_main(
     plan_md: String,
     approve_label: String,
     deny_label: String,
+    mode: server::ReviewMode,
     path: &str,
 ) -> Decision {
     // Start server
     let (port, decision_rx) =
-        match server::start_server(plan_md, approve_label, deny_label, port).await {
+        match server::start_server(plan_md, approve_label, deny_label, mode, port).await {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("Failed to start server: {}", e);
@@ -890,6 +894,7 @@ fn run_code_review_flow(no_browser: bool, port: u16) {
         String::new(), // /code-review SPA route does not use /api/plan
         "Approve".to_string(),
         "Deny".to_string(),
+        server::ReviewMode::CodeReview,
         "/code-review",
     ));
 
@@ -950,6 +955,7 @@ fn run_pre_pr_hook_flow(no_browser: bool, port: u16) {
         String::new(),
         "Approve".to_string(),
         "Deny".to_string(),
+        server::ReviewMode::CodeReview,
         "/code-review",
     ));
 

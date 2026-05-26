@@ -9,9 +9,9 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{diff_api, plan_review};
 
-// Re-export so main.rs can use `server::Decision` and `server::AppState`
-// without changing existing import paths.
-pub use crate::plan_review::{AppState, Decision};
+// Re-export so main.rs can use `server::Decision`, `server::AppState`, and
+// `server::ReviewMode` without changing existing import paths.
+pub use crate::plan_review::{AppState, Decision, ReviewMode};
 
 // --- Embedded assets ---
 
@@ -36,6 +36,7 @@ pub async fn start_server(
     plan_md: String,
     approve_label: String,
     deny_label: String,
+    mode: ReviewMode,
     port: u16,
 ) -> Result<(u16, oneshot::Receiver<Decision>), Box<dyn std::error::Error + Send + Sync>> {
     // 1. Create decision channel
@@ -45,11 +46,12 @@ pub async fn start_server(
     let token = CancellationToken::new();
     let token_clone = token.clone();
 
-    // 3. Build plan_review state (AppState fields unchanged per D-06)
+    // 3. Build plan_review state
     let plan_state = Arc::new(AppState {
         plan_md,
         approve_label,
         deny_label,
+        mode,
         decision_tx: Mutex::new(Some(decision_tx)),
     });
 

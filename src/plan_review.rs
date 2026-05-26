@@ -17,12 +17,27 @@ pub struct Decision {
     pub message: Option<String>, // required if behavior is "deny"
 }
 
+// --- Review mode ---
+
+/// Indicates whether the server is handling a plan-review or code-review request.
+///
+/// In plan-review mode the `behavior` field is mandatory; a missing `behavior`
+/// key indicates a malformed payload and is rejected with 422.
+/// In code-review mode the frontend sends `{ message, comments }` with no
+/// `behavior` key, so a missing `behavior` is expected and defaults to "allow".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReviewMode {
+    PlanReview,
+    CodeReview,
+}
+
 // --- AppState ---
 
 pub struct AppState {
     pub plan_md: String,
     pub approve_label: String,
     pub deny_label: String,
+    pub mode: ReviewMode,
     pub decision_tx: Mutex<Option<oneshot::Sender<Decision>>>,
 }
 
@@ -43,11 +58,29 @@ async fn post_decide(
     State(state): State<Arc<AppState>>,
     Json(body): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    let behavior = body
-        .get("behavior")
-        .and_then(|v| v.as_str())
-        .unwrap_or("allow")
-        .to_string();
+    let behavior_value = body.get("behavior").and_then(|v| v.as_str());
+
+    let behavior = match behavior_value {
+        Some(b) => b.to_string(),
+        None => match state.mode {
+            ReviewMode::CodeReview => {
+                // Code-review frontend sends { message, comments } with no behavior key —
+                // this is the expected shape; default to "allow".
+                "allow".to_string()
+            }
+            ReviewMode::PlanReview => {
+                // In plan-review mode behavior is required. A missing key likely
+                // indicates a malformed or misrouted payload — reject it.
+                eprintln!(
+                    "plan-reviewer: POST /api/decide missing required 'behavior' field in \
+                     plan-review mode; returning 422. Payload keys: {:?}",
+                    body.as_object().map(|m| m.keys().collect::<Vec<_>>())
+                );
+                return StatusCode::UNPROCESSABLE_ENTITY.into_response();
+            }
+        },
+    };
+
     let message = body
         .get("message")
         .and_then(|v| v.as_str())
@@ -58,9 +91,9 @@ async fn post_decide(
     match tx {
         Some(tx) => {
             let _ = tx.send(decision);
-            StatusCode::OK
+            StatusCode::OK.into_response()
         }
-        None => StatusCode::CONFLICT, // 409 — already decided
+        None => StatusCode::CONFLICT.into_response(), // 409 — already decided
     }
 }
 
