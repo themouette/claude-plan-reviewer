@@ -259,3 +259,58 @@ fn server_cycle_ping_returns_200() {
         "binary exited non-zero after ping + decide cycle"
     );
 }
+
+/// Spawn the binary in `code-review` mode with `--no-browser --port <port>`.
+/// The code-review subcommand reads no hook input from stdin, so stdin is set
+/// to Stdio::null() (no pipe to write to, no EOF needed).
+fn spawn_code_review_flow(port: u16) -> std::process::Child {
+    let home = tempfile::TempDir::new().unwrap();
+    // Leak the TempDir so it outlives the child process.
+    // Acceptable in tests — the OS cleans /tmp on reboot.
+    let home = Box::leak(Box::new(home));
+
+    Command::new(binary_path())
+        .env("HOME", home.path())
+        .args(["--no-browser", "--port", &port.to_string(), "code-review"])
+        .stdin(Stdio::null()) // code-review reads no stdin
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("failed to spawn plan-reviewer code-review")
+}
+
+#[test]
+fn server_cycle_code_review_submit() {
+    let port = find_free_port();
+    let child = spawn_code_review_flow(port);
+
+    assert!(
+        wait_for_port(port, Duration::from_secs(10)),
+        "server did not start within 10 seconds on port {port}"
+    );
+
+    // POST code-review payload — no "behavior" key (this is the shape the
+    // code-review frontend sends). The current handler requires "behavior" and
+    // returns 422 (RED state). After the fix (Wave 1) this returns 200.
+    let response = ureq::post(&format!("http://127.0.0.1:{port}/api/decide"))
+        .send_json(serde_json::json!({ "message": "looks good", "comments": [] }))
+        .expect("POST /api/decide failed");
+    assert_eq!(
+        response.status(),
+        200,
+        "expected 200 OK — schema mismatch would return 422"
+    );
+
+    let output = child.wait_with_output().expect("failed to wait for child");
+    assert!(output.status.success(), "expected exit code 0");
+
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout is not valid JSON");
+
+    // code-review flow uses build_opencode_output — flat {behavior: "allow"}
+    assert_eq!(
+        json["behavior"].as_str(),
+        Some("allow"),
+        "code-review submit: expected behavior == \"allow\" in stdout"
+    );
+}
