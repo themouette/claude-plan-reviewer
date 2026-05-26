@@ -41,12 +41,23 @@ async fn get_config(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 
 async fn post_decide(
     State(state): State<Arc<AppState>>,
-    Json(body): Json<Decision>,
+    Json(body): Json<serde_json::Value>,
 ) -> impl IntoResponse {
+    let behavior = body
+        .get("behavior")
+        .and_then(|v| v.as_str())
+        .unwrap_or("allow")
+        .to_string();
+    let message = body
+        .get("message")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    let decision = Decision { behavior, message };
+
     let tx = state.decision_tx.lock().unwrap().take();
     match tx {
         Some(tx) => {
-            let _ = tx.send(body);
+            let _ = tx.send(decision);
             StatusCode::OK
         }
         None => StatusCode::CONFLICT, // 409 — already decided
