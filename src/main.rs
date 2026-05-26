@@ -9,11 +9,151 @@ mod update;
 
 #[cfg(test)]
 mod tests {
-    use super::{Cli, Commands, build_gemini_output, build_opencode_output, extract_plan_content};
+    use super::{
+        Cli, Commands, build_gemini_output, build_opencode_output, build_review_url,
+        extract_command_from_tool_input, extract_plan_content, is_pr_command,
+        should_trigger_code_review,
+    };
     use crate::hook;
     use crate::hook::HookOutput;
     use crate::server;
     use clap::Parser;
+
+    // -----------------------------------------------------------------------
+    // Task 1: New subcommand parse tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_cli_code_review_subcommand_parses() {
+        let cli = Cli::try_parse_from(["plan-reviewer", "code-review"]).expect("parse failed");
+        assert!(
+            matches!(cli.command, Some(Commands::CodeReview)),
+            "expected Commands::CodeReview"
+        );
+    }
+
+    #[test]
+    fn test_cli_code_review_with_no_browser_and_port() {
+        let cli = Cli::try_parse_from([
+            "plan-reviewer",
+            "--no-browser",
+            "--port",
+            "4242",
+            "code-review",
+        ])
+        .expect("parse failed");
+        assert!(
+            matches!(cli.command, Some(Commands::CodeReview)),
+            "expected Commands::CodeReview"
+        );
+        assert!(cli.no_browser, "--no-browser should be true");
+        assert_eq!(cli.port, 4242, "--port should be 4242");
+    }
+
+    #[test]
+    fn test_cli_pre_pr_hook_subcommand_parses() {
+        let cli = Cli::try_parse_from(["plan-reviewer", "pre-pr-hook"]).expect("parse failed");
+        assert!(
+            matches!(cli.command, Some(Commands::PrePrHook)),
+            "expected Commands::PrePrHook; CLI name must be exactly 'pre-pr-hook'"
+        );
+    }
+
+    #[test]
+    fn test_extract_command_from_tool_input_present() {
+        let mut extra = serde_json::Map::new();
+        extra.insert(
+            "command".to_string(),
+            serde_json::Value::String("gh pr create --base main".to_string()),
+        );
+        let tool_input = hook::ToolInput {
+            plan: None,
+            plan_path: None,
+            extra,
+        };
+        assert_eq!(
+            extract_command_from_tool_input(&tool_input),
+            Some("gh pr create --base main")
+        );
+    }
+
+    #[test]
+    fn test_extract_command_from_tool_input_missing() {
+        let tool_input = hook::ToolInput {
+            plan: None,
+            plan_path: None,
+            extra: serde_json::Map::new(),
+        };
+        assert_eq!(extract_command_from_tool_input(&tool_input), None);
+    }
+
+    #[test]
+    fn test_is_pr_command_matches() {
+        // Positive cases
+        assert!(is_pr_command("gh pr create"), "gh pr create");
+        assert!(
+            is_pr_command("gh pr create --base main"),
+            "gh pr create --base main"
+        );
+        assert!(
+            is_pr_command("git push origin main"),
+            "git push origin main"
+        );
+        assert!(is_pr_command("  git push"), "leading whitespace + git push");
+        // Negative cases
+        assert!(!is_pr_command("git status"), "git status should not match");
+        assert!(
+            !is_pr_command("npm install"),
+            "npm install should not match"
+        );
+        assert!(!is_pr_command("echo hi"), "echo hi should not match");
+        assert!(!is_pr_command(""), "empty string should not match");
+    }
+
+    // -----------------------------------------------------------------------
+    // Task 2: build_review_url + should_trigger_code_review tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_async_main_builds_url_with_path() {
+        assert_eq!(build_review_url(8080, "/"), "http://127.0.0.1:8080/");
+        assert_eq!(
+            build_review_url(3000, "/code-review"),
+            "http://127.0.0.1:3000/code-review"
+        );
+        assert_eq!(
+            build_review_url(0, "/code-review"),
+            "http://127.0.0.1:0/code-review"
+        );
+    }
+
+    #[test]
+    fn test_run_pre_pr_hook_flow_exits_silently_on_non_pr_command() {
+        let raw = r#"{"session_id":"s","cwd":"/tmp","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"npm install"}}"#;
+        let hi: hook::HookInput = serde_json::from_str(raw).unwrap();
+        assert!(!should_trigger_code_review(&hi));
+    }
+
+    #[test]
+    fn test_run_pre_pr_hook_flow_triggers_on_gh_pr_create() {
+        let raw = r#"{"session_id":"s","cwd":"/tmp","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"gh pr create --base main"}}"#;
+        let hi: hook::HookInput = serde_json::from_str(raw).unwrap();
+        assert!(should_trigger_code_review(&hi));
+    }
+
+    #[test]
+    fn test_run_pre_pr_hook_flow_triggers_on_git_push() {
+        let raw = r#"{"session_id":"s","cwd":"/tmp","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git push origin feature/foo"}}"#;
+        let hi: hook::HookInput = serde_json::from_str(raw).unwrap();
+        assert!(should_trigger_code_review(&hi));
+    }
+
+    #[test]
+    fn test_run_pre_pr_hook_flow_handles_missing_command_field() {
+        let raw = r#"{"session_id":"s","cwd":"/tmp","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{}}"#;
+        let hi: hook::HookInput = serde_json::from_str(raw).unwrap();
+        assert!(!should_trigger_code_review(&hi));
+    }
 
     #[test]
     fn test_cli_port_flag_default_zero() {
@@ -287,6 +427,16 @@ enum Commands {
         #[arg(short = 'y', long)]
         yes: bool,
     },
+    /// Open the code review UI for the current git branch.
+    ///
+    /// Starts the local server and opens the browser at /code-review.
+    /// Does not read stdin.
+    CodeReview,
+    /// Claude Code PreToolUse hook handler.
+    ///
+    /// Reads stdin JSON, filters by tool_input.command, exits 0 silently when
+    /// the command is not a PR/push, otherwise delegates to the code-review flow.
+    PrePrHook,
 }
 
 /// Extract plan Markdown from hook input.
@@ -342,6 +492,45 @@ fn build_opencode_output(decision: &Decision) -> serde_json::Value {
     }
 }
 
+/// Extract the `command` field from a `ToolInput`'s extra map.
+///
+/// PreToolUse Bash events carry the shell command in `tool_input.command`.
+/// Because `ToolInput.extra` captures arbitrary keys via `#[serde(flatten)]`,
+/// this helper isolates the JSON-shape dependency from filtering logic.
+fn extract_command_from_tool_input(tool_input: &hook::ToolInput) -> Option<&str> {
+    tool_input
+        .extra
+        .get("command")
+        .and_then(serde_json::Value::as_str)
+}
+
+/// Return `true` if `cmd` looks like a PR-creating or push command.
+///
+/// Matches `gh pr create ...` and `git push ...` (with optional leading whitespace).
+/// Uses explicit `starts_with` — no regex dependency.
+fn is_pr_command(cmd: &str) -> bool {
+    let t = cmd.trim_start();
+    t.starts_with("gh pr create") || t.starts_with("git push")
+}
+
+/// Build the review server URL for a given port and path.
+///
+/// Pure helper — unit-testable without starting the server.
+fn build_review_url(port: u16, path: &str) -> String {
+    format!("http://127.0.0.1:{}{}", port, path)
+}
+
+/// Return `true` if a PreToolUse hook event should trigger the code-review flow.
+///
+/// Extracts `tool_input.command` and delegates to `is_pr_command`.
+/// Returns `false` when `command` is absent (defensive: empty stdin payloads
+/// must not trigger the server).
+fn should_trigger_code_review(hook_input: &hook::HookInput) -> bool {
+    extract_command_from_tool_input(&hook_input.tool_input)
+        .map(is_pr_command)
+        .unwrap_or(false)
+}
+
 fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
     // Read plan content from file — does NOT read stdin
     let plan_md = match std::fs::read_to_string(plan_file) {
@@ -369,6 +558,7 @@ fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
         plan_md,
         "Approve".to_string(),
         "Deny".to_string(),
+        "/",
     ));
 
     // Build opencode output format and write to stdout — THE ONLY stdout write
@@ -417,6 +607,7 @@ fn run_review_flow(no_browser: bool, port: u16, file: &str, approve_label: &str,
         plan_md,
         approve_label.to_string(),
         deny_label.to_string(),
+        "/",
     ));
 
     // Build neutral output format and write to stdout — THE ONLY stdout write
@@ -454,6 +645,12 @@ fn main() {
         }) => {
             // update subcommand: does NOT read stdin
             update::run_update(*check, version.clone(), *yes);
+        }
+        Some(Commands::CodeReview) => {
+            run_code_review_flow(cli.no_browser, cli.port);
+        }
+        Some(Commands::PrePrHook) => {
+            run_pre_pr_hook_flow(cli.no_browser, cli.port);
         }
         None => {
             if let Some(ref plan_file) = cli.plan_file {
@@ -519,6 +716,7 @@ fn run_hook_flow(no_browser: bool, port: u16) {
         plan_md,
         "Approve".to_string(),
         "Deny".to_string(),
+        "/",
     ));
 
     // 7. Build integration-specific output JSON and write to stdout — THE ONLY stdout write
@@ -550,6 +748,7 @@ async fn async_main(
     plan_md: String,
     approve_label: String,
     deny_label: String,
+    path: &str,
 ) -> Decision {
     // Start server
     let (port, decision_rx) =
@@ -564,7 +763,7 @@ async fn async_main(
             }
         };
 
-    let url = format!("http://127.0.0.1:{}/", port);
+    let url = build_review_url(port, path);
 
     // Always print URL to stderr (UI-06)
     eprintln!("Review UI: {}", url);
@@ -607,4 +806,74 @@ async fn async_main(
     });
 
     decision
+}
+
+/// Run the code review flow for the current git branch.
+///
+/// Does NOT read stdin and passes an empty plan_md (the /code-review SPA route
+/// never calls /api/plan). Opens the browser at /code-review.
+fn run_code_review_flow(no_browser: bool, port: u16) {
+    eprintln!("Starting code review for current git branch");
+
+    // In debug mode, verify frontend assets exist before starting the server.
+    #[cfg(debug_assertions)]
+    {
+        if server::Assets::get("index.html").is_none() {
+            eprintln!("ERROR: Frontend assets not found at ui/dist/index.html");
+            eprintln!(
+                "Run 'cd ui && npm run build' first, or run 'cargo run' from the project root."
+            );
+            std::process::exit(1);
+        }
+    }
+
+    // Start tokio runtime and run the browser review flow
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    let decision = rt.block_on(async_main(
+        no_browser,
+        port,
+        String::new(), // /code-review SPA route does not use /api/plan
+        "Approve".to_string(),
+        "Deny".to_string(),
+        "/code-review",
+    ));
+
+    // Build opencode output format and write to stdout — THE ONLY stdout write
+    let output = build_opencode_output(&decision);
+    serde_json::to_writer(std::io::stdout(), &output).expect("failed to write hook output");
+}
+
+/// Claude Code PreToolUse hook handler.
+///
+/// Reads stdin JSON, filters by tool_input.command, exits 0 silently (with NO
+/// stdout output) when the command is not a PR/push. When the command matches,
+/// delegates to run_code_review_flow.
+fn run_pre_pr_hook_flow(no_browser: bool, port: u16) {
+    // Read all of stdin synchronously (before any async runtime)
+    let input_json = match std::io::read_to_string(std::io::stdin()) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Failed to read stdin: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    // Parse JSON into HookInput
+    let hook_input: HookInput = serde_json::from_str(&input_json).unwrap_or_else(|e| {
+        eprintln!("Failed to parse hook input: {}", e);
+        std::process::exit(1);
+    });
+
+    // Filter: exit 0 silently when the command is not a PR/push (T-29-02)
+    if !should_trigger_code_review(&hook_input) {
+        // Zero bytes to stdout — must not interfere with Claude's Bash output
+        std::process::exit(0);
+    }
+
+    // Delegate to the code-review flow
+    run_code_review_flow(no_browser, port);
 }
