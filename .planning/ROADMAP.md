@@ -859,4 +859,4 @@ Plans:
 | 26.2. Commit Navigation UX Polish | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
 | 27. Inline Comments | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
 | 28. Review Submission | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
-| 29. Code Review Integration | v0.7.0 | 2/2 | Complete   | 2026-05-26 |
+| 29. Code Review Integration | v0.7.0 | 2/2 | Complete    | 2026-05-26 |

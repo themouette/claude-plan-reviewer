@@ -39,9 +39,9 @@ Code review mode: inspect, navigate, and annotate agent-generated diffs before a
 
 ### Integration
 
-- [ ] **INTEG-01**: User can invoke code review via a slash command
-- [ ] **INTEG-02**: Agent can trigger code review automatically via a pre-PR hook
-- [ ] **INTEG-03**: `plan-reviewer install` wires up slash command + hook; `uninstall` removes them
+- [x] **INTEG-01**: User can invoke code review via a slash command
+- [x] **INTEG-02**: Agent can trigger code review automatically via a pre-PR hook
+- [x] **INTEG-03**: `plan-reviewer install` wires up slash command + hook; `uninstall` removes them
 
 ### Architecture
 
@@ -116,9 +116,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SUBMIT-02 | Phase 28 | Pending |
 | SUBMIT-03 | Phase 28 | Pending |
 | SUBMIT-04 | Phase 28 | Pending |
-| INTEG-01 | Phase 29 | Pending |
-| INTEG-02 | Phase 29 | Pending |
-| INTEG-03 | Phase 29 | Pending |
+| INTEG-01 | Phase 29 | Complete |
+| INTEG-02 | Phase 29 | Complete |
+| INTEG-03 | Phase 29 | Complete |
 | ARCH-01 | Phase 25 | Complete |
 
 **Coverage:**
