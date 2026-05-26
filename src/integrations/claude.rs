@@ -1231,6 +1231,175 @@ mod tests {
         assert!(!integration.is_installed(&ctx_check));
     }
 
+    // ---------------------------------------------------------------------------
+    // code-review.md and PreToolUse tests (Plan 29-02)
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn install_creates_code_review_md_with_expected_content() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let code_review_path = dir
+            .path()
+            .join(".local/share/plan-reviewer/claude-plugin/commands/code-review.md");
+        assert!(
+            code_review_path.exists(),
+            "commands/code-review.md should be created by install"
+        );
+
+        let content = std::fs::read_to_string(&code_review_path).unwrap();
+
+        // Plugin-namespaced heading (Pitfall 3)
+        assert!(
+            content.contains("# /plan-reviewer:code-review"),
+            "code-review.md heading must be '# /plan-reviewer:code-review'"
+        );
+        // Frontmatter
+        assert!(
+            content.contains("description: Open the code review UI for the current git branch"),
+            "code-review.md must have correct description"
+        );
+        assert!(
+            content.contains("allowed-tools: Bash"),
+            "code-review.md must declare allowed-tools: Bash"
+        );
+        // The bash command to invoke
+        assert!(
+            content.contains("plan-reviewer code-review"),
+            "code-review.md must contain 'plan-reviewer code-review' command"
+        );
+        // run_in_background instruction
+        assert!(
+            content.contains("run_in_background"),
+            "code-review.md must instruct Claude to use run_in_background: true"
+        );
+        // Decision handling examples
+        assert!(
+            content.contains(r#"{"behavior":"allow"}"#),
+            "code-review.md must contain {{\"behavior\":\"allow\"}} example"
+        );
+        assert!(
+            content.contains(r#"{"behavior":"deny""#),
+            "code-review.md must contain {{\"behavior\":\"deny\"}} example"
+        );
+    }
+
+    #[test]
+    fn install_creates_hooks_json_with_pre_tool_use() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let hooks_json_path = dir
+            .path()
+            .join(".local/share/plan-reviewer/claude-plugin/hooks/hooks.json");
+        let content = std::fs::read_to_string(&hooks_json_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        let pre_tool_use = json["hooks"]["PreToolUse"]
+            .as_array()
+            .expect("PreToolUse must be a non-empty array");
+        assert!(!pre_tool_use.is_empty(), "PreToolUse array must not be empty");
+        assert_eq!(
+            pre_tool_use[0]["matcher"].as_str(),
+            Some("Bash"),
+            "PreToolUse matcher must be 'Bash'"
+        );
+        assert_eq!(
+            pre_tool_use[0]["hooks"][0]["type"].as_str(),
+            Some("command"),
+            "PreToolUse hook type must be 'command'"
+        );
+        assert_eq!(
+            pre_tool_use[0]["hooks"][0]["command"].as_str(),
+            Some("plan-reviewer pre-pr-hook"),
+            "PreToolUse command must be 'plan-reviewer pre-pr-hook'"
+        );
+        assert_eq!(
+            pre_tool_use[0]["hooks"][0]["timeout"].as_i64(),
+            Some(600_000),
+            "PreToolUse timeout must be 600000"
+        );
+    }
+
+    #[test]
+    fn install_hooks_json_preserves_exit_plan_mode_after_pre_tool_use_added() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        integration.install(&ctx).unwrap();
+
+        let hooks_json_path = dir
+            .path()
+            .join(".local/share/plan-reviewer/claude-plugin/hooks/hooks.json");
+        let content = std::fs::read_to_string(&hooks_json_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        // Pitfall 5: both arrays must be present in the same hooks.json
+        let perm_req = json["hooks"]["PermissionRequest"]
+            .as_array()
+            .expect("PermissionRequest must still be present (Pitfall 5)");
+        assert!(
+            perm_req
+                .iter()
+                .any(|e| e["matcher"].as_str() == Some("ExitPlanMode")
+                    && e["hooks"][0]["command"].as_str() == Some("plan-reviewer review-hook")),
+            "PermissionRequest ExitPlanMode entry must survive PreToolUse addition"
+        );
+    }
+
+    #[test]
+    fn install_creates_code_review_md_even_when_already_installed() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+        let integration = ClaudeIntegration;
+        let ctx = InstallContext {
+            home: home.clone(),
+            binary_path: Some("/usr/local/bin/plan-reviewer".to_string()),
+        };
+
+        // First install
+        integration.install(&ctx).unwrap();
+
+        // Manually delete the commands directory to simulate upgrading an existing install
+        let commands_dir = dir
+            .path()
+            .join(".local/share/plan-reviewer/claude-plugin/commands");
+        std::fs::remove_dir_all(&commands_dir).unwrap();
+        assert!(
+            !commands_dir.exists(),
+            "commands dir removed for test setup"
+        );
+
+        // Second install — must recreate commands/code-review.md even though plugin_is_registered() returns true
+        integration.install(&ctx).unwrap();
+
+        let code_review_path = commands_dir.join("code-review.md");
+        assert!(
+            code_review_path.exists(),
+            "commands/code-review.md should be recreated on re-install"
+        );
+    }
+
     #[test]
     fn is_installed_checks_enabled_plugins_key_not_legacy_hook() {
         let dir = tempdir().unwrap();
