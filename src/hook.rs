@@ -67,6 +67,18 @@ impl HookOutput {
         }
     }
 
+    pub fn allow_with_message(message: String) -> Self {
+        HookOutput {
+            hook_specific_output: HookSpecificOutput {
+                hook_event_name: "PermissionRequest".to_string(),
+                decision: PermissionDecision {
+                    behavior: "allow".to_string(),
+                    message: Some(message),
+                },
+            },
+        }
+    }
+
     pub fn deny(message: String) -> Self {
         HookOutput {
             hook_specific_output: HookSpecificOutput {

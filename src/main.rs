@@ -256,6 +256,7 @@ mod tests {
         let decision = server::Decision {
             behavior: "allow".to_string(),
             message: None,
+            comments: vec![],
         };
         let output = build_gemini_output(&decision);
         assert_eq!(output["decision"].as_str(), Some("allow"));
@@ -270,6 +271,7 @@ mod tests {
         let decision = server::Decision {
             behavior: "deny".to_string(),
             message: Some("Missing rollback".to_string()),
+            comments: vec![],
         };
         let output = build_gemini_output(&decision);
         assert_eq!(output["decision"].as_str(), Some("deny"));
@@ -306,12 +308,13 @@ mod tests {
         let decision = server::Decision {
             behavior: "allow".to_string(),
             message: None,
+            comments: vec![],
         };
         let output = build_opencode_output(&decision);
         assert_eq!(output["behavior"].as_str(), Some("allow"));
         assert!(
             output.get("message").is_none(),
-            "allow should not have message field"
+            "allow with no feedback should not have message field"
         );
         assert!(
             output.get("hookSpecificOutput").is_none(),
@@ -324,10 +327,30 @@ mod tests {
     }
 
     #[test]
+    fn test_opencode_allow_with_feedback_output_format() {
+        let decision = server::Decision {
+            behavior: "allow".to_string(),
+            message: Some("LGTM but watch the error handling".to_string()),
+            comments: vec![],
+        };
+        let output = build_opencode_output(&decision);
+        assert_eq!(output["behavior"].as_str(), Some("allow"));
+        assert!(
+            output.get("message").is_some(),
+            "allow with feedback should include message field"
+        );
+        assert!(
+            output.get("hookSpecificOutput").is_none(),
+            "opencode format must not have hookSpecificOutput"
+        );
+    }
+
+    #[test]
     fn test_opencode_deny_output_format() {
         let decision = server::Decision {
             behavior: "deny".to_string(),
             message: Some("Needs more tests".to_string()),
+            comments: vec![],
         };
         let output = build_opencode_output(&decision);
         assert_eq!(output["behavior"].as_str(), Some("deny"));
@@ -343,6 +366,7 @@ mod tests {
         let decision = server::Decision {
             behavior: "deny".to_string(),
             message: None,
+            comments: vec![],
         };
         let output = build_opencode_output(&decision);
         assert_eq!(output["behavior"].as_str(), Some("deny"));
@@ -513,13 +537,67 @@ fn build_gemini_output(decision: &Decision) -> serde_json::Value {
     }
 }
 
+/// Format reviewer feedback (message + inline comments) into a single string.
+///
+/// Returns `None` when there is no feedback to include. Used to populate the
+/// `message` field in hook outputs so the reviewer's notes reach the agent.
+fn build_code_review_feedback(decision: &Decision) -> Option<String> {
+    let has_message = decision
+        .message
+        .as_deref()
+        .is_some_and(|m| !m.trim().is_empty());
+    let has_comments = !decision.comments.is_empty();
+    if !has_message && !has_comments {
+        return None;
+    }
+
+    let mut out = String::new();
+    if let Some(msg) = &decision.message {
+        let trimmed = msg.trim();
+        if !trimmed.is_empty() {
+            out.push_str(trimmed);
+        }
+    }
+    if has_comments {
+        if !out.is_empty() {
+            out.push_str("\n\n");
+        }
+        out.push_str("Inline comments:\n");
+        for comment in &decision.comments {
+            let file = comment.get("file").and_then(|v| v.as_str()).unwrap_or("?");
+            let text = comment.get("text").and_then(|v| v.as_str()).unwrap_or("");
+            if let Some(line) = comment.get("line").and_then(|v| v.as_u64()) {
+                let side = comment.get("side").and_then(|v| v.as_str()).unwrap_or("");
+                if let Some(end) = comment.get("endLine").and_then(|v| v.as_u64()) {
+                    out.push_str(&format!(
+                        "- {}:{}-{} ({}): {}\n",
+                        file, line, end, side, text
+                    ));
+                } else {
+                    out.push_str(&format!("- {}:{} ({}): {}\n", file, line, side, text));
+                }
+            } else {
+                out.push_str(&format!("- {}: {}\n", file, text));
+            }
+        }
+    }
+    Some(out)
+}
+
 /// Build the opencode response JSON from a browser decision.
 ///
-/// Format: {"behavior":"allow"} or {"behavior":"deny","message":"..."}
-/// This is the format the JS plugin parses in opencode_plugin.mjs.
+/// For "allow" with reviewer feedback (message or inline comments), the feedback
+/// is included in the `message` field so the agent can see the reviewer's notes.
+/// Format: {"behavior":"allow"} or {"behavior":"allow","message":"..."} or {"behavior":"deny","message":"..."}
 fn build_opencode_output(decision: &Decision) -> serde_json::Value {
     match decision.behavior.as_str() {
-        "allow" => serde_json::json!({ "behavior": "allow" }),
+        "allow" => {
+            if let Some(feedback) = build_code_review_feedback(decision) {
+                serde_json::json!({ "behavior": "allow", "message": feedback })
+            } else {
+                serde_json::json!({ "behavior": "allow" })
+            }
+        }
         _ => {
             let mut obj = serde_json::json!({
                 "behavior": "deny"
@@ -814,6 +892,7 @@ async fn async_main(
                 return Decision {
                     behavior: "deny".to_string(),
                     message: Some(format!("Internal error: {}", e)),
+                    comments: vec![],
                 };
             }
         };
@@ -841,6 +920,7 @@ async fn async_main(
                     Decision {
                         behavior: "deny".to_string(),
                         message: Some("Internal error: decision channel closed".to_string()),
+                        comments: vec![],
                     }
                 }
             }
@@ -850,6 +930,7 @@ async fn async_main(
             Decision {
                 behavior: "deny".to_string(),
                 message: Some("Review timed out \u{2014} plan was not approved".to_string()),
+                comments: vec![],
             }
         }
     };
@@ -960,10 +1041,16 @@ fn run_pre_pr_hook_flow(no_browser: bool, port: u16) {
     ));
 
     // Write Claude Code PreToolUse hook output — the hookSpecificOutput wrapper is required
-    // for "deny" to actually block the Bash tool call. "allow" writes no stdout (exit 0).
+    // for "deny" to actually block the Bash tool call. For "allow" with reviewer feedback,
+    // we include the message so the agent can see the reviewer's notes.
     match decision.behavior.as_str() {
         "allow" => {
-            // No stdout for allow — Claude Code treats missing hookSpecificOutput as allow.
+            if let Some(feedback) = build_code_review_feedback(&decision) {
+                let hook_output = HookOutput::allow_with_message(feedback);
+                serde_json::to_writer(std::io::stdout(), &hook_output)
+                    .expect("failed to write hook output");
+            }
+            // No feedback and allow = no stdout — Claude Code treats missing hookSpecificOutput as allow.
         }
         _ => {
             let hook_output = HookOutput::deny(

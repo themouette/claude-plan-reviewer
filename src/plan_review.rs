@@ -13,8 +13,9 @@ use tokio::sync::oneshot;
 
 #[derive(serde::Deserialize, Debug, Clone)]
 pub struct Decision {
-    pub behavior: String,        // "allow" or "deny"
-    pub message: Option<String>, // required if behavior is "deny"
+    pub behavior: String,
+    pub message: Option<String>,
+    pub comments: Vec<serde_json::Value>,
 }
 
 // --- Review mode ---
@@ -85,7 +86,16 @@ async fn post_decide(
         .get("message")
         .and_then(|v| v.as_str())
         .map(str::to_string);
-    let decision = Decision { behavior, message };
+    let comments = body
+        .get("comments")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let decision = Decision {
+        behavior,
+        message,
+        comments,
+    };
 
     let tx = state.decision_tx.lock().unwrap().take();
     match tx {
