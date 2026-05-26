@@ -396,22 +396,25 @@ allowed-tools: Bash
 | A2 | Passing `String::new()` as `plan_md` to `start_server` works correctly for the `/code-review` SPA flow | Common Pitfalls | Server might crash or return errors on `/api/plan` calls from the code-review app |
 | A3 | The `code-review` subcommand output format (what it writes to stdout) should mirror `run_review_flow`'s `build_opencode_output` | Architecture Patterns | If the pre-PR hook expects a different JSON shape, the agent's feedback handling breaks |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **PreToolUse hook filtering strategy**
    - What we know: The hook fires on every Bash call if no `if` filter is specified; the `if` field can filter by command pattern
    - What's unclear: Is the `if` field stable in Claude Code's plugin hooks.json for the current Claude Code release? Or should filtering be done inside the Rust subcommand?
    - Recommendation: Design a `plan-reviewer pre-pr-hook` subcommand that reads stdin JSON, checks `tool_input.command`, and exits 0 immediately if not a PR-related command. This is implementation-testable without needing a live Claude Code session.
+   - RESOLVED: Implement dedicated `plan-reviewer pre-pr-hook` subcommand with stdin JSON filtering. Avoids reliance on `if` field stability.
 
 2. **Output format for code-review subcommand**
    - What we know: `run_review_flow` emits `{"behavior":"allow"}` or `{"behavior":"deny","message":"..."}` to stdout; the code review submit path emits `{"message?":"...","comments?":[...]}`
    - What's unclear: When invoked from a pre-PR hook, should `plan-reviewer code-review` emit the code review payload or a simple allow/deny signal?
    - Recommendation: Emit the code review payload `{"message?":"...","comments?":[...]}` directly. The agent reads this from the hook's stdout and uses it as review feedback before proceeding with PR creation.
+   - RESOLVED: Emit code review payload identical to `build_opencode_output` in `run_review_flow`.
 
 3. **Success Criterion 2 phrasing: "opens the browser UI at /code-review for the current git branch"**
    - What we know: The server is started, the browser opens at `http://127.0.0.1:{port}/code-review`; the diff API uses `cwd` at startup
    - What's unclear: Does the phase require the branch name to be determined at startup and displayed differently, or is this just describing the UI behavior?
    - Recommendation: No special branch handling needed — the server already reads the cwd repo and `CodeReviewApp` fetches commits/diffs from it. The phrase "for the current git branch" describes the UI behavior, not a new Rust feature.
+   - RESOLVED: No special branch handling needed. The phrase describes existing UI behavior.
 
 ## Environment Availability
 

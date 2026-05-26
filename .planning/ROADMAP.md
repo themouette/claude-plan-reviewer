@@ -812,7 +812,12 @@ Plans:
 **Plans:** 0/2 plans
 Plans:
 
+**Wave 1**
+
 - [ ] 29-01-PLAN.md — `code-review` subcommand + Rust server route to open `/code-review` URL
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 29-02-PLAN.md — Install/uninstall: code-review.md slash command + pre-PR hook wiring + integration tests
 
 ## Progress
