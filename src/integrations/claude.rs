@@ -37,9 +37,9 @@ impl Integration for ClaudeIntegration {
     /// Only the settings.json mutations (extraKnownMarketplaces and enabledPlugins)
     /// are skipped if enabledPlugins[PLUGIN_KEY] already exists.
     fn install(&self, ctx: &InstallContext) -> Result<(), String> {
-        // binary_path must be Some (validated as guard, but hooks.json uses bare "plan-reviewer")
-        let _binary_path = ctx
-            .binary_path
+        // Guard: binary_path must be Some so install is only invoked from a real binary context.
+        // hooks.json records the bare command "plan-reviewer" (relies on PATH), not this path.
+        ctx.binary_path
             .as_deref()
             .ok_or_else(|| "install requires a binary_path — none was provided".to_string())?;
 

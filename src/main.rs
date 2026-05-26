@@ -156,6 +156,46 @@ mod tests {
     }
 
     #[test]
+    fn test_is_pr_command_excludes_git_push_tags() {
+        assert!(
+            !is_pr_command("git push --tags"),
+            "tag-only push must not trigger review"
+        );
+        assert!(
+            !is_pr_command("git push origin --tags"),
+            "tag-only push must not trigger review"
+        );
+    }
+
+    #[test]
+    fn test_is_pr_command_excludes_git_push_delete() {
+        assert!(
+            !is_pr_command("git push --delete origin feature/foo"),
+            "branch delete must not trigger review"
+        );
+        assert!(
+            !is_pr_command("git push -d origin feature/foo"),
+            "branch delete (-d) must not trigger review"
+        );
+    }
+
+    #[test]
+    fn test_is_pr_command_allows_normal_git_push() {
+        assert!(
+            is_pr_command("git push"),
+            "bare git push must trigger review"
+        );
+        assert!(
+            is_pr_command("git push origin main"),
+            "push with remote/branch must trigger review"
+        );
+        assert!(
+            is_pr_command("git push --set-upstream origin feature/foo"),
+            "push --set-upstream must trigger review"
+        );
+    }
+
+    #[test]
     fn test_cli_port_flag_default_zero() {
         let cli = Cli::try_parse_from(["plan-reviewer"]).expect("parse failed");
         assert_eq!(cli.port, 0, "--port default should be 0");
@@ -504,13 +544,24 @@ fn extract_command_from_tool_input(tool_input: &hook::ToolInput) -> Option<&str>
         .and_then(serde_json::Value::as_str)
 }
 
-/// Return `true` if `cmd` looks like a PR-creating or push command.
+/// Return `true` if `cmd` looks like a PR-creating or code push command.
 ///
-/// Matches `gh pr create ...` and `git push ...` (with optional leading whitespace).
-/// Uses explicit `starts_with` — no regex dependency.
+/// Matches `gh pr create ...` and `git push ...` (with optional leading whitespace),
+/// but excludes tag-only pushes (`--tags`) and remote branch deletions (`--delete`, `-d`).
+/// Uses explicit `starts_with` / `contains` — no regex dependency.
 fn is_pr_command(cmd: &str) -> bool {
     let t = cmd.trim_start();
-    t.starts_with("gh pr create") || t.starts_with("git push")
+    if t.starts_with("gh pr create") {
+        return true;
+    }
+    if let Some(args) = t.strip_prefix("git push") {
+        // Exclude tag-only pushes and branch deletions — they don't create PRs.
+        let excluded = args
+            .split_whitespace()
+            .any(|a| a == "--tags" || a == "--delete" || a == "-d");
+        return !excluded;
+    }
+    false
 }
 
 /// Build the review server URL for a given port and path.
@@ -874,6 +925,48 @@ fn run_pre_pr_hook_flow(no_browser: bool, port: u16) {
         std::process::exit(0);
     }
 
-    // Delegate to the code-review flow
-    run_code_review_flow(no_browser, port);
+    // Run the code-review server flow and emit the Claude Code PreToolUse hook protocol.
+    // We do NOT delegate to run_code_review_flow because that function writes the opencode
+    // {"behavior":"allow"|"deny"} format, which Claude Code's PreToolUse hook ignores.
+    // PreToolUse requires HookOutput (hookSpecificOutput wrapper) to block, or no stdout to allow.
+    eprintln!("Starting code review for current git branch (pre-PR hook)");
+
+    #[cfg(debug_assertions)]
+    {
+        if server::Assets::get("index.html").is_none() {
+            eprintln!("ERROR: Frontend assets not found at ui/dist/index.html");
+            std::process::exit(1);
+        }
+    }
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    let decision = rt.block_on(async_main(
+        no_browser,
+        port,
+        String::new(),
+        "Approve".to_string(),
+        "Deny".to_string(),
+        "/code-review",
+    ));
+
+    // Write Claude Code PreToolUse hook output — the hookSpecificOutput wrapper is required
+    // for "deny" to actually block the Bash tool call. "allow" writes no stdout (exit 0).
+    match decision.behavior.as_str() {
+        "allow" => {
+            // No stdout for allow — Claude Code treats missing hookSpecificOutput as allow.
+        }
+        _ => {
+            let hook_output = HookOutput::deny(
+                decision
+                    .message
+                    .unwrap_or_else(|| "Code review denied — revise before pushing".to_string()),
+            );
+            serde_json::to_writer(std::io::stdout(), &hook_output)
+                .expect("failed to write hook output");
+        }
+    }
 }
