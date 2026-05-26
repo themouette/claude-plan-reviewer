@@ -1,32 +1,9 @@
-use std::io::Write;
-use std::net::TcpStream;
+use std::io::{BufRead, BufReader, Write};
 use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
 
 // Fixture constants — raw JSON injected as stdin
 const HOOK_INPUT_CLAUDE: &str = include_str!("../fixtures/hook_input_claude.json");
 const HOOK_INPUT_GEMINI: &str = include_str!("../fixtures/hook_input_gemini.json");
-
-/// Bind a TcpListener to port 0, let the OS assign a free port, then return it.
-/// There is a small TOCTOU window between dropping the listener and the binary
-/// binding to the same port; this is acceptable in tests.
-fn find_free_port() -> u16 {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    listener.local_addr().unwrap().port()
-}
-
-/// Poll `TcpStream::connect` in a loop with 50 ms sleep.
-/// Returns `true` if the connection succeeds before `timeout`, `false` otherwise.
-fn wait_for_port(port: u16, timeout: Duration) -> bool {
-    let deadline = Instant::now() + timeout;
-    while Instant::now() < deadline {
-        if TcpStream::connect(format!("127.0.0.1:{port}")).is_ok() {
-            return true;
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-    false
-}
 
 /// Return the path to the compiled `plan-reviewer` binary.
 /// Uses `CARGO_BIN_EXE_plan_reviewer` env var set by Cargo during test compilation.
@@ -34,21 +11,40 @@ fn binary_path() -> std::path::PathBuf {
     assert_cmd::cargo::cargo_bin("plan-reviewer")
 }
 
-/// Spawn the binary with `--no-browser --port <port>`, write `fixture_json` to
+/// Read stderr lines from `reader` until the "Review UI: http://127.0.0.1:<port>" line
+/// is found. Parses and returns the port number. Panics if the line is not found
+/// within `max_lines` lines or if parsing fails.
+fn read_port_from_stderr<R: std::io::Read>(reader: R) -> u16 {
+    let reader = BufReader::new(reader);
+    for line in reader.lines() {
+        let line = line.expect("failed to read stderr line");
+        // Binary prints: "Review UI: http://127.0.0.1:<port>[/path]"
+        if let Some(rest) = line.strip_prefix("Review UI: http://127.0.0.1:") {
+            let port_str = rest.split('/').next().unwrap_or("").trim();
+            return port_str
+                .parse::<u16>()
+                .unwrap_or_else(|_| panic!("failed to parse port from stderr line: {line:?}"));
+        }
+    }
+    panic!("binary exited before printing 'Review UI:' to stderr");
+}
+
+/// Spawn the binary with `--no-browser --port 0`, write `fixture_json` to
 /// stdin, then CLOSE stdin (critical: the binary's `read_to_string` blocks on
 /// stdin until EOF; not closing stdin causes a deadlock — see RESEARCH.md Pitfall 4).
 ///
-/// Returns the `Child` handle. The caller must call `wait_with_output()` to
-/// collect stdout/stderr after posting a decision.
-fn spawn_hook_flow(fixture_json: &str, port: u16) -> std::process::Child {
+/// Reads the OS-assigned port from the binary's stderr ("Review UI: http://127.0.0.1:<port>")
+/// before returning — this is race-free because the binary has already bound the port
+/// when it prints that line.
+///
+/// Returns `(Child, port)`. The caller must call `wait_with_output()` to collect
+/// stdout/stderr after posting a decision.
+fn spawn_hook_flow(fixture_json: &str) -> (std::process::Child, tempfile::TempDir, u16) {
     let home = tempfile::TempDir::new().unwrap();
-    // Leak the TempDir so it outlives the child process.
-    // Acceptable in tests — the OS cleans /tmp on reboot.
-    let home = Box::leak(Box::new(home));
 
     let mut child = Command::new(binary_path())
         .env("HOME", home.path())
-        .args(["--no-browser", "--port", &port.to_string()])
+        .args(["--no-browser", "--port", "0"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -64,7 +60,12 @@ fn spawn_hook_flow(fixture_json: &str, port: u16) -> std::process::Child {
         .unwrap();
     drop(child.stdin.take()); // CRITICAL: close stdin pipe
 
-    child
+    // Read the port the binary bound to from its stderr output.
+    // The binary prints "Review UI: http://127.0.0.1:<port>/..." once the server is ready.
+    let stderr = child.stderr.take().expect("stderr not captured");
+    let port = read_port_from_stderr(stderr);
+
+    (child, home, port)
 }
 
 // ---------------------------------------------------------------------------
@@ -73,15 +74,9 @@ fn spawn_hook_flow(fixture_json: &str, port: u16) -> std::process::Child {
 
 #[test]
 fn server_cycle_approve_claude() {
-    let port = find_free_port();
-    let child = spawn_hook_flow(HOOK_INPUT_CLAUDE, port);
+    let (child, _home, port) = spawn_hook_flow(HOOK_INPUT_CLAUDE);
 
-    assert!(
-        wait_for_port(port, Duration::from_secs(10)),
-        "server did not start within 10 seconds on port {port}"
-    );
-
-    // POST allow decision
+    // POST allow decision — port was read from stderr, so the server is already up
     let response = ureq::post(&format!("http://127.0.0.1:{port}/api/decide"))
         .send_json(serde_json::json!({ "behavior": "allow" }))
         .expect("POST /api/decide failed");
@@ -91,6 +86,10 @@ fn server_cycle_approve_claude() {
     let output = child.wait_with_output().expect("failed to wait for child");
     assert!(output.status.success(), "expected exit code 0");
 
+    assert!(
+        !output.stdout.is_empty(),
+        "stdout was empty — binary may have exited before writing JSON"
+    );
     let json: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("stdout is not valid JSON");
 
@@ -109,13 +108,7 @@ fn server_cycle_approve_claude() {
 
 #[test]
 fn server_cycle_deny_claude() {
-    let port = find_free_port();
-    let child = spawn_hook_flow(HOOK_INPUT_CLAUDE, port);
-
-    assert!(
-        wait_for_port(port, Duration::from_secs(10)),
-        "server did not start within 10 seconds on port {port}"
-    );
+    let (child, _home, port) = spawn_hook_flow(HOOK_INPUT_CLAUDE);
 
     // POST deny decision with message
     let response = ureq::post(&format!("http://127.0.0.1:{port}/api/decide"))
@@ -126,6 +119,10 @@ fn server_cycle_deny_claude() {
     let output = child.wait_with_output().expect("failed to wait for child");
     assert!(output.status.success(), "expected exit code 0");
 
+    assert!(
+        !output.stdout.is_empty(),
+        "stdout was empty — binary may have exited before writing JSON"
+    );
     let json: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("stdout is not valid JSON");
 
@@ -143,13 +140,7 @@ fn server_cycle_deny_claude() {
 
 #[test]
 fn server_cycle_approve_gemini() {
-    let port = find_free_port();
-    let child = spawn_hook_flow(HOOK_INPUT_GEMINI, port);
-
-    assert!(
-        wait_for_port(port, Duration::from_secs(10)),
-        "server did not start within 10 seconds on port {port}"
-    );
+    let (child, _home, port) = spawn_hook_flow(HOOK_INPUT_GEMINI);
 
     let response = ureq::post(&format!("http://127.0.0.1:{port}/api/decide"))
         .send_json(serde_json::json!({ "behavior": "allow" }))
@@ -159,6 +150,10 @@ fn server_cycle_approve_gemini() {
     let output = child.wait_with_output().expect("failed to wait for child");
     assert!(output.status.success(), "expected exit code 0");
 
+    assert!(
+        !output.stdout.is_empty(),
+        "stdout was empty — binary may have exited before writing JSON"
+    );
     let json: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("stdout is not valid JSON");
 
@@ -176,13 +171,7 @@ fn server_cycle_approve_gemini() {
 
 #[test]
 fn server_cycle_deny_gemini() {
-    let port = find_free_port();
-    let child = spawn_hook_flow(HOOK_INPUT_GEMINI, port);
-
-    assert!(
-        wait_for_port(port, Duration::from_secs(10)),
-        "server did not start within 10 seconds on port {port}"
-    );
+    let (child, _home, port) = spawn_hook_flow(HOOK_INPUT_GEMINI);
 
     let response = ureq::post(&format!("http://127.0.0.1:{port}/api/decide"))
         .send_json(serde_json::json!({ "behavior": "deny", "message": "Needs tests" }))
@@ -192,6 +181,10 @@ fn server_cycle_deny_gemini() {
     let output = child.wait_with_output().expect("failed to wait for child");
     assert!(output.status.success(), "expected exit code 0");
 
+    assert!(
+        !output.stdout.is_empty(),
+        "stdout was empty — binary may have exited before writing JSON"
+    );
     let json: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("stdout is not valid JSON");
 
@@ -216,13 +209,7 @@ fn server_cycle_deny_gemini() {
 
 #[test]
 fn server_cycle_ping_returns_200() {
-    let port = find_free_port();
-    let child = spawn_hook_flow(HOOK_INPUT_CLAUDE, port);
-
-    assert!(
-        wait_for_port(port, Duration::from_secs(10)),
-        "server did not start within 10 seconds on port {port}"
-    );
+    let (child, _home, port) = spawn_hook_flow(HOOK_INPUT_CLAUDE);
 
     // Hit the new heartbeat endpoint. Statelessness check: GET only, no body.
     let response = ureq::get(&format!("http://127.0.0.1:{port}/api/ping"))
@@ -260,34 +247,38 @@ fn server_cycle_ping_returns_200() {
     );
 }
 
-/// Spawn the binary in `code-review` mode with `--no-browser --port <port>`.
+/// Spawn the binary in `code-review` mode with `--no-browser --port 0`.
 /// The code-review subcommand reads no hook input from stdin, so stdin is set
 /// to Stdio::null() (no pipe to write to, no EOF needed).
-fn spawn_code_review_flow(port: u16) -> std::process::Child {
+///
+/// Reads the OS-assigned port from the binary's stderr ("Review UI: http://127.0.0.1:<port>")
+/// before returning — this is race-free because the binary has already bound the port
+/// when it prints that line.
+///
+/// Returns `(Child, TempDir, port)`. The caller holds the TempDir until after
+/// `wait_with_output()` completes so the home directory outlives the child process.
+fn spawn_code_review_flow() -> (std::process::Child, tempfile::TempDir, u16) {
     let home = tempfile::TempDir::new().unwrap();
-    // Leak the TempDir so it outlives the child process.
-    // Acceptable in tests — the OS cleans /tmp on reboot.
-    let home = Box::leak(Box::new(home));
 
-    Command::new(binary_path())
+    let mut child = Command::new(binary_path())
         .env("HOME", home.path())
-        .args(["--no-browser", "--port", &port.to_string(), "code-review"])
+        .args(["--no-browser", "--port", "0", "code-review"])
         .stdin(Stdio::null()) // code-review reads no stdin
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("failed to spawn plan-reviewer code-review")
+        .expect("failed to spawn plan-reviewer code-review");
+
+    // Read the port the binary bound to from its stderr output.
+    let stderr = child.stderr.take().expect("stderr not captured");
+    let port = read_port_from_stderr(stderr);
+
+    (child, home, port)
 }
 
 #[test]
 fn server_cycle_code_review_submit() {
-    let port = find_free_port();
-    let child = spawn_code_review_flow(port);
-
-    assert!(
-        wait_for_port(port, Duration::from_secs(10)),
-        "server did not start within 10 seconds on port {port}"
-    );
+    let (child, _home, port) = spawn_code_review_flow();
 
     // POST code-review payload — no "behavior" key (this is the shape the
     // code-review frontend sends). The current handler requires "behavior" and
@@ -304,6 +295,10 @@ fn server_cycle_code_review_submit() {
     let output = child.wait_with_output().expect("failed to wait for child");
     assert!(output.status.success(), "expected exit code 0");
 
+    assert!(
+        !output.stdout.is_empty(),
+        "stdout was empty — binary may have exited before writing JSON"
+    );
     let json: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("stdout is not valid JSON");
 
