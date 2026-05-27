@@ -386,9 +386,8 @@ fn try_untracked_diff(repo_path: &std::path::Path) -> Option<Vec<FileDiff>> {
                 let lines: Vec<&str> = content.lines().collect();
                 let additions = lines.len() as u32;
                 let patch_body: String = lines.iter().map(|l| format!("+{l}\n")).collect();
-                let patch = format!(
-                    "--- /dev/null\n+++ b/{path}\n@@ -0,0 +1,{additions} @@\n{patch_body}"
-                );
+                let patch =
+                    format!("--- /dev/null\n+++ b/{path}\n@@ -0,0 +1,{additions} @@\n{patch_body}");
                 file_diffs.push(FileDiff {
                     filename: path.to_string(),
                     previous_filename: None,
@@ -893,7 +892,9 @@ mod tests {
         // Create a second commit on the feature branch that deletes the file.
         fs::remove_file(tmp.path().join("todelete.txt")).unwrap();
         let mut index = repo.index().unwrap();
-        index.remove_path(std::path::Path::new("todelete.txt")).unwrap();
+        index
+            .remove_path(std::path::Path::new("todelete.txt"))
+            .unwrap();
         index.write().unwrap();
         let tree_id = index.write_tree().unwrap();
         let tree = repo.find_tree(tree_id).unwrap();
@@ -916,7 +917,11 @@ mod tests {
             .find(|e| e["filename"].as_str() == Some("todelete.txt"))
             .expect("todelete.txt not in diff");
 
-        assert_eq!(entry["status"].as_str(), Some("removed"), "status must be 'removed'");
+        assert_eq!(
+            entry["status"].as_str(),
+            Some("removed"),
+            "status must be 'removed'"
+        );
         assert_eq!(
             entry["new_content"].as_str(),
             Some(""),
