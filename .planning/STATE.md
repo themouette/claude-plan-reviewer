@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.6.0
-milestone_name: Markdown Annotator v2
-status: "v0.6.0 shipped — PR #1"
-stopped_at: Phase 22 complete — Phase 23 (regression tests) is next
-last_updated: "2026-05-22T23:10:46.309Z"
-last_activity: 2026-05-23
+milestone: v0.7.0
+milestone_name: Code Review
+status: milestone_complete
+stopped_at: Milestone complete (Phase 29.1 was final phase)
+last_updated: 2026-05-26T11:33:10.508Z
+last_activity: 2026-05-26 -- Phase 29.1 execution started
 progress:
   total_phases: 9
   completed_phases: 8
-  total_plans: 18
-  completed_plans: 55
+  total_plans: 22
+  completed_plans: 77
   percent: 89
 ---
 
@@ -25,13 +25,11 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 ## Current Position
 
-Phase: 23
+Phase: 29.1
 Plan: Not started
-Phase: 23 (replace-v1-with-v2) — READY TO PLAN
-Status: v0.6.0 shipped — PR #1
-Last activity: 2026-05-23
-
-Progress: [██████████] 97% (v0.6.0 milestone — Phases 17-22 complete)
+Phase: 29 (Code Review Integration) — NEXT
+Status: Milestone complete
+Last activity: 2026-05-26
 
 ## Performance Metrics
 
@@ -61,6 +59,7 @@ Recent decisions affecting current work:
 
 - v0.6.0 milestone started: Phases 17-23 added (Markdown Annotator v2)
 - Phase 23 (Regression Tests) can run in parallel with Phase 22 (Submit) — both depend only on Phase 17
+- Phase 29.1 inserted after Phase 29: Fix POST /api/decide schema mismatch — code-review payload (URGENT)
 
 ### Pending Todos
 
@@ -72,8 +71,15 @@ None yet.
 - [Phase 15]: Manual smoke test still pending — paste clipboard JSON into Claude to verify parsing
 - Pre-existing: `install_returns_err_when_binary_path_is_none` unit test fails on main before any v0.6.0 changes
 
+### Decisions (Phase 25)
+
+- [Phase 25]: useDiff effect calls fetchDiffOnce directly to avoid react-hooks/set-state-in-effect violation; loading init=true covers initial state
+- [Phase 25]: ESLint rule uses group ['../reviewer-v2/**', '*/reviewer-v2/**'] not '../**' to allow code-review/hooks/useDiff.ts to import from ../types
+- [Phase 25]: Deferred setActiveIndex via setTimeout(0) in useEffect — satisfies react-hooks/set-state-in-effect; same semantic
+- [Phase 25]: Added #[allow(dead_code)] to hook.rs cwd field — field is part of hook protocol deserialization contract even if unused at runtime
+
 ## Session Continuity
 
-Last session: 2026-05-23T00:30:00.000Z
-Stopped at: Phase 22 complete — Phase 23 (regression tests) is next
-Resume file: none
+Last session: 2026-05-25T21:46:06.832Z
+Stopped at: context exhaustion at 82% (2026-05-25)
+Resume file: None

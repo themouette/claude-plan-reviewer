@@ -1,81 +1,97 @@
 # Requirements: claude-plan-reviewer
 
 **Defined:** 2026-04-10
-**Milestone:** v0.6.0 — Markdown Annotator v2
+**Milestone:** v0.7.0 — Code Review
 **Core Value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
 
-## v0.6.0 Requirements
+## v0.7.0 Requirements
 
-New 3-column annotation reviewer built alongside the existing UI, architecturally isolated for eventual deletion of the existing view.
+Code review mode: inspect, navigate, and annotate agent-generated diffs before a PR, then return structured feedback to the agent.
 
-### Layout
+### Diff Viewer
 
-- [ ] **LAYOUT-01**: New reviewer renders at `/v2` in a browser tab alongside the existing reviewer (no Rust changes — existing `FallbackBehavior::Ok` routes `/v2` to `index.html`)
-- [ ] **LAYOUT-02**: Three-column shell: outline tree (left) / formatted markdown (center) / comment sidebar (right)
+- [x] **DIFF-01**: User can view a full branch diff (all changed files combined, vs main)
+- [x] **DIFF-02**: User can expand collapsed context lines within a diff hunk
+- [x] **DIFF-03**: User can toggle between unified and side-by-side layout
+- [x] **DIFF-04**: User can navigate directly to any changed file via a file list
+- [x] **DIFF-05**: User can select which commits to include in the current diff view
 
-### Outline
+### Commit Navigation
 
-- [ ] **OUTLINE-01**: Outline panel shows document heading hierarchy as a tree (not accordion); each item reflects its heading depth via indentation
-- [ ] **OUTLINE-02**: Clicking an outline item scrolls the corresponding heading to the top of the content pane via `scrollIntoView` — no browser history change, no anchor link navigation
-- [ ] **OUTLINE-03**: The heading closest to the top of the content viewport is highlighted in the outline and scrolled into view in the outline panel as the user scrolls (active section tracking)
-- [ ] **OUTLINE-04**: Each outline item displays the count of comments whose anchor falls within that section; a comment spanning multiple sections counts only under the first section
+- [x] **COMMIT-01**: User can view a list of all commits in the current branch
+- [x] **COMMIT-02**: User can click a commit to view its individual diff
+- [x] **COMMIT-03**: User can switch between per-commit view and full branch diff mode
+- [x] **COMMIT-04**: User can navigate between commits with keyboard (prev/next)
 
-### Content Pane
+### Inline Comments
 
-- [ ] **CONTENT-01**: Markdown content renders as formatted HTML with GFM support (tables, task lists, strikethrough) using `react-markdown` + `remark-gfm` + `rehype-highlight`
-- [ ] **CONTENT-02**: Hovering a paragraph shows a subtle background highlight and a `+` comment gutter icon on the right edge of the paragraph (overlapping the comment column boundary)
-- [ ] **CONTENT-03**: Selecting text replaces the paragraph hover highlight with a selection highlight and shows a comment toolbar anchored to the selection; text selection serializes to character offsets (not DOM paths)
-
-### Comment Sidebar
-
-- [ ] **COMMENT-01**: Comments appear in the right sidebar floating at the vertical level of their anchor text; as the content pane scrolls, comments follow so the anchor text and comment remain visually aligned; if comments would overflow below the last line of content, the content area extends to accommodate
-- [ ] **COMMENT-02**: Hovering a comment highlights the corresponding anchor text in the content pane; hovering anchor text highlights the corresponding comment bubble — bidirectional, shared `hoveredCommentId` state
-- [ ] **COMMENT-03**: When comments overlap, non-focused cards are shown in compact (2-line preview) form; the focused card expands to full height and snaps to its anchor Y; all comments remain reachable by scroll; the last clicked comment is on top; evaluate `sidenotes@2.0.1` as the implementation before rolling a custom `useCommentLayout` hook
-- [ ] **COMMENT-04**: Three quick actions available on text selection or paragraph hover: **Comment** (opens textarea), **Delete** (opens textarea pre-filled with "Delete"), **Replace** (opens textarea pre-filled with "Replace"); an expandable menu reveals predefined actions — "Clarify this", "Needs test", "Give me an example", "Out of scope", "Search the web", "Search codebase" — each opens a textarea pre-filled with the action label
-- [ ] **COMMENT-05**: Each submitted comment bubble has edit (pencil icon) and delete (× icon) buttons; edit reopens the textarea for inline editing; delete removes the comment with no confirmation
+- [ ] **COMMENT-01**: User can add a comment anchored to any diff hunk
+- [ ] **COMMENT-02**: User can add a comment at the whole-file level
+- [ ] **COMMENT-03**: User can edit or delete their own comments
+- [ ] **COMMENT-04**: File list shows a comment count badge per file
 
 ### Review Submission
 
-- [ ] **SUBMIT-01**: Submit bar has "Approve" (disabled when any comment exists) and "Ask for changes" (disabled when no comments exist); "Ask for changes" allows an optional free-text overall message; submission returns the same JSON format as the existing reviewer
-- [ ] **SUBMIT-02**: When the server is unreachable (offline/degraded mode), submission uses the clipboard fallback — clipboard JSON format is identical to the server response; the existing `buildClipboardPayload` and `shouldUseClipboard` utilities are reused, not reimplemented
+- [ ] **SUBMIT-01**: User can approve the review when no comments exist
+- [ ] **SUBMIT-02**: User can include an optional global instruction when approving
+- [ ] **SUBMIT-03**: User can submit with comments; structured feedback JSON returned to agent
+- [ ] **SUBMIT-04**: Submitting "request changes" requires at least one comment
 
-### Architecture & Isolation
+### Integration
 
-- [ ] **ARCH-01**: All new reviewer code lives under `ui/src/reviewer-v2/`; no file outside `reviewer-v2/` imports from within it (coupling direction: existing view may import shared utilities from `reviewer-v2/`, never vice versa)
-- [ ] **ARCH-02**: The new reviewer owns its own heartbeat/connectivity detection via `useHeartbeat` — no dependency on `App.tsx` internal state or imported state from the existing component tree
+- [x] **INTEG-01**: User can invoke code review via a slash command
+- [x] **INTEG-02**: Agent can trigger code review automatically via a pre-PR hook
+- [x] **INTEG-03**: `plan-reviewer install` wires up slash command + hook; `uninstall` removes them
 
-### Tests & Regression Safety
+### Architecture
 
-- [x] **TEST-01**: Regression test suite covers the existing annotation flow (App.tsx review → approve/deny/annotate cycle) with zero regressions introduced by the `/v2` routing change in `main.tsx`
-- [ ] **TEST-02**: `vitest.setup.ts` includes jsdom mocks for `IntersectionObserver`, `ResizeObserver`, and `CSS.highlights` before any v2 component code is written
-- [ ] **TEST-03**: An ESLint rule (`no-restricted-imports` or equivalent) enforces the ARCH-01 coupling constraint automatically — violation is a lint error, not just a convention
+- [x] **ARCH-01**: Code review viewer replaces the existing (unused) diff tab — prior diff code removed
+
+## v0.6.0 Requirements (Shipped 2026-05-22)
+
+All v0.6.0 requirements shipped. Archived for reference.
+
+- [x] **LAYOUT-01**: New reviewer renders at root URL `/`; v1 codepath removed as of Phase 23
+- [x] **LAYOUT-02**: Three-column shell: outline tree (left) / formatted markdown (center) / comment sidebar (right)
+- [x] **OUTLINE-01**: Outline panel shows document heading hierarchy as a tree
+- [x] **OUTLINE-02**: Clicking an outline item scrolls the corresponding heading into view
+- [x] **OUTLINE-03**: Active section tracking — heading closest to viewport top highlighted in outline
+- [x] **OUTLINE-04**: Per-section comment count badges in the outline tree
+- [x] **CONTENT-01**: Markdown rendered as formatted HTML with GFM support
+- [x] **CONTENT-02**: Paragraph hover highlight + comment gutter icon
+- [x] **CONTENT-03**: Text selection → comment toolbar anchored to selection
+- [x] **COMMENT-01**: Comment sidebar with floating alignment to anchor text
+- [x] **COMMENT-02**: Bidirectional hover cross-highlight (comment ↔ anchor text)
+- [x] **COMMENT-03**: Overlap/collapse handling — focused card rises, all reachable by scroll
+- [x] **COMMENT-04**: Quick actions: comment / delete / replace + expandable predefined menu
+- [x] **COMMENT-05**: Edit (pencil) and delete (×) on each comment bubble
+- [x] **SUBMIT-01**: Approve vs. ask-for-changes with validation gates
+- [x] **SUBMIT-02**: Clipboard fallback (degraded mode) preserved
+- [x] **ARCH-01**: Reviewer code isolated under `ui/src/reviewer-v2/`; coupling direction enforced
+- [x] **ARCH-02**: Reviewer owns its own heartbeat/connectivity detection
+- [x] **TEST-01**: Regression test suite covers existing annotation flow
+- [x] **TEST-02**: jsdom mocks for IntersectionObserver, ResizeObserver, CSS.highlights
+- [x] **TEST-03**: ESLint no-restricted-imports enforces ARCH-01 coupling constraint
 
 ## Future Requirements
-
-### Annotation Enhancements
 
 - **ANNOT-F-01**: Ask-from-UI — select text, type a question, stream AI response inline
 - **ANNOT-F-02**: Per-comment color coding (multi-reviewer)
 - **ANNOT-F-03**: Threaded comment replies
-
-### Integrations (deferred from v0.3.0)
-
-- **INTEG-F-01**: Gemini CLI integration — full hook install/uninstall via `plan-reviewer install gemini`
-- **INTEG-F-02**: Integration test harness — `--no-browser`/`--port` flags + `assert_cmd`-based hook/install/server tests
-- **ANNOT-F-04**: Annotation quick-actions from v0.3.0 plan — predefined chips, light/dark theme (superseded by v0.6.0 implementation)
+- **INTEG-F-01**: Gemini CLI integration — full hook install/uninstall
+- **INTEG-F-02**: Integration test harness — `--no-browser`/`--port` flags + `assert_cmd`-based tests
 - **DOCS-F-01**: README install/usage guide and per-integration wiring docs
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Migrating existing annotations to v2 format | Existing format stays until v2 is proven; no migration needed for plan review use case |
 | URL sharing / team collaboration | Not needed for local-only use case |
 | Real-time multi-user sync | Deferred; local-only for now |
 | Mobile / native app | Web-first, browser tab is correct UX |
 | TUI (terminal UI) | Browser UI chosen for rich rendering |
-| `react-diff-view` | Brief explicitly excluded it; diff rendering stays in existing Tab |
-| `@recogito/react-text-annotator` (React wrapper) | Incompatible data model; sidebar model differs from its popup model — use plain `@recogito/text-annotator` for anchor serialization inspiration only |
+| AI-assisted code suggestions in review UI | Deferred to future milestone |
+| `@recogito/react-text-annotator` | Incompatible data model for sidebar approach |
 
 ## Traceability
 
@@ -83,33 +99,33 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LAYOUT-01 | Phase 17 | Pending |
-| LAYOUT-02 | Phase 17 | Pending |
-| OUTLINE-01 | Phase 19 | Pending |
-| OUTLINE-02 | Phase 19 | Pending |
-| OUTLINE-03 | Phase 19 | Pending |
-| OUTLINE-04 | Phase 21 | Pending |
-| CONTENT-01 | Phase 18 | Pending |
-| CONTENT-02 | Phase 18 | Pending |
-| CONTENT-03 | Phase 18 | Pending |
-| COMMENT-01 | Phase 20 | Pending |
-| COMMENT-02 | Phase 20 | Pending |
-| COMMENT-03 | Phase 20 | Pending |
-| COMMENT-04 | Phase 21 | Pending |
-| COMMENT-05 | Phase 21 | Pending |
-| SUBMIT-01 | Phase 22 | Pending |
-| SUBMIT-02 | Phase 22 | Pending |
-| ARCH-01 | Phase 17 | Pending |
-| ARCH-02 | Phase 17 | Pending |
-| TEST-01 | Phase 23 | Complete |
-| TEST-02 | Phase 17 | Pending |
-| TEST-03 | Phase 17 | Pending |
+| DIFF-01 | Phase 24 + 25 | Complete |
+| DIFF-02 | Phase 25 | Complete |
+| DIFF-03 | Phase 25 | Complete |
+| DIFF-04 | Phase 25 | Complete |
+| DIFF-05 | Phase 26 | Complete |
+| COMMIT-01 | Phase 24 + 26 | Complete |
+| COMMIT-02 | Phase 24 + 26 | Complete |
+| COMMIT-03 | Phase 26 | Complete |
+| COMMIT-04 | Phase 26 | Complete |
+| COMMENT-01 | Phase 27 | Pending |
+| COMMENT-02 | Phase 27 | Pending |
+| COMMENT-03 | Phase 27 | Pending |
+| COMMENT-04 | Phase 27 | Pending |
+| SUBMIT-01 | Phase 28 | Pending |
+| SUBMIT-02 | Phase 28 | Pending |
+| SUBMIT-03 | Phase 28 | Pending |
+| SUBMIT-04 | Phase 28 | Pending |
+| INTEG-01 | Phase 29 | Complete |
+| INTEG-02 | Phase 29 | Complete |
+| INTEG-03 | Phase 29 | Complete |
+| ARCH-01 | Phase 25 | Complete |
 
 **Coverage:**
-- v0.6.0 requirements: 21 total
+- v0.7.0 requirements: 21 total
 - Mapped to phases: 21
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-10*
-*Last updated: 2026-05-19 after v0.6.0 roadmap creation (Phases 17-23)*
+*Last updated: 2026-05-23 after v0.7.0 roadmap creation (Phases 24-29)*

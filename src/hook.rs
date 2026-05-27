@@ -8,6 +8,7 @@ pub struct HookInput {
     pub session_id: String,
     #[allow(dead_code)]
     pub transcript_path: Option<String>,
+    #[allow(dead_code)]
     pub cwd: String,
     pub hook_event_name: String,
     #[allow(dead_code)]
@@ -77,4 +78,18 @@ impl HookOutput {
             },
         }
     }
+}
+
+/// Build a PreToolUse advisory output that injects context into Claude's
+/// conversation without blocking the tool call.
+///
+/// This is the correct format for passing reviewer feedback to the agent when
+/// approving — Claude Code surfaces `additionalContext` as conversation context.
+pub fn pre_tool_use_advisory(context: &str) -> serde_json::Value {
+    serde_json::json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": context
+        }
+    })
 }

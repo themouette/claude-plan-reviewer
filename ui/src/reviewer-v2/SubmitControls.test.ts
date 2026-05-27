@@ -31,8 +31,12 @@ describe('SubmitControls — exports + imports', () => {
     expect(source).toMatch(/from ['"]\.\/SubmitPopover['"]/)
   })
 
-  it("imports nothing from outside reviewer-v2 (ARCH-01)", () => {
-    expect(source).not.toMatch(/from ['"]\.\.\//);
+  it("imports nothing from outside reviewer-v2 except ../shared/ (ARCH-01 updated for Phase 28)", () => {
+    // ../shared/** is the only allowed cross-subtree import after Phase 28 heartbeat move
+    const outsideImports = Array.from(source.matchAll(/from ['"](\.\.\/.+)['"]/g))
+      .map((m) => m[1])
+      .filter((p) => !p.startsWith('../shared/'))
+    expect(outsideImports).toHaveLength(0)
   })
 })
 

@@ -1,6 +1,8 @@
+mod diff_api;
 mod hook;
 mod install;
 mod integrations;
+mod plan_review;
 mod server;
 mod uninstall;
 mod update;
@@ -8,13 +10,190 @@ mod update;
 #[cfg(test)]
 mod tests {
     use super::{
-        Cli, Commands, build_gemini_output, build_opencode_output, extract_diff,
-        extract_plan_content,
+        Cli, Commands, build_gemini_output, build_opencode_output, build_review_url,
+        extract_command_from_tool_input, extract_plan_content, is_pr_command,
+        should_trigger_code_review,
     };
     use crate::hook;
     use crate::hook::HookOutput;
     use crate::server;
     use clap::Parser;
+
+    // -----------------------------------------------------------------------
+    // Task 1: New subcommand parse tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_cli_code_review_subcommand_parses() {
+        let cli = Cli::try_parse_from(["plan-reviewer", "code-review"]).expect("parse failed");
+        assert!(
+            matches!(cli.command, Some(Commands::CodeReview)),
+            "expected Commands::CodeReview"
+        );
+    }
+
+    #[test]
+    fn test_cli_code_review_with_no_browser_and_port() {
+        let cli = Cli::try_parse_from([
+            "plan-reviewer",
+            "--no-browser",
+            "--port",
+            "4242",
+            "code-review",
+        ])
+        .expect("parse failed");
+        assert!(
+            matches!(cli.command, Some(Commands::CodeReview)),
+            "expected Commands::CodeReview"
+        );
+        assert!(cli.no_browser, "--no-browser should be true");
+        assert_eq!(cli.port, 4242, "--port should be 4242");
+    }
+
+    #[test]
+    fn test_cli_pre_pr_hook_subcommand_parses() {
+        let cli = Cli::try_parse_from(["plan-reviewer", "pre-pr-hook"]).expect("parse failed");
+        assert!(
+            matches!(cli.command, Some(Commands::PrePrHook)),
+            "expected Commands::PrePrHook; CLI name must be exactly 'pre-pr-hook'"
+        );
+    }
+
+    #[test]
+    fn test_extract_command_from_tool_input_present() {
+        let mut extra = serde_json::Map::new();
+        extra.insert(
+            "command".to_string(),
+            serde_json::Value::String("gh pr create --base main".to_string()),
+        );
+        let tool_input = hook::ToolInput {
+            plan: None,
+            plan_path: None,
+            extra,
+        };
+        assert_eq!(
+            extract_command_from_tool_input(&tool_input),
+            Some("gh pr create --base main")
+        );
+    }
+
+    #[test]
+    fn test_extract_command_from_tool_input_missing() {
+        let tool_input = hook::ToolInput {
+            plan: None,
+            plan_path: None,
+            extra: serde_json::Map::new(),
+        };
+        assert_eq!(extract_command_from_tool_input(&tool_input), None);
+    }
+
+    #[test]
+    fn test_is_pr_command_matches() {
+        // Positive cases
+        assert!(is_pr_command("gh pr create"), "gh pr create");
+        assert!(
+            is_pr_command("gh pr create --base main"),
+            "gh pr create --base main"
+        );
+        assert!(
+            is_pr_command("git push origin main"),
+            "git push origin main"
+        );
+        assert!(is_pr_command("  git push"), "leading whitespace + git push");
+        // Negative cases
+        assert!(!is_pr_command("git status"), "git status should not match");
+        assert!(
+            !is_pr_command("npm install"),
+            "npm install should not match"
+        );
+        assert!(!is_pr_command("echo hi"), "echo hi should not match");
+        assert!(!is_pr_command(""), "empty string should not match");
+    }
+
+    // -----------------------------------------------------------------------
+    // Task 2: build_review_url + should_trigger_code_review tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_async_main_builds_url_with_path() {
+        assert_eq!(build_review_url(8080, "/"), "http://127.0.0.1:8080/");
+        assert_eq!(
+            build_review_url(3000, "/code-review"),
+            "http://127.0.0.1:3000/code-review"
+        );
+        assert_eq!(
+            build_review_url(0, "/code-review"),
+            "http://127.0.0.1:0/code-review"
+        );
+    }
+
+    #[test]
+    fn test_run_pre_pr_hook_flow_exits_silently_on_non_pr_command() {
+        let raw = r#"{"session_id":"s","cwd":"/tmp","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"npm install"}}"#;
+        let hi: hook::HookInput = serde_json::from_str(raw).unwrap();
+        assert!(!should_trigger_code_review(&hi));
+    }
+
+    #[test]
+    fn test_run_pre_pr_hook_flow_triggers_on_gh_pr_create() {
+        let raw = r#"{"session_id":"s","cwd":"/tmp","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"gh pr create --base main"}}"#;
+        let hi: hook::HookInput = serde_json::from_str(raw).unwrap();
+        assert!(should_trigger_code_review(&hi));
+    }
+
+    #[test]
+    fn test_run_pre_pr_hook_flow_triggers_on_git_push() {
+        let raw = r#"{"session_id":"s","cwd":"/tmp","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git push origin feature/foo"}}"#;
+        let hi: hook::HookInput = serde_json::from_str(raw).unwrap();
+        assert!(should_trigger_code_review(&hi));
+    }
+
+    #[test]
+    fn test_run_pre_pr_hook_flow_handles_missing_command_field() {
+        let raw = r#"{"session_id":"s","cwd":"/tmp","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{}}"#;
+        let hi: hook::HookInput = serde_json::from_str(raw).unwrap();
+        assert!(!should_trigger_code_review(&hi));
+    }
+
+    #[test]
+    fn test_is_pr_command_excludes_git_push_tags() {
+        assert!(
+            !is_pr_command("git push --tags"),
+            "tag-only push must not trigger review"
+        );
+        assert!(
+            !is_pr_command("git push origin --tags"),
+            "tag-only push must not trigger review"
+        );
+    }
+
+    #[test]
+    fn test_is_pr_command_excludes_git_push_delete() {
+        assert!(
+            !is_pr_command("git push --delete origin feature/foo"),
+            "branch delete must not trigger review"
+        );
+        assert!(
+            !is_pr_command("git push -d origin feature/foo"),
+            "branch delete (-d) must not trigger review"
+        );
+    }
+
+    #[test]
+    fn test_is_pr_command_allows_normal_git_push() {
+        assert!(
+            is_pr_command("git push"),
+            "bare git push must trigger review"
+        );
+        assert!(
+            is_pr_command("git push origin main"),
+            "push with remote/branch must trigger review"
+        );
+        assert!(
+            is_pr_command("git push --set-upstream origin feature/foo"),
+            "push --set-upstream must trigger review"
+        );
+    }
 
     #[test]
     fn test_cli_port_flag_default_zero() {
@@ -77,6 +256,7 @@ mod tests {
         let decision = server::Decision {
             behavior: "allow".to_string(),
             message: None,
+            comments: vec![],
         };
         let output = build_gemini_output(&decision);
         assert_eq!(output["decision"].as_str(), Some("allow"));
@@ -91,6 +271,7 @@ mod tests {
         let decision = server::Decision {
             behavior: "deny".to_string(),
             message: Some("Missing rollback".to_string()),
+            comments: vec![],
         };
         let output = build_gemini_output(&decision);
         assert_eq!(output["decision"].as_str(), Some("deny"));
@@ -127,12 +308,13 @@ mod tests {
         let decision = server::Decision {
             behavior: "allow".to_string(),
             message: None,
+            comments: vec![],
         };
         let output = build_opencode_output(&decision);
         assert_eq!(output["behavior"].as_str(), Some("allow"));
         assert!(
             output.get("message").is_none(),
-            "allow should not have message field"
+            "allow with no feedback should not have message field"
         );
         assert!(
             output.get("hookSpecificOutput").is_none(),
@@ -145,10 +327,30 @@ mod tests {
     }
 
     #[test]
+    fn test_opencode_allow_with_feedback_output_format() {
+        let decision = server::Decision {
+            behavior: "allow".to_string(),
+            message: Some("LGTM but watch the error handling".to_string()),
+            comments: vec![],
+        };
+        let output = build_opencode_output(&decision);
+        assert_eq!(output["behavior"].as_str(), Some("allow"));
+        assert!(
+            output.get("message").is_some(),
+            "allow with feedback should include message field"
+        );
+        assert!(
+            output.get("hookSpecificOutput").is_none(),
+            "opencode format must not have hookSpecificOutput"
+        );
+    }
+
+    #[test]
     fn test_opencode_deny_output_format() {
         let decision = server::Decision {
             behavior: "deny".to_string(),
             message: Some("Needs more tests".to_string()),
+            comments: vec![],
         };
         let output = build_opencode_output(&decision);
         assert_eq!(output["behavior"].as_str(), Some("deny"));
@@ -164,6 +366,7 @@ mod tests {
         let decision = server::Decision {
             behavior: "deny".to_string(),
             message: None,
+            comments: vec![],
         };
         let output = build_opencode_output(&decision);
         assert_eq!(output["behavior"].as_str(), Some("deny"));
@@ -171,77 +374,6 @@ mod tests {
             output.get("message").is_none(),
             "deny without message should not have message field"
         );
-    }
-
-    #[test]
-    fn test_extract_diff_nonexistent_path() {
-        let result = extract_diff("/nonexistent/path/xyz");
-        assert_eq!(result, "", "Non-existent path should return empty string");
-    }
-
-    #[test]
-    fn test_extract_diff_non_git_dir() {
-        let result = extract_diff(std::env::temp_dir().to_str().unwrap());
-        assert_eq!(result, "", "Non-git directory should return empty string");
-    }
-
-    #[test]
-    fn test_extract_diff_dirty_repo() {
-        use std::fs;
-        // Create a temp dir with a git repo that has uncommitted changes
-        let tmp = tempfile::tempdir().expect("failed to create temp dir");
-        let repo = git2::Repository::init(tmp.path()).expect("failed to init repo");
-
-        // Create initial commit so HEAD exists
-        {
-            let sig = git2::Signature::now("test", "test@test.com").unwrap();
-            let tree_id = repo.index().unwrap().write_tree().unwrap();
-            let tree = repo.find_tree(tree_id).unwrap();
-            repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[])
-                .unwrap();
-        }
-
-        // Write a new (untracked/modified) file
-        let file_path = tmp.path().join("hello.txt");
-        fs::write(&file_path, "hello world\n").expect("failed to write file");
-
-        // Stage the file so it shows in diff_tree_to_workdir_with_index
-        let mut index = repo.index().unwrap();
-        index.add_path(std::path::Path::new("hello.txt")).unwrap();
-        index.write().unwrap();
-
-        let result = extract_diff(tmp.path().to_str().unwrap());
-        assert!(
-            !result.is_empty(),
-            "Dirty repo should return non-empty diff string"
-        );
-        // Should contain diff markers
-        let has_diff_marker =
-            result.contains("diff --git") || result.contains("@@") || result.contains('+');
-        assert!(
-            has_diff_marker,
-            "Diff output should contain diff markers, got: {}",
-            result
-        );
-    }
-
-    #[test]
-    fn test_extract_diff_clean_repo() {
-        // Create a temp dir with a clean git repo (no uncommitted changes)
-        let tmp = tempfile::tempdir().expect("failed to create temp dir");
-        let repo = git2::Repository::init(tmp.path()).expect("failed to init repo");
-
-        // Create initial commit
-        {
-            let sig = git2::Signature::now("test", "test@test.com").unwrap();
-            let tree_id = repo.index().unwrap().write_tree().unwrap();
-            let tree = repo.find_tree(tree_id).unwrap();
-            repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[])
-                .unwrap();
-        }
-
-        let result = extract_diff(tmp.path().to_str().unwrap());
-        assert_eq!(result, "", "Clean repo should return empty diff string");
     }
 
     #[test]
@@ -293,7 +425,7 @@ mod tests {
 }
 
 use clap::{Parser, Subcommand};
-use hook::{HookInput, HookOutput};
+use hook::{HookInput, HookOutput, pre_tool_use_advisory};
 use server::Decision;
 
 #[derive(Parser, Debug)]
@@ -359,64 +491,16 @@ enum Commands {
         #[arg(short = 'y', long)]
         yes: bool,
     },
-}
-
-/// Extract the unified diff of the working tree against HEAD from the given
-/// directory.  Returns an empty string if `cwd` is not a git repository,
-/// does not exist, or has no uncommitted changes.
-fn extract_diff(cwd: &str) -> String {
-    let repo = match git2::Repository::open(cwd) {
-        Ok(r) => r,
-        Err(_) => return String::new(),
-    };
-
-    // Force standard a/b prefixes regardless of diff.mnemonicPrefix git config,
-    // because @pierre/diffs regex only matches `a/` and `b/` prefixes.
-    let mut opts = git2::DiffOptions::new();
-    opts.old_prefix("a/").new_prefix("b/");
-
-    // Prefer full working-tree diff vs HEAD (staged + unstaged)
-    let diff = if let Ok(head) = repo.head() {
-        if let Ok(commit) = head.peel_to_commit() {
-            if let Ok(tree) = commit.tree() {
-                repo.diff_tree_to_workdir_with_index(Some(&tree), Some(&mut opts))
-                    .ok()
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    // Fallback: unstaged changes only (works on empty repos with no HEAD)
-    let diff = diff.or_else(|| repo.diff_index_to_workdir(None, Some(&mut opts)).ok());
-
-    let diff = match diff {
-        Some(d) => d,
-        None => return String::new(),
-    };
-
-    let mut output = String::new();
-    let _ = diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
-        if let Ok(s) = std::str::from_utf8(line.content()) {
-            match line.origin() {
-                '+' | '-' | ' ' => {
-                    output.push(line.origin());
-                    output.push_str(s);
-                }
-                _ => {
-                    // File headers, hunk headers, binary markers — already formatted by git2
-                    output.push_str(s);
-                }
-            }
-        }
-        true
-    });
-
-    output
+    /// Open the code review UI for the current git branch.
+    ///
+    /// Starts the local server and opens the browser at /code-review.
+    /// Does not read stdin.
+    CodeReview,
+    /// Claude Code PreToolUse hook handler.
+    ///
+    /// Reads stdin JSON, filters by tool_input.command, exits 0 silently when
+    /// the command is not a PR/push, otherwise delegates to the code-review flow.
+    PrePrHook,
 }
 
 /// Extract plan Markdown from hook input.
@@ -453,13 +537,67 @@ fn build_gemini_output(decision: &Decision) -> serde_json::Value {
     }
 }
 
+/// Format reviewer feedback (message + inline comments) into a single string.
+///
+/// Returns `None` when there is no feedback to include. Used to populate the
+/// `message` field in hook outputs so the reviewer's notes reach the agent.
+fn build_code_review_feedback(decision: &Decision) -> Option<String> {
+    let has_message = decision
+        .message
+        .as_deref()
+        .is_some_and(|m| !m.trim().is_empty());
+    let has_comments = !decision.comments.is_empty();
+    if !has_message && !has_comments {
+        return None;
+    }
+
+    let mut out = String::new();
+    if let Some(msg) = &decision.message {
+        let trimmed = msg.trim();
+        if !trimmed.is_empty() {
+            out.push_str(trimmed);
+        }
+    }
+    if has_comments {
+        if !out.is_empty() {
+            out.push_str("\n\n");
+        }
+        out.push_str("Inline comments:\n");
+        for comment in &decision.comments {
+            let file = comment.get("file").and_then(|v| v.as_str()).unwrap_or("?");
+            let text = comment.get("text").and_then(|v| v.as_str()).unwrap_or("");
+            if let Some(line) = comment.get("line").and_then(|v| v.as_u64()) {
+                let side = comment.get("side").and_then(|v| v.as_str()).unwrap_or("");
+                if let Some(end) = comment.get("endLine").and_then(|v| v.as_u64()) {
+                    out.push_str(&format!(
+                        "- {}:{}-{} ({}): {}\n",
+                        file, line, end, side, text
+                    ));
+                } else {
+                    out.push_str(&format!("- {}:{} ({}): {}\n", file, line, side, text));
+                }
+            } else {
+                out.push_str(&format!("- {}: {}\n", file, text));
+            }
+        }
+    }
+    Some(out)
+}
+
 /// Build the opencode response JSON from a browser decision.
 ///
-/// Format: {"behavior":"allow"} or {"behavior":"deny","message":"..."}
-/// This is the format the JS plugin parses in opencode_plugin.mjs.
+/// For "allow" with reviewer feedback (message or inline comments), the feedback
+/// is included in the `message` field so the agent can see the reviewer's notes.
+/// Format: {"behavior":"allow"} or {"behavior":"allow","message":"..."} or {"behavior":"deny","message":"..."}
 fn build_opencode_output(decision: &Decision) -> serde_json::Value {
     match decision.behavior.as_str() {
-        "allow" => serde_json::json!({ "behavior": "allow" }),
+        "allow" => {
+            if let Some(feedback) = build_code_review_feedback(decision) {
+                serde_json::json!({ "behavior": "allow", "message": feedback })
+            } else {
+                serde_json::json!({ "behavior": "allow" })
+            }
+        }
         _ => {
             let mut obj = serde_json::json!({
                 "behavior": "deny"
@@ -470,6 +608,56 @@ fn build_opencode_output(decision: &Decision) -> serde_json::Value {
             obj
         }
     }
+}
+
+/// Extract the `command` field from a `ToolInput`'s extra map.
+///
+/// PreToolUse Bash events carry the shell command in `tool_input.command`.
+/// Because `ToolInput.extra` captures arbitrary keys via `#[serde(flatten)]`,
+/// this helper isolates the JSON-shape dependency from filtering logic.
+fn extract_command_from_tool_input(tool_input: &hook::ToolInput) -> Option<&str> {
+    tool_input
+        .extra
+        .get("command")
+        .and_then(serde_json::Value::as_str)
+}
+
+/// Return `true` if `cmd` looks like a PR-creating or code push command.
+///
+/// Matches `gh pr create ...` and `git push ...` (with optional leading whitespace),
+/// but excludes tag-only pushes (`--tags`) and remote branch deletions (`--delete`, `-d`).
+/// Uses explicit `starts_with` / `contains` — no regex dependency.
+fn is_pr_command(cmd: &str) -> bool {
+    let t = cmd.trim_start();
+    if t.starts_with("gh pr create") {
+        return true;
+    }
+    if let Some(args) = t.strip_prefix("git push") {
+        // Exclude tag-only pushes and branch deletions — they don't create PRs.
+        let excluded = args
+            .split_whitespace()
+            .any(|a| a == "--tags" || a == "--delete" || a == "-d");
+        return !excluded;
+    }
+    false
+}
+
+/// Build the review server URL for a given port and path.
+///
+/// Pure helper — unit-testable without starting the server.
+fn build_review_url(port: u16, path: &str) -> String {
+    format!("http://127.0.0.1:{}{}", port, path)
+}
+
+/// Return `true` if a PreToolUse hook event should trigger the code-review flow.
+///
+/// Extracts `tool_input.command` and delegates to `is_pr_command`.
+/// Returns `false` when `command` is absent (defensive: empty stdin payloads
+/// must not trigger the server).
+fn should_trigger_code_review(hook_input: &hook::HookInput) -> bool {
+    extract_command_from_tool_input(&hook_input.tool_input)
+        .map(is_pr_command)
+        .unwrap_or(false)
 }
 
 fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
@@ -487,13 +675,6 @@ fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
         plan_file
     );
 
-    // Extract diff from current working directory (no HookInput cwd available)
-    let cwd = std::env::current_dir()
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let diff_content = extract_diff(&cwd);
-    eprintln!("Diff extracted ({} bytes)", diff_content.len());
-
     // Start tokio runtime and run the browser review flow
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -504,9 +685,9 @@ fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
         no_browser,
         port,
         plan_md,
-        diff_content,
         "Approve".to_string(),
         "Deny".to_string(),
+        "/",
     ));
 
     // Build opencode output format and write to stdout — THE ONLY stdout write
@@ -543,13 +724,6 @@ fn run_review_flow(no_browser: bool, port: u16, file: &str, approve_label: &str,
         }
     }
 
-    // Extract diff from current working directory
-    let cwd = std::env::current_dir()
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let diff_content = extract_diff(&cwd);
-    eprintln!("Diff extracted ({} bytes)", diff_content.len());
-
     // Start tokio runtime and run the browser review flow
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -560,9 +734,9 @@ fn run_review_flow(no_browser: bool, port: u16, file: &str, approve_label: &str,
         no_browser,
         port,
         plan_md,
-        diff_content,
         approve_label.to_string(),
         deny_label.to_string(),
+        "/",
     ));
 
     // Build neutral output format and write to stdout — THE ONLY stdout write
@@ -600,6 +774,12 @@ fn main() {
         }) => {
             // update subcommand: does NOT read stdin
             update::run_update(*check, version.clone(), *yes);
+        }
+        Some(Commands::CodeReview) => {
+            run_code_review_flow(cli.no_browser, cli.port);
+        }
+        Some(Commands::PrePrHook) => {
+            run_pre_pr_hook_flow(cli.no_browser, cli.port);
         }
         None => {
             if let Some(ref plan_file) = cli.plan_file {
@@ -653,10 +833,6 @@ fn run_hook_flow(no_browser: bool, port: u16) {
     let plan_md = extract_plan_content(&hook_input.tool_input);
     eprintln!("Plan received ({} bytes)", plan_md.len());
 
-    // 5b. Extract git diff from the hook's cwd
-    let diff_content = extract_diff(&hook_input.cwd);
-    eprintln!("Diff extracted ({} bytes)", diff_content.len());
-
     // 6. Start tokio runtime (current_thread for single-user tool)
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -667,9 +843,9 @@ fn run_hook_flow(no_browser: bool, port: u16) {
         no_browser,
         port,
         plan_md,
-        diff_content,
         "Approve".to_string(),
         "Deny".to_string(),
+        "/",
     ));
 
     // 7. Build integration-specific output JSON and write to stdout — THE ONLY stdout write
@@ -699,24 +875,25 @@ async fn async_main(
     no_browser: bool,
     port: u16,
     plan_md: String,
-    diff_content: String,
     approve_label: String,
     deny_label: String,
+    path: &str,
 ) -> Decision {
     // Start server
     let (port, decision_rx) =
-        match server::start_server(plan_md, diff_content, approve_label, deny_label, port).await {
+        match server::start_server(plan_md, approve_label, deny_label, port).await {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("Failed to start server: {}", e);
                 return Decision {
                     behavior: "deny".to_string(),
                     message: Some(format!("Internal error: {}", e)),
+                    comments: vec![],
                 };
             }
         };
 
-    let url = format!("http://127.0.0.1:{}/", port);
+    let url = build_review_url(port, path);
 
     // Always print URL to stderr (UI-06)
     eprintln!("Review UI: {}", url);
@@ -739,6 +916,7 @@ async fn async_main(
                     Decision {
                         behavior: "deny".to_string(),
                         message: Some("Internal error: decision channel closed".to_string()),
+                        comments: vec![],
                     }
                 }
             }
@@ -748,6 +926,7 @@ async fn async_main(
             Decision {
                 behavior: "deny".to_string(),
                 message: Some("Review timed out \u{2014} plan was not approved".to_string()),
+                comments: vec![],
             }
         }
     };
@@ -759,4 +938,123 @@ async fn async_main(
     });
 
     decision
+}
+
+/// Run the code review flow for the current git branch.
+///
+/// Does NOT read stdin and passes an empty plan_md (the /code-review SPA route
+/// never calls /api/plan). Opens the browser at /code-review.
+fn run_code_review_flow(no_browser: bool, port: u16) {
+    eprintln!("Starting code review for current git branch");
+
+    // In debug mode, verify frontend assets exist before starting the server.
+    #[cfg(debug_assertions)]
+    {
+        if server::Assets::get("index.html").is_none() {
+            eprintln!("ERROR: Frontend assets not found at ui/dist/index.html");
+            eprintln!(
+                "Run 'cd ui && npm run build' first, or run 'cargo run' from the project root."
+            );
+            std::process::exit(1);
+        }
+    }
+
+    // Start tokio runtime and run the browser review flow
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    let decision = rt.block_on(async_main(
+        no_browser,
+        port,
+        String::new(), // /code-review SPA route does not use /api/plan
+        "Approve".to_string(),
+        "Deny".to_string(),
+        "/code-review",
+    ));
+
+    // Build opencode output format and write to stdout — THE ONLY stdout write
+    let output = build_opencode_output(&decision);
+    serde_json::to_writer(std::io::stdout(), &output).expect("failed to write hook output");
+}
+
+/// Claude Code PreToolUse hook handler.
+///
+/// Reads stdin JSON, filters by tool_input.command, exits 0 silently (with NO
+/// stdout output) when the command is not a PR/push. When the command matches,
+/// delegates to run_code_review_flow.
+fn run_pre_pr_hook_flow(no_browser: bool, port: u16) {
+    // Read all of stdin synchronously (before any async runtime)
+    let input_json = match std::io::read_to_string(std::io::stdin()) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Failed to read stdin: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    // Parse JSON into HookInput
+    let hook_input: HookInput = serde_json::from_str(&input_json).unwrap_or_else(|e| {
+        eprintln!("Failed to parse hook input: {}", e);
+        std::process::exit(1);
+    });
+
+    // Filter: exit 0 silently when the command is not a PR/push (T-29-02)
+    if !should_trigger_code_review(&hook_input) {
+        // Zero bytes to stdout — must not interfere with Claude's Bash output
+        std::process::exit(0);
+    }
+
+    // Run the code-review server flow and emit the Claude Code PreToolUse hook protocol.
+    // We do NOT delegate to run_code_review_flow because that function writes the opencode
+    // {"behavior":"allow"|"deny"} format, which Claude Code's PreToolUse hook ignores.
+    // PreToolUse requires HookOutput (hookSpecificOutput wrapper) to block, or no stdout to allow.
+    eprintln!("Starting code review for current git branch (pre-PR hook)");
+
+    #[cfg(debug_assertions)]
+    {
+        if server::Assets::get("index.html").is_none() {
+            eprintln!("ERROR: Frontend assets not found at ui/dist/index.html");
+            std::process::exit(1);
+        }
+    }
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    let decision = rt.block_on(async_main(
+        no_browser,
+        port,
+        String::new(),
+        "Approve".to_string(),
+        "Deny".to_string(),
+        "/code-review",
+    ));
+
+    // Write Claude Code PreToolUse hook output.
+    // - "deny": hookSpecificOutput with PermissionRequest decision blocks the Bash call.
+    // - "allow" with feedback: hookSpecificOutput with additionalContext injects the
+    //   reviewer's notes into Claude's conversation context without blocking.
+    // - "allow" with no feedback: no stdout — Claude Code treats empty stdout as allow.
+    match decision.behavior.as_str() {
+        "allow" => {
+            if let Some(feedback) = build_code_review_feedback(&decision) {
+                let advisory = pre_tool_use_advisory(&feedback);
+                serde_json::to_writer(std::io::stdout(), &advisory)
+                    .expect("failed to write hook output");
+            }
+        }
+        _ => {
+            let hook_output = HookOutput::deny(
+                decision
+                    .message
+                    .unwrap_or_else(|| "Code review denied — revise before pushing".to_string()),
+            );
+            serde_json::to_writer(std::io::stdout(), &hook_output)
+                .expect("failed to write hook output");
+        }
+    }
 }

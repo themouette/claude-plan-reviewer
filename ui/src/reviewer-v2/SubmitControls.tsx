@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Annotation } from './types'
-import type { ConnectivityStatus } from './connectivity'
+import type { ConnectivityStatus } from '../shared/connectivity'
 import { buildClipboardPayload, shouldUseClipboard } from './offlineLabels'
 import { serializeAnnotations } from './serializeAnnotations'
 import SubmitPopover from './SubmitPopover'

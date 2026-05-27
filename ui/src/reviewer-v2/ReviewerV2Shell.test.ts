@@ -121,8 +121,8 @@ describe('ReviewerV2Shell editingId + annotationCounts wiring (Phase 21)', () =>
 })
 
 describe('ReviewerV2Shell Phase 22 wiring', () => {
-  it("imports useHeartbeat from './useHeartbeat'", () => {
-    expect(source).toMatch(/from ['"]\.\/useHeartbeat['"]/)
+  it("imports useHeartbeat from '../shared/useHeartbeat'", () => {
+    expect(source).toMatch(/from ['"]\.\.\/shared\/useHeartbeat['"]/)
   })
 
   it("imports SubmitControls from './SubmitControls'", () => {

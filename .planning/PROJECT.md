@@ -16,32 +16,36 @@ The offline resilience milestone is complete. All 5 phases (Phases 12–16) ship
 The full offline annotation loop is now in place: heartbeat endpoint → connectivity state →
 offline banner → clipboard submit → slash command fallback.
 
-## Current Milestone: v0.6.0 Markdown Annotator v2
+## Shipped: v0.6.0 Markdown Annotator v2 (2026-05-22)
 
-**Goal:** Build a standalone 3-column annotation reviewer alongside the existing UI — optimized for eventual deletion of the existing view, with no backwards code coupling.
+Full 3-column annotation reviewer shipped. v1 codepath removed. ReviewerV2 at root URL (`/`).
+3-column layout (outline / formatted markdown / comment sidebar), text selection → toolbar,
+comment anchoring with overlap/collapse, approve vs. ask-for-changes with validation gates,
+clipboard degraded mode preserved, no v1 code coupling.
+
+## Current Milestone: v0.7.0 Code Review
+
+**Goal:** Add a code review mode — let you inspect, navigate, and annotate agent-generated diffs before a PR, then return structured feedback to the agent.
 
 **Target features:**
-- 3-column layout: tree outline (left) / formatted markdown (center) / anchored comment sidebar (right)
-- Outline tree: heading hierarchy, click-to-scroll, active section highlight, per-section comment counts
-- Comment sidebar: text-anchored comments, hover highlights, floating alignment, overlap/collapse handling
-- Markdown content: formatted rendering, paragraph hover, text selection → comment toolbar
-- Comment creation: 3 quick actions (comment, delete, replace) + expandable predefined-action menu
-- Review submission: approve vs. ask-for-changes with validation gates
-- Clipboard fallback (degraded mode) preserved
-- Regression test suite guarding the existing annotation flow
-- No code coupling to existing view (existing view may import from new component, never vice versa)
+- Diff viewer: full branch diff (vs main), side-by-side / unified toggle, expand collapsed lines, file list navigation
+- Commit navigation: list commits in branch, click to view per-commit diff, full-branch vs per-commit mode toggle, keyboard prev/next
+- Inline comments: comment on any diff hunk or whole file, edit/delete, comment count badge per file
+- Review submission: approve (no comments) with optional global instruction; submit with comments returns structured feedback JSON to agent
+- Integration: slash command + pre-PR hook trigger; `install`/`uninstall` wires/unwires both
+- Architecture: replaces the existing unused diff tab — prior diff code removed
 
 ## Current State
 
-v0.5.0 shipped 2026-05-07. v0.6.0 milestone (Markdown Annotator v2) complete 2026-05-22.
+v0.6.0 shipped 2026-05-22. v0.7.0 milestone (Code Review) complete — Phase 29 done (code review integration: `code-review` + `pre-pr-hook` subcommands, install/uninstall wiring). Phase 29.1 complete — fixed POST /api/decide schema mismatch: handler now accepts `serde_json::Value` with key-presence dispatch, unblocking code-review submit path.
 
-- **Binary**: `plan-reviewer` — single static Rust binary, ~5,307 Rust LOC + ~3,175 TypeScript/TSX LOC (React+TS, v1 deleted)
-- **Subcommands**: `install [integration]`, `uninstall [integration]`, `update [--check] [--version X] [-y]`, `review <file>`, `review-hook`
-- **Supported integrations**: Claude Code (full plugin model — hook + slash command), opencode (JS plugin), Gemini CLI (extension directory)
+- **Binary**: `plan-reviewer` — single static Rust binary
+- **Subcommands**: `install [integration]`, `uninstall [integration]`, `update [--check] [--version X] [-y]`, `review <file>`, `review-hook`, `code-review`, `pre-pr-hook`
+- **Supported integrations**: Claude Code (full plugin model — hook + slash command + pre-PR hook + code-review slash command), opencode (JS plugin), Gemini CLI (extension directory)
 - **Distribution**: cargo-dist releases for darwin-arm64, darwin-x64, linux-musl-arm64, linux-musl-x64
+- **UI**: ReviewerV2 (React+TS) — 3-column markdown annotation UI at root URL; `/code-review` route for branch diff review
 - **Offline resilience**: heartbeat polling, offline banner, clipboard submit path, slash command paste fallback — all complete
-- **ReviewerV2**: single renderer at root URL (`/`) — v1 codepath fully removed as of Phase 23
-- **Known tech debt**: 4 code review warnings (WR-01–WR-04 across prior milestones)
+- **Known tech debt**: WR-01 (CancellationToken drop on server start — survivable via process::exit watchdog)
 
 ## Requirements
 
@@ -69,23 +73,47 @@ v0.5.0 shipped 2026-05-07. v0.6.0 milestone (Markdown Annotator v2) complete 202
 - ✓ Clipboard fallback: synchronous clipboard write with identical JSON format to server; distinct confirmation screen — v0.5.0 (CLB-01–02)
 - ✓ Slash command resilience: `annotate.md` Step 4 handles pasted clipboard JSON when no stdout result — v0.5.0 (SLC-01)
 
-### Active (v0.6.0)
+### Validated (v0.6.0)
 
-- [ ] LAYOUT-01: 3-column layout shell (outline / content / comments) rendered in a new browser tab alongside existing
-- [ ] OUTLINE-01: Heading tree with click-to-scroll and active section tracking
-- [ ] OUTLINE-02: Per-section comment count badges in the outline tree
-- [ ] CONTENT-01: Markdown rendered as formatted HTML in the center pane
-- [ ] CONTENT-02: Paragraph hover highlight + comment toolbar trigger
-- [ ] CONTENT-03: Text selection → comment toolbar (anchored to selection)
-- [ ] COMMENT-01: Comment sidebar scrolls with content; comments float at anchor text level
-- [ ] COMMENT-02: Hover a comment → highlight corresponding text; hover text → highlight comment
-- [ ] COMMENT-03: Overlap handling — non-focused comments collapse; focused comment rises; all reachable by scroll
-- [ ] COMMENT-04: Quick actions: comment / delete / replace; expandable menu with predefined actions
-- [ ] COMMENT-05: Comment edit/delete via pencil and X icons on each bubble
-- [ ] SUBMIT-01: Approve vs. ask-for-changes with validation (no approve when comments exist; no ask-for-changes without at least one comment)
-- [ ] SUBMIT-02: Clipboard fallback (degraded mode) preserved on the new reviewer
-- [ ] TEST-01: Regression test suite covering existing annotation flow (no regressions from new component introduction)
-- [ ] ARCH-01: New reviewer is architecturally isolated; existing view may import from new component, never the reverse
+- ✓ LAYOUT-01: 3-column layout shell (outline / content / comments) — v0.6.0
+- ✓ OUTLINE-01: Heading tree with click-to-scroll and active section tracking — v0.6.0
+- ✓ OUTLINE-02: Per-section comment count badges in the outline tree — v0.6.0
+- ✓ CONTENT-01: Markdown rendered as formatted HTML in the center pane — v0.6.0
+- ✓ CONTENT-02: Paragraph hover highlight + comment toolbar trigger — v0.6.0
+- ✓ CONTENT-03: Text selection → comment toolbar (anchored to selection) — v0.6.0
+- ✓ COMMENT-01: Comment sidebar scrolls with content; comments float at anchor text level — v0.6.0
+- ✓ COMMENT-02: Hover a comment → highlight corresponding text; hover text → highlight comment — v0.6.0
+- ✓ COMMENT-03: Overlap handling — non-focused comments collapse; focused comment rises; all reachable by scroll — v0.6.0
+- ✓ COMMENT-04: Quick actions: comment / delete / replace; expandable menu with predefined actions — v0.6.0
+- ✓ COMMENT-05: Comment edit/delete via pencil and X icons on each bubble — v0.6.0
+- ✓ SUBMIT-01: Approve vs. ask-for-changes with validation gates — v0.6.0
+- ✓ SUBMIT-02: Clipboard fallback (degraded mode) preserved on the new reviewer — v0.6.0
+- ✓ TEST-01: Regression test suite covering existing annotation flow — v0.6.0
+- ✓ ARCH-01: New reviewer architecturally isolated; existing view may import from new component, never the reverse — v0.6.0
+
+### Active (v0.7.0)
+
+- [ ] DIFF-01: User can view a full branch diff (all changed files combined, vs main)
+- [ ] DIFF-02: User can expand collapsed context lines within a diff hunk
+- [ ] DIFF-03: User can toggle between unified and side-by-side layout
+- [ ] DIFF-04: User can navigate directly to any changed file via a file list
+- [ ] DIFF-05: User can select which commits to include in the current diff view
+- [ ] COMMIT-01: User can view a list of all commits in the current branch
+- [ ] COMMIT-02: User can click a commit to view its individual diff
+- [ ] COMMIT-03: User can switch between per-commit view and full branch diff mode
+- [ ] COMMIT-04: User can navigate between commits with keyboard (prev/next)
+- [ ] COMMENT-01: User can add a comment anchored to any diff hunk
+- [ ] COMMENT-02: User can add a comment at the whole-file level
+- [ ] COMMENT-03: User can edit or delete their own comments
+- [ ] COMMENT-04: File list shows a comment count badge per file
+- [ ] SUBMIT-01: User can approve the review when no comments exist
+- [ ] SUBMIT-02: User can include an optional global instruction when approving
+- [ ] SUBMIT-03: User can submit with comments; structured feedback JSON returned to agent
+- [ ] SUBMIT-04: Submitting "request changes" requires at least one comment
+- [ ] INTEG-01: User can invoke code review via a slash command
+- [ ] INTEG-02: Agent can trigger code review automatically via a pre-PR hook
+- [ ] INTEG-03: `plan-reviewer install` wires up slash command + hook; `uninstall` removes them
+- [ ] ARCH-01: Code review viewer replaces the existing (unused) diff tab — prior diff code removed
 
 ### Future
 
@@ -149,4 +177,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-22 after Phase 23 complete — v0.6.0 milestone (Markdown Annotator v2) finalized*
+*Last updated: 2026-05-26 — Phase 29.1 complete (fix POST /api/decide schema mismatch — v0.7.0 fully done)*

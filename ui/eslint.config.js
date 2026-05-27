@@ -28,10 +28,29 @@ export default defineConfig([
         {
           patterns: [
             {
-              group: ['../**'],
+              regex: '^\\.\\./(?!shared(/|$))',
               message:
-                'reviewer-v2/ files must not import from outside the subtree. ' +
-                'Copy the utility into reviewer-v2/utils/ or reviewer-v2/hooks/.',
+                'reviewer-v2/ files must not import from outside the subtree ' +
+                '(exception: ../shared/** is allowed). ' +
+                'Copy the utility into reviewer-v2/utils/ or reviewer-v2/hooks/ if you need it locally.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/code-review/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['../reviewer-v2/**', '*/reviewer-v2/**'],
+              message:
+                'code-review/ files must not import from reviewer-v2/. ' +
+                'Copy the utility into code-review/ or extract to shared/.',
             },
           ],
         },
