@@ -477,22 +477,25 @@ async function handleApprove(globalInstruction?: string) {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **ESLint rule update scope for reviewer-v2/ after shared/ move**
    - What we know: current rule bans all `../**` imports from `reviewer-v2/**`
    - What's unclear: whether to use a narrower exclusion (`../shared/**` allowed) or restructure the rule entirely
    - Recommendation: add a second pattern entry that explicitly allows `../shared/**` while keeping the existing ban on other `../**` paths
+   - **RESOLVED:** Plan 28-01 (shared/ move + ESLint rule update task) applies the narrower-exclusion approach — the `no-restricted-imports` rule for `reviewer-v2/**` is updated to explicitly allow `../shared/**` while keeping every other `../**` path banned.
 
 2. **Should useHeartbeat.test.ts and connectivity.test.ts move to shared/ or stay in reviewer-v2/?**
    - What we know: tests currently import via relative paths that will break if source moves
    - What's unclear: project convention for co-location of tests for shared utilities
    - Recommendation: move test files to `shared/` alongside the source files for consistency with the project pattern of co-located tests
+   - **RESOLVED:** Plan 28-01 moves both `useHeartbeat.test.ts` and `connectivity.test.ts` to `ui/src/shared/` alongside their source files (co-located convention), per the recommended structure in the "Recommended Project Structure" diagram above.
 
 3. **Handling `status === 409` in code-review POST path**
    - What we know: reviewer-v2/SubmitControls.tsx treats `res.status === 409` as success (already submitted)
    - What's unclear: whether the code-review submit endpoint will use the same 409 convention (Phase 29 scope)
    - Recommendation: replicate the `res.ok || res.status === 409` pattern for defensive programming; Phase 29 can refine
+   - **RESOLVED:** Plan 28-03 (handleApprove / handleRequestChanges wiring) replicates the `res.ok || res.status === 409` defensive pattern in the code-review POST path, matching reviewer-v2/SubmitControls.tsx. Phase 29 may refine when the backend endpoint lands.
 
 ---
 
