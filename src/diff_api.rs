@@ -61,6 +61,10 @@ const COMMIT_LIMIT: usize = 500;
 /// All-zeros is a valid 40-hex OID that can never be a real git object.
 const UNCOMMITTED_SHA: &str = "0000000000000000000000000000000000000000";
 
+/// Sentinel SHA used for the synthetic "untracked files" commit list entry.
+/// One-terminated all-zeros — also can never be a real git object.
+const UNTRACKED_SHA: &str = "0000000000000000000000000000000000000001";
+
 // --- Base branch detection ---
 
 /// Find the merge base candidate commit for the current branch.
@@ -340,6 +344,76 @@ fn try_uncommitted_diff(repo_path: &std::path::Path, context_lines: u32) -> Opti
     Some(build_file_diffs(&diff, &repo))
 }
 
+fn has_untracked_files(repo: &git2::Repository) -> bool {
+    let mut opts = git2::StatusOptions::new();
+    opts.include_untracked(true)
+        .recurse_untracked_dirs(true)
+        .include_ignored(false);
+    repo.statuses(Some(&mut opts))
+        .map(|s| s.iter().any(|e| e.status().contains(git2::Status::WT_NEW)))
+        .unwrap_or(false)
+}
+
+fn try_untracked_diff(repo_path: &std::path::Path) -> Option<Vec<FileDiff>> {
+    let repo = git2::Repository::open(repo_path).ok()?;
+    let workdir = repo.workdir()?.to_path_buf();
+
+    let mut opts = git2::StatusOptions::new();
+    opts.include_untracked(true)
+        .recurse_untracked_dirs(true)
+        .include_ignored(false);
+    let statuses = repo.statuses(Some(&mut opts)).ok()?;
+
+    let mut file_diffs = Vec::new();
+    for entry in statuses.iter() {
+        if !entry.status().contains(git2::Status::WT_NEW) {
+            continue;
+        }
+        let Some(path) = entry.path() else { continue };
+        let full_path = workdir.join(path);
+        if full_path.is_dir() {
+            continue;
+        }
+        match std::fs::read_to_string(&full_path) {
+            Ok(content) => {
+                let lines: Vec<&str> = content.lines().collect();
+                let additions = lines.len() as u32;
+                let patch_body: String = lines.iter().map(|l| format!("+{l}\n")).collect();
+                let patch = format!(
+                    "--- /dev/null\n+++ b/{path}\n@@ -0,0 +1,{additions} @@\n{patch_body}"
+                );
+                file_diffs.push(FileDiff {
+                    filename: path.to_string(),
+                    previous_filename: None,
+                    status: "added".to_string(),
+                    additions,
+                    deletions: 0,
+                    changes: additions,
+                    patch,
+                    old_content: Some(String::new()),
+                    new_content: Some(content),
+                });
+            }
+            Err(_) => {
+                // Binary or unreadable file
+                file_diffs.push(FileDiff {
+                    filename: path.to_string(),
+                    previous_filename: None,
+                    status: "added".to_string(),
+                    additions: 0,
+                    deletions: 0,
+                    changes: 0,
+                    patch: "[binary file]".to_string(),
+                    old_content: None,
+                    new_content: None,
+                });
+            }
+        }
+    }
+
+    Some(file_diffs)
+}
+
 /// GET /api/commits — returns `{ commits: Commit[], truncated: bool }` for
 /// commits between HEAD and the detected base branch. Returns an empty list
 /// if the repo cannot be opened or no base branch resolves (D-07).
@@ -388,14 +462,34 @@ fn try_list_commits(repo_path: &std::path::Path) -> Option<CommitList> {
     let truncated = commits.len() > COMMIT_LIMIT;
     commits.truncate(COMMIT_LIMIT);
 
-    // Prepend a synthetic entry for uncommitted changes when they exist.
-    if has_uncommitted_changes(&repo) {
+    // Prepend synthetic entries for in-progress work. Detect both conditions upfront
+    // so the insertion indices stay stable: uncommitted at 0, untracked at 1.
+    let has_uncommitted = has_uncommitted_changes(&repo);
+    let has_untracked = has_untracked_files(&repo);
+
+    if has_uncommitted {
         commits.insert(
             0,
             Commit {
                 sha: UNCOMMITTED_SHA.to_string(),
                 short_sha: "--".to_string(),
                 message: "Uncommitted changes".to_string(),
+                author: String::new(),
+                email: String::new(),
+                date: String::new(),
+                branches: vec![],
+                tags: vec![],
+            },
+        );
+    }
+    if has_untracked {
+        // Insert after "Uncommitted changes" if present, otherwise at top.
+        commits.insert(
+            usize::from(has_uncommitted),
+            Commit {
+                sha: UNTRACKED_SHA.to_string(),
+                short_sha: "--".to_string(),
+                message: "Untracked files".to_string(),
                 author: String::new(),
                 email: String::new(),
                 date: String::new(),
@@ -424,6 +518,12 @@ async fn get_diff_commit(
     if sha == UNCOMMITTED_SHA {
         let context_lines = params.context.unwrap_or(3);
         let file_diffs = try_uncommitted_diff(&state.repo_path, context_lines).unwrap_or_default();
+        return (StatusCode::OK, Json(file_diffs)).into_response();
+    }
+
+    // Sentinel: return untracked (new files not yet staged) diff.
+    if sha == UNTRACKED_SHA {
+        let file_diffs = try_untracked_diff(&state.repo_path).unwrap_or_default();
         return (StatusCode::OK, Json(file_diffs)).into_response();
     }
 
@@ -1036,6 +1136,129 @@ mod tests {
         assert!(
             !branches.is_empty(),
             "commits[0].branches must be non-empty — the feature branch ref should be resolved; got: {branches:?}"
+        );
+    }
+
+    /// Test 13: /api/commits does NOT include an "Untracked files" entry when there are none.
+    #[tokio::test]
+    async fn get_commits_no_untracked_entry_when_none_exist() {
+        let (tmp, _repo, _oids) = make_repo_with_main_and_feature(&[("a.txt", "x\n")]);
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let (status, json) = do_get(state, "/api/commits").await;
+        assert_eq!(status, StatusCode::OK);
+
+        let commits = json["commits"].as_array().expect("expected commits array");
+        assert!(
+            commits
+                .iter()
+                .all(|c| c["message"].as_str() != Some("Untracked files")),
+            "No untracked entry expected when workdir is clean"
+        );
+    }
+
+    /// Test 14: /api/commits includes an "Untracked files" entry when the workdir has new files.
+    #[tokio::test]
+    async fn get_commits_includes_untracked_entry_when_new_files_exist() {
+        use std::fs;
+        let (tmp, _repo, _oids) = make_repo_with_main_and_feature(&[("a.txt", "x\n")]);
+        // Write an untracked file (not staged)
+        fs::write(tmp.path().join("untracked.txt"), "new content\n").unwrap();
+
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let (status, json) = do_get(state, "/api/commits").await;
+        assert_eq!(status, StatusCode::OK);
+
+        let commits = json["commits"].as_array().expect("expected commits array");
+        let untracked_entry = commits
+            .iter()
+            .find(|c| c["message"].as_str() == Some("Untracked files"))
+            .expect("Expected an 'Untracked files' synthetic entry");
+
+        assert_eq!(untracked_entry["sha"].as_str(), Some(UNTRACKED_SHA));
+        assert_eq!(untracked_entry["short_sha"].as_str(), Some("--"));
+    }
+
+    /// Test 15: /api/diff/commit/UNTRACKED_SHA returns the untracked file as an added FileDiff.
+    #[tokio::test]
+    async fn get_diff_commit_untracked_sha_returns_untracked_files() {
+        use std::fs;
+        let (tmp, _repo, _oids) = make_repo_with_main_and_feature(&[("a.txt", "x\n")]);
+        fs::write(tmp.path().join("new.txt"), "hello\nworld\n").unwrap();
+
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let uri = format!("/api/diff/commit/{UNTRACKED_SHA}");
+        let (status, json) = do_get(state, &uri).await;
+        assert_eq!(status, StatusCode::OK);
+
+        let arr = json.as_array().expect("expected JSON array");
+        assert_eq!(arr.len(), 1, "Expected 1 FileDiff for the untracked file");
+
+        let entry = &arr[0];
+        assert_eq!(entry["filename"].as_str(), Some("new.txt"));
+        assert_eq!(entry["status"].as_str(), Some("added"));
+        assert_eq!(entry["additions"].as_u64(), Some(2));
+        assert_eq!(entry["deletions"].as_u64(), Some(0));
+        let patch = entry["patch"].as_str().unwrap_or("");
+        assert!(
+            patch.contains("+hello"),
+            "Patch should contain '+hello': {patch}"
+        );
+        assert!(
+            patch.contains("+world"),
+            "Patch should contain '+world': {patch}"
+        );
+        assert_eq!(
+            entry["new_content"].as_str(),
+            Some("hello\nworld\n"),
+            "new_content should hold the full file text"
+        );
+        assert_eq!(
+            entry["old_content"].as_str(),
+            Some(""),
+            "old_content must be \"\" for untracked files so FileDiffComponent can render them"
+        );
+    }
+
+    /// Test 16: both "Uncommitted changes" and "Untracked files" entries are present
+    /// when the workdir has both modified tracked files and new untracked files,
+    /// with "Uncommitted changes" at index 0 and "Untracked files" at index 1.
+    #[tokio::test]
+    async fn get_commits_both_synthetic_entries_ordering() {
+        use std::fs;
+        let (tmp, repo, _oids) = make_repo_with_main_and_feature(&[("a.txt", "original\n")]);
+        // Modify a tracked file (unstaged)
+        fs::write(tmp.path().join("a.txt"), "modified\n").unwrap();
+        // Ensure git sees the modification (re-read index from disk)
+        let _ = repo.index();
+        // Also write an untracked file
+        fs::write(tmp.path().join("untracked.txt"), "new\n").unwrap();
+
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let (status, json) = do_get(state, "/api/commits").await;
+        assert_eq!(status, StatusCode::OK);
+
+        let commits = json["commits"].as_array().expect("expected commits array");
+        assert!(
+            commits.len() >= 2,
+            "Expected at least 2 entries; got: {commits:?}"
+        );
+        assert_eq!(
+            commits[0]["message"].as_str(),
+            Some("Uncommitted changes"),
+            "Index 0 must be 'Uncommitted changes'"
+        );
+        assert_eq!(
+            commits[1]["message"].as_str(),
+            Some("Untracked files"),
+            "Index 1 must be 'Untracked files'"
         );
     }
 }

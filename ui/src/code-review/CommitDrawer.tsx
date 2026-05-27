@@ -99,6 +99,9 @@ export default function CommitDrawer({
       <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {commits.map((commit) => {
           const isSelected = selectedCommitShas.includes(commit.sha)
+          const isUncommitted = commit.sha === '0000000000000000000000000000000000000000'
+          const isUntracked = commit.sha === '0000000000000000000000000000000000000001'
+          const isSynthetic = isUncommitted || isUntracked
 
           return (
             <li
@@ -126,6 +129,7 @@ export default function CommitDrawer({
                 gap: 4,
                 cursor: 'pointer',
                 borderLeft: isSelected ? '2px solid var(--color-focus)' : '2px solid transparent',
+                borderBottom: isSynthetic ? '1px solid var(--color-border)' : undefined,
                 background: isSelected ? 'var(--color-bg)' : 'transparent',
                 color: isSelected ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                 fontWeight: isSelected ? 600 : 400,
@@ -139,9 +143,21 @@ export default function CommitDrawer({
                     fontSize: 12,
                     padding: '4px 8px',
                     borderRadius: 4,
-                    border: '1px solid var(--color-border)',
-                    background: 'rgba(59,130,246,0.12)',
-                    color: 'var(--color-text-secondary)',
+                    border: isUncommitted
+                      ? '1px solid var(--color-annotation-replace)'
+                      : isUntracked
+                        ? '1px solid var(--color-accent-approve)'
+                        : '1px solid var(--color-border)',
+                    background: isUncommitted
+                      ? 'rgba(245,158,11,0.12)'
+                      : isUntracked
+                        ? 'rgba(34,197,94,0.12)'
+                        : 'rgba(59,130,246,0.12)',
+                    color: isUncommitted
+                      ? 'var(--color-annotation-replace)'
+                      : isUntracked
+                        ? 'var(--color-accent-approve)'
+                        : 'var(--color-text-secondary)',
                     flexShrink: 0,
                   }}
                 >
@@ -185,6 +201,7 @@ export default function CommitDrawer({
                   style={{
                     flex: 1,
                     fontSize: 14,
+                    fontStyle: isSynthetic ? 'italic' : undefined,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -194,10 +211,12 @@ export default function CommitDrawer({
                   {commit.message}
                 </span>
               </div>
-              {/* Line 2: author · date */}
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                {commit.author} · {commit.date}
-              </div>
+              {/* Line 2: author · date — omitted for synthetic entries with no metadata */}
+              {(commit.author || commit.date) && (
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                  {commit.author} · {commit.date}
+                </div>
+              )}
             </li>
           )
         })}

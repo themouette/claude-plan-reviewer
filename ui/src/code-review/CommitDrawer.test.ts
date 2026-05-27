@@ -104,6 +104,40 @@ describe('CommitDrawer', () => {
     expect(source).not.toContain('reviewer-v2/')
   })
 
+  it('synthetic entries: detected by full SHA sentinel strings', () => {
+    expect(source).toContain("'0000000000000000000000000000000000000000'")
+    expect(source).toContain("'0000000000000000000000000000000000000001'")
+  })
+
+  it('uncommitted entry: SHA chip uses amber color token (--color-annotation-replace)', () => {
+    expect(source).toContain('var(--color-annotation-replace)')
+  })
+
+  it('uncommitted entry: SHA chip uses amber background rgba(245,158,11,0.12)', () => {
+    expect(source).toContain('rgba(245,158,11,0.12)')
+  })
+
+  it('untracked entry: SHA chip uses green color token (--color-accent-approve)', () => {
+    expect(source).toContain('var(--color-accent-approve)')
+  })
+
+  it('untracked entry: SHA chip uses green background rgba(34,197,94,0.12)', () => {
+    expect(source).toContain('rgba(34,197,94,0.12)')
+  })
+
+  it('synthetic entries: bottom border separator uses --color-border token', () => {
+    expect(source).toContain('borderBottom:')
+    expect(source).toContain("'1px solid var(--color-border)'")
+  })
+
+  it('synthetic entries: message text uses fontStyle italic', () => {
+    expect(source).toContain("fontStyle: isSynthetic ? 'italic' : undefined")
+  })
+
+  it('synthetic entries: author/date line is conditional on author or date being non-empty', () => {
+    expect(source).toContain('(commit.author || commit.date)')
+  })
+
   it('calls onCommitClick handler with sha and event', () => {
     expect(source).toContain('onCommitClick(commit.sha,')
   })
