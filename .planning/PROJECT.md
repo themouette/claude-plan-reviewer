@@ -23,17 +23,9 @@ Full 3-column annotation reviewer shipped. v1 codepath removed. ReviewerV2 at ro
 comment anchoring with overlap/collapse, approve vs. ask-for-changes with validation gates,
 clipboard degraded mode preserved, no v1 code coupling.
 
-## Current Milestone: v0.7.0 Code Review
+## Shipped: v0.7.0 Code Review (2026-05-27)
 
-**Goal:** Add a code review mode — let you inspect, navigate, and annotate agent-generated diffs before a PR, then return structured feedback to the agent.
-
-**Target features:**
-- Diff viewer: full branch diff (vs main), side-by-side / unified toggle, expand collapsed lines, file list navigation
-- Commit navigation: list commits in branch, click to view per-commit diff, full-branch vs per-commit mode toggle, keyboard prev/next
-- Inline comments: comment on any diff hunk or whole file, edit/delete, comment count badge per file
-- Review submission: approve (no comments) with optional global instruction; submit with comments returns structured feedback JSON to agent
-- Integration: slash command + pre-PR hook trigger; `install`/`uninstall` wires/unwires both
-- Architecture: replaces the existing unused diff tab — prior diff code removed
+Full code review mode shipped. 9 phases (24–29.1), 22 plans, ~297 commits. Diff viewer at `/code-review` with file list, unified/side-by-side toggle, commit navigation drawer, inline hunk and file-level comments, and a "Send Review" submit path returning `{message?,comments?}` JSON to agent. `plan-reviewer install claude` wires the `/plan-reviewer:code-review` slash command and `pre-pr-hook` PreToolUse hook. Phase 29.1 fixed POST /api/decide schema mismatch unblocking the agent feedback path.
 
 ## Current State
 
@@ -91,29 +83,31 @@ v0.6.0 shipped 2026-05-22. v0.7.0 milestone (Code Review) complete — Phase 29 
 - ✓ TEST-01: Regression test suite covering existing annotation flow — v0.6.0
 - ✓ ARCH-01: New reviewer architecturally isolated; existing view may import from new component, never the reverse — v0.6.0
 
-### Active (v0.7.0)
+### Validated (v0.7.0)
 
-- [ ] DIFF-01: User can view a full branch diff (all changed files combined, vs main)
-- [ ] DIFF-02: User can expand collapsed context lines within a diff hunk
-- [ ] DIFF-03: User can toggle between unified and side-by-side layout
-- [ ] DIFF-04: User can navigate directly to any changed file via a file list
-- [ ] DIFF-05: User can select which commits to include in the current diff view
-- [ ] COMMIT-01: User can view a list of all commits in the current branch
-- [ ] COMMIT-02: User can click a commit to view its individual diff
-- [ ] COMMIT-03: User can switch between per-commit view and full branch diff mode
-- [ ] COMMIT-04: User can navigate between commits with keyboard (prev/next)
-- [ ] COMMENT-01: User can add a comment anchored to any diff hunk
-- [ ] COMMENT-02: User can add a comment at the whole-file level
-- [ ] COMMENT-03: User can edit or delete their own comments
-- [ ] COMMENT-04: File list shows a comment count badge per file
-- [ ] SUBMIT-01: User can approve the review when no comments exist
-- [ ] SUBMIT-02: User can include an optional global instruction when approving
-- [ ] SUBMIT-03: User can submit with comments; structured feedback JSON returned to agent
-- [ ] SUBMIT-04: Submitting "request changes" requires at least one comment
-- [ ] INTEG-01: User can invoke code review via a slash command
-- [ ] INTEG-02: Agent can trigger code review automatically via a pre-PR hook
-- [ ] INTEG-03: `plan-reviewer install` wires up slash command + hook; `uninstall` removes them
-- [ ] ARCH-01: Code review viewer replaces the existing (unused) diff tab — prior diff code removed
+- ✓ DIFF-01: User can view a full branch diff (all changed files combined, vs main) — v0.7.0
+- ✓ DIFF-02: User can expand collapsed context lines within a diff hunk — v0.7.0
+- ✓ DIFF-03: User can toggle between unified and side-by-side layout — v0.7.0
+- ✓ DIFF-04: User can navigate directly to any changed file via a file list — v0.7.0
+- ✓ DIFF-05: User can select which commits to include in the current diff view — v0.7.0
+- ✓ COMMIT-01: User can view a list of all commits in the current branch — v0.7.0
+- ✓ COMMIT-02: User can click a commit to view its individual diff — v0.7.0
+- ✓ COMMIT-03: User can switch between per-commit view and full branch diff mode — v0.7.0
+- ✓ COMMIT-04: User can navigate between commits with keyboard (prev/next) — v0.7.0
+- ✓ COMMENT-01: User can add a comment anchored to any diff hunk — v0.7.0
+- ✓ COMMENT-02: User can add a comment at the whole-file level — v0.7.0
+- ✓ COMMENT-03: User can edit or delete their own comments — v0.7.0
+- ✓ COMMENT-04: File list shows a comment count badge per file — v0.7.0
+- ✓ SUBMIT-01: Single "Send Review" submit path (design pivot from Approve/Request-Changes split) — v0.7.0
+- ✓ SUBMIT-02: Optional global instruction message in submit popover — v0.7.0
+- ✓ SUBMIT-03: Structured `{message?,comments?}` JSON returned to agent — v0.7.0 (Phase 29.1 schema fix)
+- ✓ SUBMIT-04: Submit gated by `canSend` (comments OR non-empty message) — v0.7.0
+- ✓ INTEG-01: `/plan-reviewer:code-review` slash command — v0.7.0
+- ✓ INTEG-02: `pre-pr-hook` PreToolUse hook triggers on `git push` / `gh pr create` — v0.7.0
+- ✓ INTEG-03: `plan-reviewer install` wires slash command + hook; `uninstall` removes them — v0.7.0
+- ✓ ARCH-01: Unused diff tab removed; code-review viewer is the sole diff UI — v0.7.0
+
+### Active (next milestone)
 
 ### Future
 
@@ -177,4 +171,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-26 — Phase 29.1 complete (fix POST /api/decide schema mismatch — v0.7.0 fully done)*
+*Last updated: 2026-05-27 after v0.7.0 milestone*

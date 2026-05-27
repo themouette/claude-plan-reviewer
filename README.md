@@ -72,9 +72,23 @@ plan-reviewer uninstall opencode
 |------------|----------|-------------|
 | `review-hook` | `plan-reviewer review-hook` | Read hook JSON from stdin, open browser review UI. Explicit form of the default hook behavior. |
 | `review` | `plan-reviewer review <file>` | Review any markdown file; outputs neutral `{"behavior":"allow"\|"deny"}` JSON to stdout. |
+| `code-review` | `plan-reviewer code-review` | Open the diff viewer for the current git branch. Does not read stdin. |
+| `pre-pr-hook` | `plan-reviewer pre-pr-hook` | Claude Code `PreToolUse` hook handler. Reads stdin; triggers code review on `git push` or `gh pr create`, exits silently otherwise. |
 | `install` | `plan-reviewer install [claude\|gemini\|opencode]` | Wire ExitPlanMode hook. Omit argument for interactive picker. |
 | `uninstall` | `plan-reviewer uninstall [claude\|gemini\|opencode]` | Remove hook wiring. Omit argument for interactive picker. |
 | `update` | `plan-reviewer update [flags]` | Self-update binary from GitHub Releases; refreshes installed integration files. |
+
+**review flags:**
+
+| Flag | Purpose |
+|------|---------|
+| `--approve-label TEXT` | Label for the Approve button (default: `Approve`) |
+| `--deny-label TEXT` | Label for the Deny button (default: `Deny`) |
+
+```sh
+plan-reviewer review plan.md
+plan-reviewer review plan.md --approve-label "No issues" --deny-label "Leave feedback"
+```
 
 **update flags:**
 
@@ -90,6 +104,17 @@ plan-reviewer update                  # update to latest (with prompt)
 plan-reviewer update -y               # update to latest, no prompt
 plan-reviewer update --version v0.2.0 # pin to specific version
 ```
+
+## Claude Code slash commands
+
+`plan-reviewer install claude` also installs two slash commands into your Claude Code project:
+
+| Command | Description |
+|---------|-------------|
+| `/plan-reviewer:code-review` | Open the diff viewer for the current branch — review and annotate before creating a PR. |
+| `/plan-reviewer:annotate [file]` | Open a markdown file in the review UI to collect feedback. Omit the argument to auto-detect the last `.md` file from conversation history. |
+
+Use `/plan-reviewer:code-review` before running `gh pr create` to catch issues early. Use `/plan-reviewer:annotate` to get feedback on any plan, spec, or document Claude has just written.
 
 ## Contributing
 
