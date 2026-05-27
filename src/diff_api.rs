@@ -57,6 +57,10 @@ pub struct CommitList {
 
 const COMMIT_LIMIT: usize = 500;
 
+/// Sentinel SHA used for the synthetic "uncommitted changes" commit list entry.
+/// All-zeros is a valid 40-hex OID that can never be a real git object.
+const UNCOMMITTED_SHA: &str = "0000000000000000000000000000000000000000";
+
 // --- Base branch detection ---
 
 /// Find the merge base candidate commit for the current branch.
@@ -311,6 +315,31 @@ fn try_branch_diff(repo_path: &std::path::Path, context_lines: u32) -> Option<Ve
     Some(build_file_diffs(&diff, &repo))
 }
 
+fn has_uncommitted_changes(repo: &git2::Repository) -> bool {
+    let Ok(head) = repo.head().and_then(|h| h.peel_to_commit()) else {
+        return false;
+    };
+    let Ok(head_tree) = head.tree() else {
+        return false;
+    };
+    let mut opts = git2::DiffOptions::new();
+    repo.diff_tree_to_workdir_with_index(Some(&head_tree), Some(&mut opts))
+        .map(|d| d.deltas().len() > 0)
+        .unwrap_or(false)
+}
+
+fn try_uncommitted_diff(repo_path: &std::path::Path, context_lines: u32) -> Option<Vec<FileDiff>> {
+    let repo = git2::Repository::open(repo_path).ok()?;
+    let head_tree = repo.head().ok()?.peel_to_commit().ok()?.tree().ok()?;
+    let mut opts = git2::DiffOptions::new();
+    opts.old_prefix("a/").new_prefix("b/");
+    opts.context_lines(context_lines);
+    let diff = repo
+        .diff_tree_to_workdir_with_index(Some(&head_tree), Some(&mut opts))
+        .ok()?;
+    Some(build_file_diffs(&diff, &repo))
+}
+
 /// GET /api/commits — returns `{ commits: Commit[], truncated: bool }` for
 /// commits between HEAD and the detected base branch. Returns an empty list
 /// if the repo cannot be opened or no base branch resolves (D-07).
@@ -359,6 +388,23 @@ fn try_list_commits(repo_path: &std::path::Path) -> Option<CommitList> {
     let truncated = commits.len() > COMMIT_LIMIT;
     commits.truncate(COMMIT_LIMIT);
 
+    // Prepend a synthetic entry for uncommitted changes when they exist.
+    if has_uncommitted_changes(&repo) {
+        commits.insert(
+            0,
+            Commit {
+                sha: UNCOMMITTED_SHA.to_string(),
+                short_sha: "--".to_string(),
+                message: "Uncommitted changes".to_string(),
+                author: String::new(),
+                email: String::new(),
+                date: String::new(),
+                branches: vec![],
+                tags: vec![],
+            },
+        );
+    }
+
     Some(CommitList { commits, truncated })
 }
 
@@ -374,6 +420,13 @@ async fn get_diff_commit(
     Query(params): Query<DiffContextQuery>,
     Path(sha): Path<String>,
 ) -> impl IntoResponse {
+    // Sentinel: return uncommitted (HEAD → workdir) diff.
+    if sha == UNCOMMITTED_SHA {
+        let context_lines = params.context.unwrap_or(3);
+        let file_diffs = try_uncommitted_diff(&state.repo_path, context_lines).unwrap_or_default();
+        return (StatusCode::OK, Json(file_diffs)).into_response();
+    }
+
     // Validate SHA format via Oid::from_str — returns 400 on non-hex / wrong-length input.
     // This blocks path traversal and other injection patterns (T-24-PT).
     let oid = match git2::Oid::from_str(&sha) {
@@ -713,7 +766,7 @@ mod tests {
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
         });
-        let unknown = "0000000000000000000000000000000000000000";
+        let unknown = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
         let uri = format!("/api/diff/commit/{unknown}");
         let (status, json) = do_get(state, &uri).await;
         assert_eq!(status, StatusCode::NOT_FOUND);
