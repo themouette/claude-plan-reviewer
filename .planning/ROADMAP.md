@@ -7,7 +7,7 @@
 - ✅ **v0.4.0 Agent-Native Review** — Phases 10-11.1 (shipped 2026-04-11)
 - ✅ **v0.5.0 Offline Resilience** — Phases 12-16 (shipped 2026-05-07)
 - ✅ **v0.6.0 Markdown Annotator v2** — Phases 17-23 (shipped 2026-05-22)
-- 🚧 **v0.7.0 Code Review** — Phases 24-29 (in progress)
+- ✅ **v0.7.0 Code Review** — Phases 24–29.1 (shipped 2026-05-27)
 
 ## Phases
 
@@ -55,6 +55,23 @@ Full archive: `.planning/milestones/v0.1.0-ROADMAP.md`
 - [x] Phase 16: Slash Command Fallback (1/1 plans) — completed 2026-05-07
 
 Full archive: `.planning/milestones/v0.5.0-ROADMAP.md`
+
+</details>
+
+<details>
+<summary>✅ v0.7.0 Code Review (Phases 24–29.1) — SHIPPED 2026-05-27</summary>
+
+- [x] Phase 24: Backend Diff API (2/2 plans) — completed 2026-05-23
+- [x] Phase 25: Diff Viewer UI (3/3 plans) — completed 2026-05-24
+- [x] Phase 26: Commit Navigation (3/3 plans) — completed 2026-05-24
+- [x] Phase 26.1: Commit Navigation Bug Fixes (1/1 plan) — completed 2026-05-24
+- [x] Phase 26.2: Commit Navigation UX Polish (3/3 plans) — completed 2026-05-25
+- [x] Phase 27: Inline Comments (3/3 plans) — completed 2026-05-25
+- [x] Phase 28: Review Submission (3/3 plans) — completed 2026-05-25
+- [x] Phase 29: Code Review Integration (2/2 plans) — completed 2026-05-26
+- [x] Phase 29.1: Fix POST /api/decide schema mismatch (2/2 plans) — completed 2026-05-27
+
+Full archive: `.planning/milestones/v0.7.0-ROADMAP.md`
 
 </details>
 
@@ -602,224 +619,6 @@ Plans:
 
 - [x] 23-01-PLAN.md — Update main.tsx + src/main.rs (drop /v2 routing), delete v1 source/test files, verify npm/cargo tests pass and no residual v1 imports
 
----
-
-## v0.7.0: Code Review
-
-### Phase 24: Backend Diff API
-
-**Goal**: The server exposes git diff data via three endpoints — branch diff, commit list, and per-commit diff — giving the React frontend everything it needs to render diffs without shelling out to `git`
-**Depends on**: Phase 23
-**Requirements**: DIFF-01 (data layer), COMMIT-01 (data), COMMIT-02 (data)
-**Success Criteria** (what must be TRUE):
-
-  1. `GET /api/diff/branch` returns a JSON array of file diffs with hunks and line-level added/removed/context markers
-  2. `GET /api/commits` returns a list of commits in the current branch (vs main), each with sha, short sha, message, author, and date
-  3. `GET /api/diff/commit/:sha` returns the same diff structure as `/api/diff/branch` but scoped to a single commit
-  4. All three endpoints are covered by Rust integration tests (no real git repo required — use tmpdir fixture)
-  5. `cargo test` passes with no regressions
-
-**Plans:** 2/2 plans complete
-Plans:
-
-**Wave 1**
-
-- [x] 24-01-PLAN.md — Module refactor (server.rs → plan_review.rs + diff_api.rs) + GET /api/diff/branch + GET /api/commits
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 24-02-PLAN.md — GET /api/diff/commit/:sha + tower::oneshot tmpdir tests covering all three endpoints
-
-### Phase 25: Diff Viewer UI
-
-**Goal**: A new `/code-review` route renders the full branch diff with a file list, unified/side-by-side toggle, and expandable context lines; the existing unused diff tab is removed
-**Depends on**: Phase 24
-**Requirements**: DIFF-01 (display), DIFF-02, DIFF-03, DIFF-04, ARCH-01
-**Success Criteria** (what must be TRUE):
-
-  1. Navigating to `/code-review` renders a file list on the left and a diff pane on the right
-  2. Toggling between unified and side-by-side layouts works without reloading
-  3. Clicking a file in the file list jumps to that file in the diff pane
-  4. Collapsed context lines (shown as `...`) expand when clicked to reveal surrounding lines
-  5. The existing (unused) diff tab and its code are removed — no dead `DiffView` or `TabBar` code remains
-
-**Plans:** 3/3 plans complete
-Plans:
-**Wave 1**
-
-- [x] 25-01-PLAN.md — Foundation: FileDiff type + useDiff hook with fetchDiffOnce (TDD) + Rust ?context=N param + ESLint code-review/ isolation rule
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 25-02-PLAN.md — AppToolbar + FileListPane + DiffPane components with PatchDiff integration and source-assertion tests
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 25-03-PLAN.md — CodeReviewApp composition + main.tsx pathname routing + ARCH-01 cleanup (remove legacy /api/diff, AppState.diff_content, extract_diff) + human verify
-
-**UI hint**: yes
-
-### Phase 26: Commit Navigation
-
-**Goal**: A commit list sidebar lets the user browse branch commits; clicking one shows its isolated diff; the user can switch between per-commit and full-branch views; keyboard prev/next navigates commits; multi-commit selection filters the combined diff
-**Depends on**: Phase 24, Phase 25
-**Requirements**: COMMIT-01, COMMIT-02, COMMIT-03, COMMIT-04, DIFF-05
-**Success Criteria** (what must be TRUE):
-
-  1. The commit list sidebar shows each commit's short sha, message, author, and date
-  2. Clicking a commit switches the diff pane to show only that commit's changes
-  3. A "Full diff" mode toggle returns the diff pane to showing all branch changes combined
-  4. Pressing the left/right (or up/down) arrow keys navigates to the previous/next commit
-  5. Deselecting commits in the list excludes them from the combined diff view
-
-**Plans:** 3/3 plans complete
-Plans:
-**Wave 1**
-
-- [x] 26-01-PLAN.md — Commit type + useCommits hook with TDD tests (foundation)
-
-**Wave 2** *(blocked on Wave 1)*
-
-- [x] 26-02-PLAN.md — CommitDrawer overlay component + DiffPane per-commit title strip
-
-**Wave 3** *(blocked on Wave 2)*
-
-- [x] 26-03-PLAN.md — AppToolbar Commits toggle + useDiff selector + CodeReviewApp integration (state, keyboard, DIFF-05 union, mode switching) + human verify
-
-**UI hint**: yes
-
-### Phase 26.1: Commit Navigation — Bug Fixes
-
-**Goal**: Address the 2 blockers and 4 warnings from Phase 26's code review before proceeding to inline comments; ensures security, correctness, and accessibility of the commit navigation feature
-**Depends on**: Phase 26
-**Requirements**: COMMIT-01, COMMIT-02, COMMIT-03, COMMIT-04
-
-**Success Criteria** (what must be TRUE):
-
-  1. SHA inputs are validated with `/^[0-9a-f]{7,40}$/i` before being interpolated into fetch URLs (CR-01 fixed)
-  2. `checkedCommitShas` seeding uses a `seededRef` boolean sentinel and does not re-seed when the user deselects all commits (CR-02 fixed)
-  3. Keyboard navigation handler guards against `findIndex` returning `-1` (WR-01 fixed)
-  4. `fetchFilteredBranchDiff` surfaces a non-null error when all per-SHA fetches fail (WR-02 fixed)
-  5. `CommitRow` `<li>` elements have `role="button"`, `tabIndex={0}`, and `onKeyDown` for keyboard/screen-reader access (WR-03 fixed)
-  6. `DiffPane` shows a short-SHA fallback string when `activeCommitSha` doesn't match any loaded commit (WR-04 fixed)
-
-**Plans:** 1/1 plans complete
-
-- [x] 26.1-01-PLAN.md — Fix CR-01, CR-02, WR-01 through WR-04 with targeted patches and regression tests
-
-**UI hint**: no
-
-### Phase 26.2: Commit Navigation — UX Polish
-
-**Goal**: Fix the 5 UX issues identified during Phase 26 testing: layout push (drawer overlays content), commit selection model (checkbox → click/CMD+click/Shift+click), expand-all button, diff stats display, and branch/tag pills on commits
-**Depends on**: Phase 26.1
-**Requirements**: COMMIT-01, COMMIT-02, COMMIT-03, COMMIT-04
-
-**Success Criteria** (what must be TRUE):
-
-  1. Opening the commit drawer pushes/shifts the diff panel instead of overlaying it
-  2. Single click selects one commit and shows that commit's diff; CMD+click / Shift+click adds to selection
-  3. When all commits are selected the main panel is labelled as "diff from branch XXXX"
-  4. The expand-all button in the diff viewer correctly expands all file diffs
-  5. Total files changed, additions, and deletions counts are visible in the UI
-  6. Commits with an attached branch or tag ref show an inline pill (e.g. `branch:main`, `tag:v0.6.0`)
-
-**Plans:** 3/3 plans complete
-Plans:
-**Wave 1**
-
-- [x] 26.2-01-PLAN.md — Rust Commit struct branches/tags + TypeScript Commit interface update (foundation)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 26.2-02-PLAN.md — Selection model (click/CMD/Shift) + drawer layout push + branch/tag pills + all-selected branch label (CodeReviewApp, CommitDrawer, DiffPane)
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 26.2-03-PLAN.md — Diff stats strip + per-file expand/collapse + Expand Files toolbar button (DiffPane, AppToolbar, CodeReviewApp)
-
-**UI hint**: yes
-
-### Phase 27: Inline Comments
-
-**Goal**: Users can add a comment to any diff hunk or to a whole file; comments persist in session state; each comment can be edited or deleted; the file list shows a comment count badge per file
-**Depends on**: Phase 25
-**Requirements**: COMMENT-01, COMMENT-02, COMMENT-03, COMMENT-04
-**Success Criteria** (what must be TRUE):
-
-  1. Clicking the `+` button that appears on hunk hover opens a comment input anchored to that hunk
-  2. A file-level comment button (in the file header) opens a comment input for the whole file
-  3. Submitted comments persist in session state — they survive navigating between commits
-  4. Each comment has edit (pencil) and delete (×) buttons; edit reopens the textarea; delete removes immediately
-  5. The file list shows a badge with the count of comments on each file; zero-comment files show no badge
-
-**Plans:** 3/3 plans complete
-Plans:
-**Wave 1**
-
-- [x] 27-01-PLAN.md — CodeReviewComment discriminated union + useCodeReviewAnnotations pure reducer + hook (TDD)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 27-02-PLAN.md — HunkCommentForm + CommentBubble components + DiffPane wiring (lineAnnotations + renderAnnotation + renderGutterUtility + file-header trigger)
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 27-03-PLAN.md — CodeReviewApp state lift + commentCounts derivation + FileListPane badge + human verify
-
-**UI hint**: yes
-
-### Phase 28: Review Submission
-
-**Goal**: The submit bar lets the reviewer send structured feedback to the agent; a single "Send Review" button opens a popover with an optional message; the payload (`{message?,comments?}`) is POSTed to `/api/decide` or falls back to clipboard; clipboard fallback is preserved for offline mode
-**Depends on**: Phase 27
-**Requirements**: SUBMIT-01, SUBMIT-02, SUBMIT-03, SUBMIT-04
-**Success Criteria** (what must be TRUE):
-
-  1. A single always-enabled "Send Review" button is present; no Approve/Request-Changes split (D-06 removed per user direction during human verification)
-  2. Clicking "Send Review" opens a popover with an optional message textarea; confirm button enabled when `commentsCount > 0 || message.trim().length > 0`
-  3. An optional global message field is available in the popover alongside the confirm button
-  4. Submitting produces structured JSON `{message?,comments?}` — no `decision` field; agent decides outcome from payload
-  5. When the server is unreachable, submission writes the JSON to clipboard; falls back to readonly textarea only if clipboard is also blocked
-
-**Plans:** 3/3 plans complete
-Plans:
-**Wave 1**
-
-- [x] 28-01-PLAN.md — Move connectivity.ts + useHeartbeat.ts from reviewer-v2/ to shared/; update reviewer-v2 imports + ESLint rule
-- [x] 28-02-PLAN.md — buildCodeReviewPayload pure serializer + Vitest tests (TDD)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 28-03-PLAN.md — CodeReviewSubmitPopover + AppToolbar submit controls + CodeReviewApp wiring + human verification
-
-**UI hint**: yes
-
-### Phase 29: Code Review Integration
-
-**Goal**: `plan-reviewer install` wires a `/code-review` slash command and a pre-PR hook for each supported integration; `plan-reviewer uninstall` removes both; the `code-review` subcommand opens the review UI for the current branch
-**Depends on**: Phase 28
-**Requirements**: INTEG-01, INTEG-02, INTEG-03
-**Success Criteria** (what must be TRUE):
-
-  1. `plan-reviewer install claude` creates `commands/code-review.md` in the plugin directory and registers a pre-PR hook entry; `/code-review` appears in Claude Code's slash command menu
-  2. Running `/code-review` (or the agent triggering the pre-PR hook) opens the browser UI at `/code-review` for the current git branch
-  3. `plan-reviewer uninstall claude` removes the slash command file and hook entry; re-running exits 0
-  4. The `code-review` subcommand can be invoked directly as `plan-reviewer code-review` to open the review UI without a hook
-
-  5. Existing `plan-reviewer install` behavior for annotate/review-hook is unchanged
-
-**Plans:** 2/2 plans complete
-Plans:
-
-**Wave 1**
-
-- [x] 29-01-PLAN.md — `code-review` subcommand + Rust server route to open `/code-review` URL
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 29-02-PLAN.md — Install/uninstall: code-review.md slash command + pre-PR hook wiring + integration tests
-
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -860,14 +659,4 @@ Plans:
 | 27. Inline Comments | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
 | 28. Review Submission | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
 | 29. Code Review Integration | v0.7.0 | 2/2 | Complete    | 2026-05-26 |
-
-### Phase 29.1: Fix POST /api/decide schema mismatch — code-review payload (INSERTED)
-
-**Goal:** Fix 422 regression in POST /api/decide when the code-review frontend submits {message?, comments?} (no behavior key); unblock the code-review submit path with no frontend changes
-**Requirements**: TBD
-**Depends on:** Phase 29
-**Plans:** 2/2 plans complete
-
-Plans:
-- [x] 29.1-01-PLAN.md — Add failing integration test server_cycle_code_review_submit (RED state)
-- [x] 29.1-02-PLAN.md — Fix post_decide handler to accept serde_json::Value with key-presence dispatch (GREEN state)
+| 29.1. Fix POST /api/decide schema mismatch | v0.7.0 | 2/2 | Complete    | 2026-05-27 |

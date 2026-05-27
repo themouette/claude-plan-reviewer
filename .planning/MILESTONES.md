@@ -36,3 +36,23 @@
 **Archive:** `.planning/milestones/v0.5.0-ROADMAP.md`
 
 ---
+
+## v0.7.0 Code Review (Shipped: 2026-05-27)
+
+**Phases completed:** 9 phases (24–29 + 26.1, 26.2, 29.1), 22 plans
+**Timeline:** 2026-05-23 → 2026-05-27 (5 days)
+**Commits:** ~297 | **Files changed:** 154 | **LOC:** +30,820 / −487
+
+**Key accomplishments:**
+
+- Three git diff endpoints via libgit2 (branch diff, commit list, per-commit diff) — zero subprocess, no PATH dependency on `git`
+- `/code-review` React route with file list, unified/side-by-side toggle, collapsible context lines, and scroll-to-file navigation
+- Commit drawer with click/CMD+Shift multi-select, keyboard prev/next navigation, diff stats strip, and branch/tag ref pills
+- Hunk-anchored and file-level inline comments with edit/delete and per-file comment count badges in the file list
+- Single "Send Review" submit path returning structured `{message?,comments?}` JSON to agent; clipboard offline fallback preserved
+- `plan-reviewer install claude` wires `/plan-reviewer:code-review` slash command + pre-PR hook; `uninstall` removes both
+- Fixed POST /api/decide schema mismatch (422 regression) via key-presence dispatch in Rust handler — unblocked agent feedback path
+
+**Archive:** `.planning/milestones/v0.7.0-ROADMAP.md`
+
+---
