@@ -243,8 +243,15 @@ fn build_file_diffs(diff: &git2::Diff, repo: &git2::Repository) -> Vec<FileDiff>
                     Err(_) => String::new(),
                 };
                 let old_content = extract_blob_content(repo, delta.old_file().id());
-                let new_content =
-                    extract_new_content(repo, delta.new_file().id(), delta.new_file().path());
+                // For deleted files the new side is always empty — use "" so the
+                // frontend can use FileDiffComponent (line comments) instead of falling
+                // back to PatchDiff. Only set Some("") when old_content is also Some
+                // (i.e. the file was text); binary files stay None → PatchDiff.
+                let new_content = if delta.status() == git2::Delta::Deleted {
+                    old_content.as_ref().map(|_| String::new())
+                } else {
+                    extract_new_content(repo, delta.new_file().id(), delta.new_file().path())
+                };
                 file_diffs.push(FileDiff {
                     filename,
                     previous_filename,
@@ -873,6 +880,51 @@ mod tests {
         assert!(
             json["error"].is_string(),
             "Expected error field in body, got: {json}"
+        );
+    }
+
+    /// Test 5b: deleted files have new_content: "" so FileDiffComponent (line comments) can render them.
+    #[tokio::test]
+    async fn deleted_file_has_empty_string_new_content() {
+        use std::fs;
+        let (tmp, repo, feature_oids) =
+            make_repo_with_main_and_feature(&[("todelete.txt", "hello\nworld\n")]);
+
+        // Create a second commit on the feature branch that deletes the file.
+        fs::remove_file(tmp.path().join("todelete.txt")).unwrap();
+        let mut index = repo.index().unwrap();
+        index.remove_path(std::path::Path::new("todelete.txt")).unwrap();
+        index.write().unwrap();
+        let tree_id = index.write_tree().unwrap();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let sig = git2::Signature::now("test", "test@test.com").unwrap();
+        let parent = repo.find_commit(feature_oids[0]).unwrap();
+        let delete_oid = repo
+            .commit(Some("HEAD"), &sig, &sig, "delete file", &tree, &[&parent])
+            .unwrap();
+
+        // Request the diff for that specific commit — it shows todelete.txt as removed.
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+        });
+        let (status, json) = do_get(state, &format!("/api/diff/commit/{delete_oid}")).await;
+        assert_eq!(status, StatusCode::OK);
+
+        let arr = json.as_array().expect("expected JSON array");
+        let entry = arr
+            .iter()
+            .find(|e| e["filename"].as_str() == Some("todelete.txt"))
+            .expect("todelete.txt not in diff");
+
+        assert_eq!(entry["status"].as_str(), Some("removed"), "status must be 'removed'");
+        assert_eq!(
+            entry["new_content"].as_str(),
+            Some(""),
+            "new_content must be \"\" for deleted text files so FileDiffComponent can render them"
+        );
+        assert!(
+            entry["old_content"].as_str().is_some(),
+            "old_content must be present for deleted text files"
         );
     }
 
