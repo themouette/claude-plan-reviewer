@@ -29,7 +29,7 @@ Phase: 29.1
 Plan: Not started
 Phase: 29 (Code Review Integration) — NEXT
 Status: Milestone complete
-Last activity: 2026-05-26
+Last activity: 2026-05-28 - Completed quick task 260528-ugq: Fix reftable repos showing empty diffs
 
 ## Performance Metrics
 
@@ -64,6 +64,12 @@ Recent decisions affecting current work:
 ### Pending Todos
 
 None yet.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260528-ugq | Fix reftable repos showing empty diffs | 2026-05-28 | 6262d2c | [260528-ugq-fix-reftable-repos-showing-empty-diffs](.planning/quick/260528-ugq-fix-reftable-repos-showing-empty-diffs/) |
 
 ### Blockers/Concerns
 
