@@ -305,6 +305,439 @@ fn build_file_diffs(diff: &git2::Diff, repo: &git2::Repository) -> Vec<FileDiff>
     file_diffs
 }
 
+// --- Shell fallback (reftable) ---
+
+/// Returns true when the git2 error message indicates the reftable ref storage
+/// format is in use (libgit2 1.9.x cannot open such repos).
+fn is_reftable_error(e: &git2::Error) -> bool {
+    e.message().contains("refstorage")
+}
+
+/// Run a git command in the given directory, return trimmed stdout on success.
+fn shell_run(args: &[&str], cwd: &std::path::Path) -> Option<String> {
+    let output = std::process::Command::new(args[0])
+        .args(&args[1..])
+        .current_dir(cwd)
+        .output()
+        .ok()?;
+    if output.status.success() {
+        let s = String::from_utf8_lossy(&output.stdout).into_owned();
+        Some(s.trim_end_matches('\n').trim_end_matches('\r').to_string())
+    } else {
+        None
+    }
+}
+
+/// Find the merge base SHA between HEAD and a base ref.
+///
+/// Tries base_override first (if Some), then "origin/HEAD", "origin/main",
+/// "main", "origin/master", "master". Returns the first successful result.
+fn shell_find_merge_base(
+    repo_path: &std::path::Path,
+    base_override: Option<&str>,
+) -> Option<String> {
+    let mut candidates: Vec<&str> = Vec::new();
+    if let Some(b) = base_override {
+        candidates.push(b);
+    }
+    candidates.extend([
+        "origin/HEAD",
+        "origin/main",
+        "main",
+        "origin/master",
+        "master",
+    ]);
+    for candidate in candidates {
+        if let Some(sha) = shell_run(&["git", "merge-base", "HEAD", candidate], repo_path)
+            && !sha.is_empty()
+        {
+            return Some(sha);
+        }
+    }
+    None
+}
+
+/// Read a file at `rev:path` from the git object store. Returns None for binary
+/// files (those containing NUL bytes) or when the object doesn't exist.
+fn shell_get_file_content(repo_path: &std::path::Path, rev: &str, path: &str) -> Option<String> {
+    let spec = format!("{rev}:{path}");
+    let output = std::process::Command::new("git")
+        .args(["show", &spec])
+        .current_dir(repo_path)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    // Binary detection: NUL bytes indicate non-text content.
+    if output.stdout.contains(&0u8) {
+        return None;
+    }
+    String::from_utf8(output.stdout).ok()
+}
+
+/// Parse a unified diff text into a Vec<FileDiff>.
+///
+/// Uses a line-by-line state machine. File blocks begin on "diff --git " lines.
+fn shell_parse_unified_diff(
+    diff_text: &str,
+    repo_path: &std::path::Path,
+    base_sha: &str,
+) -> Vec<FileDiff> {
+    let mut result: Vec<FileDiff> = Vec::new();
+
+    // Per-file state
+    let mut patch_lines: Vec<&str> = Vec::new();
+    let mut old_path = String::new();
+    let mut new_path = String::new();
+    let mut status = "modified".to_string();
+    let mut previous_filename: Option<String> = None;
+    let mut additions: u32 = 0;
+    let mut deletions: u32 = 0;
+    let mut is_binary = false;
+    let mut in_hunk = false;
+
+    let flush = |patch_lines: &[&str],
+                 old_path: &str,
+                 new_path: &str,
+                 status: &str,
+                 previous_filename: &Option<String>,
+                 additions: u32,
+                 deletions: u32,
+                 is_binary: bool,
+                 repo_path: &std::path::Path,
+                 base_sha: &str,
+                 result: &mut Vec<FileDiff>| {
+        if patch_lines.is_empty() {
+            return;
+        }
+        let filename = if !new_path.is_empty() {
+            new_path.to_string()
+        } else {
+            old_path.to_string()
+        };
+        if filename.is_empty() {
+            return;
+        }
+        let patch = patch_lines.join("\n");
+        let (old_content, new_content) = if is_binary {
+            (None, None)
+        } else {
+            let old = if old_path.is_empty() {
+                Some(String::new())
+            } else {
+                shell_get_file_content(repo_path, base_sha, old_path)
+            };
+            let new = if new_path.is_empty() {
+                Some(String::new())
+            } else {
+                shell_get_file_content(repo_path, "HEAD", new_path)
+            };
+            (old, new)
+        };
+        result.push(FileDiff {
+            filename,
+            previous_filename: previous_filename.clone(),
+            status: status.to_string(),
+            additions,
+            deletions,
+            changes: additions + deletions,
+            patch,
+            old_content,
+            new_content,
+        });
+    };
+
+    let mut first_block = true;
+    for line in diff_text.split('\n') {
+        if line.starts_with("diff --git ") {
+            if !first_block {
+                flush(
+                    &patch_lines,
+                    &old_path,
+                    &new_path,
+                    &status,
+                    &previous_filename,
+                    additions,
+                    deletions,
+                    is_binary,
+                    repo_path,
+                    base_sha,
+                    &mut result,
+                );
+            }
+            first_block = false;
+            // Reset per-file state.
+            patch_lines = vec![line];
+            old_path = String::new();
+            new_path = String::new();
+            status = "modified".to_string();
+            previous_filename = None;
+            additions = 0;
+            deletions = 0;
+            is_binary = false;
+            in_hunk = false;
+        } else if !first_block {
+            patch_lines.push(line);
+            if line.starts_with("new file mode") {
+                status = "added".to_string();
+            } else if line.starts_with("deleted file mode") {
+                status = "removed".to_string();
+            } else if let Some(rest) = line.strip_prefix("rename from ") {
+                status = "renamed".to_string();
+                previous_filename = Some(rest.to_string());
+            } else if let Some(rest) = line.strip_prefix("copy from ") {
+                status = "copied".to_string();
+                previous_filename = Some(rest.to_string());
+            } else if line.starts_with("Binary files") || line.starts_with("GIT binary patch") {
+                is_binary = true;
+            } else if line.starts_with("--- ") {
+                if let Some(rest) = line.strip_prefix("--- a/") {
+                    old_path = rest.to_string();
+                } else if line.starts_with("--- /dev/null") {
+                    old_path = String::new();
+                }
+            } else if line.starts_with("+++ ") {
+                if let Some(rest) = line.strip_prefix("+++ b/") {
+                    new_path = rest.to_string();
+                } else if line.starts_with("+++ /dev/null") {
+                    new_path = String::new();
+                }
+            } else if line.starts_with("@@ ") {
+                in_hunk = true;
+            } else if in_hunk {
+                if line.starts_with('+') && !line.starts_with("+++") {
+                    additions += 1;
+                } else if line.starts_with('-') && !line.starts_with("---") {
+                    deletions += 1;
+                }
+            }
+        }
+    }
+
+    // Flush last block.
+    if !first_block {
+        flush(
+            &patch_lines,
+            &old_path,
+            &new_path,
+            &status,
+            &previous_filename,
+            additions,
+            deletions,
+            is_binary,
+            repo_path,
+            base_sha,
+            &mut result,
+        );
+    }
+
+    result
+}
+
+/// Shell fallback for try_branch_diff: compute branch diff via git subprocess.
+fn shell_branch_diff(
+    repo_path: &std::path::Path,
+    context_lines: u32,
+    base_branch: Option<&str>,
+) -> Option<Vec<FileDiff>> {
+    let merge_base = shell_find_merge_base(repo_path, base_branch)?;
+    let range = format!("{merge_base}..HEAD");
+    let context_arg = format!("--unified={context_lines}");
+    let diff_text = shell_run(&["git", "diff", &context_arg, &range], repo_path)?;
+    Some(shell_parse_unified_diff(&diff_text, repo_path, &merge_base))
+}
+
+/// Returns true when the working tree has uncommitted changes (staged or unstaged).
+fn shell_has_uncommitted_changes(repo_path: &std::path::Path) -> bool {
+    let status = std::process::Command::new("git")
+        .args(["diff", "--quiet", "HEAD"])
+        .current_dir(repo_path)
+        .status();
+    match status {
+        Ok(s) => !s.success(),
+        Err(_) => false,
+    }
+}
+
+/// Returns true when the working tree contains untracked files.
+fn shell_has_untracked_files(repo_path: &std::path::Path) -> bool {
+    match shell_run(
+        &["git", "ls-files", "--others", "--exclude-standard"],
+        repo_path,
+    ) {
+        Some(s) => !s.trim().is_empty(),
+        None => false,
+    }
+}
+
+/// Shell fallback for try_list_commits: list commits via git log subprocess.
+fn shell_list_commits(
+    repo_path: &std::path::Path,
+    base_branch: Option<&str>,
+) -> Option<CommitList> {
+    let merge_base = shell_find_merge_base(repo_path, base_branch)?;
+    let range = format!("{merge_base}..HEAD");
+    // Format: SHA\x00author\x00email\x00date\x00message\x1e (record separator between commits)
+    let format = "--format=%H%x00%aN%x00%aE%x00%aI%x00%s%x1e";
+    let raw = shell_run(&["git", "log", format, &range], repo_path).unwrap_or_default();
+
+    let mut commits: Vec<Commit> = raw
+        .split('\x1e')
+        .filter(|r| !r.trim().is_empty())
+        .filter_map(|record| {
+            let record = record.trim_start_matches('\n');
+            let fields: Vec<&str> = record.splitn(5, '\x00').collect();
+            if fields.len() < 5 {
+                return None;
+            }
+            let sha = fields[0].to_string();
+            let short_sha: String = sha.chars().take(7).collect();
+            Some(Commit {
+                sha,
+                short_sha,
+                author: fields[1].to_string(),
+                email: fields[2].to_string(),
+                date: fields[3].to_string(),
+                message: fields[4].trim_end_matches('\n').to_string(),
+                branches: vec![],
+                tags: vec![],
+            })
+        })
+        .take(COMMIT_LIMIT + 1)
+        .collect();
+
+    let truncated = commits.len() > COMMIT_LIMIT;
+    commits.truncate(COMMIT_LIMIT);
+
+    let has_uncommitted = shell_has_uncommitted_changes(repo_path);
+    let has_untracked = shell_has_untracked_files(repo_path);
+
+    if has_uncommitted {
+        commits.insert(
+            0,
+            Commit {
+                sha: UNCOMMITTED_SHA.to_string(),
+                short_sha: "--".to_string(),
+                message: "Uncommitted changes".to_string(),
+                author: String::new(),
+                email: String::new(),
+                date: String::new(),
+                branches: vec![],
+                tags: vec![],
+            },
+        );
+    }
+    if has_untracked {
+        commits.insert(
+            usize::from(has_uncommitted),
+            Commit {
+                sha: UNTRACKED_SHA.to_string(),
+                short_sha: "--".to_string(),
+                message: "Untracked files".to_string(),
+                author: String::new(),
+                email: String::new(),
+                date: String::new(),
+                branches: vec![],
+                tags: vec![],
+            },
+        );
+    }
+
+    Some(CommitList { commits, truncated })
+}
+
+/// Shell fallback for try_uncommitted_diff: show HEAD→workdir diff via subprocess.
+fn shell_uncommitted_diff(
+    repo_path: &std::path::Path,
+    context_lines: u32,
+) -> Option<Vec<FileDiff>> {
+    let context_arg = format!("--unified={context_lines}");
+    let diff_text =
+        shell_run(&["git", "diff", &context_arg, "HEAD"], repo_path).unwrap_or_default();
+    if diff_text.is_empty() {
+        return Some(vec![]);
+    }
+    let head_sha = shell_run(&["git", "rev-parse", "HEAD"], repo_path)?;
+    Some(shell_parse_unified_diff(&diff_text, repo_path, &head_sha))
+}
+
+/// Shell fallback for try_untracked_diff: list and diff untracked files.
+fn shell_untracked_diff(repo_path: &std::path::Path) -> Option<Vec<FileDiff>> {
+    let raw = shell_run(
+        &["git", "ls-files", "--others", "--exclude-standard"],
+        repo_path,
+    )?;
+    let mut file_diffs = Vec::new();
+    for path in raw.lines().filter(|l| !l.trim().is_empty()) {
+        let full_path = repo_path.join(path);
+        match std::fs::read(&full_path) {
+            Ok(bytes) => {
+                if bytes.contains(&0u8) {
+                    // Binary file
+                    file_diffs.push(FileDiff {
+                        filename: path.to_string(),
+                        previous_filename: None,
+                        status: "added".to_string(),
+                        additions: 0,
+                        deletions: 0,
+                        changes: 0,
+                        patch: "[binary file]".to_string(),
+                        old_content: None,
+                        new_content: None,
+                    });
+                } else {
+                    let content = String::from_utf8_lossy(&bytes).into_owned();
+                    let lines: Vec<&str> = content.lines().collect();
+                    let n = lines.len() as u32;
+                    let patch_body: String = lines.iter().map(|l| format!("+{l}\n")).collect();
+                    let patch =
+                        format!("--- /dev/null\n+++ b/{path}\n@@ -0,0 +1,{n} @@\n{patch_body}");
+                    file_diffs.push(FileDiff {
+                        filename: path.to_string(),
+                        previous_filename: None,
+                        status: "added".to_string(),
+                        additions: n,
+                        deletions: 0,
+                        changes: n,
+                        patch,
+                        old_content: Some(String::new()),
+                        new_content: Some(content),
+                    });
+                }
+            }
+            Err(_) => {
+                file_diffs.push(FileDiff {
+                    filename: path.to_string(),
+                    previous_filename: None,
+                    status: "added".to_string(),
+                    additions: 0,
+                    deletions: 0,
+                    changes: 0,
+                    patch: "[binary file]".to_string(),
+                    old_content: None,
+                    new_content: None,
+                });
+            }
+        }
+    }
+    Some(file_diffs)
+}
+
+/// Shell fallback for get_diff_commit: diff a single commit via subprocess.
+fn shell_diff_commit(
+    repo_path: &std::path::Path,
+    sha: &str,
+    context_lines: u32,
+) -> Option<Vec<FileDiff>> {
+    // Try to get parent; if it fails, use empty tree SHA (for first commit).
+    let parent_sha = shell_run(&["git", "rev-parse", &format!("{sha}^")], repo_path)
+        .unwrap_or_else(|| "4b825dc642cb6eb9a060e54bf8d69288fbee4904".to_string());
+    let context_arg = format!("--unified={context_lines}");
+    let diff_text = shell_run(&["git", "diff", &context_arg, &parent_sha, sha], repo_path)?;
+    Some(shell_parse_unified_diff(&diff_text, repo_path, &parent_sha))
+}
+
 // --- Handlers ---
 
 /// GET /api/diff/branch — returns FileDiff[] for all changes between HEAD and
@@ -332,7 +765,13 @@ fn try_branch_diff(
     context_lines: u32,
     base_branch: Option<&str>,
 ) -> Option<Vec<FileDiff>> {
-    let repo = git2::Repository::open(repo_path).ok()?;
+    let repo = match git2::Repository::open(repo_path) {
+        Ok(r) => r,
+        Err(e) if is_reftable_error(&e) => {
+            return shell_branch_diff(repo_path, context_lines, base_branch);
+        }
+        Err(_) => return None,
+    };
 
     let head = repo.head().ok()?.peel_to_commit().ok()?;
     let base_candidate = resolve_base_commit(&repo, base_branch)?;
@@ -368,7 +807,13 @@ fn has_uncommitted_changes(repo: &git2::Repository) -> bool {
 }
 
 fn try_uncommitted_diff(repo_path: &std::path::Path, context_lines: u32) -> Option<Vec<FileDiff>> {
-    let repo = git2::Repository::open(repo_path).ok()?;
+    let repo = match git2::Repository::open(repo_path) {
+        Ok(r) => r,
+        Err(e) if is_reftable_error(&e) => {
+            return shell_uncommitted_diff(repo_path, context_lines);
+        }
+        Err(_) => return None,
+    };
     let head_tree = repo.head().ok()?.peel_to_commit().ok()?.tree().ok()?;
     let mut opts = git2::DiffOptions::new();
     opts.old_prefix("a/").new_prefix("b/");
@@ -390,7 +835,13 @@ fn has_untracked_files(repo: &git2::Repository) -> bool {
 }
 
 fn try_untracked_diff(repo_path: &std::path::Path) -> Option<Vec<FileDiff>> {
-    let repo = git2::Repository::open(repo_path).ok()?;
+    let repo = match git2::Repository::open(repo_path) {
+        Ok(r) => r,
+        Err(e) if is_reftable_error(&e) => {
+            return shell_untracked_diff(repo_path);
+        }
+        Err(_) => return None,
+    };
     let workdir = repo.workdir()?.to_path_buf();
 
     let mut opts = git2::StatusOptions::new();
@@ -462,7 +913,13 @@ async fn get_commits(State(state): State<Arc<CodeReviewState>>) -> impl IntoResp
 }
 
 fn try_list_commits(repo_path: &std::path::Path, base_branch: Option<&str>) -> Option<CommitList> {
-    let repo = git2::Repository::open(repo_path).ok()?;
+    let repo = match git2::Repository::open(repo_path) {
+        Ok(r) => r,
+        Err(e) if is_reftable_error(&e) => {
+            return shell_list_commits(repo_path, base_branch);
+        }
+        Err(_) => return None,
+    };
 
     let head = repo.head().ok()?.peel_to_commit().ok()?;
     let head_oid = head.id();
@@ -578,6 +1035,12 @@ async fn get_diff_commit(
 
     let repo = match git2::Repository::open(&state.repo_path) {
         Ok(r) => r,
+        Err(e) if is_reftable_error(&e) => {
+            let context_lines = params.context.unwrap_or(3);
+            let file_diffs =
+                shell_diff_commit(&state.repo_path, &sha, context_lines).unwrap_or_default();
+            return (StatusCode::OK, Json(file_diffs)).into_response();
+        }
         Err(_) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -1326,6 +1789,47 @@ mod tests {
             Some(""),
             "old_content must be \"\" for untracked files so FileDiffComponent can render them"
         );
+    }
+
+    /// Test shell_branch_diff: directly calling the shell path on a standard repo
+    /// must return the same single-file result as the git2 path.
+    #[tokio::test]
+    async fn shell_branch_diff_returns_added_file() {
+        let (tmp, _repo, _oids) = make_repo_with_main_and_feature(&[("shell_test.txt", "hello\n")]);
+        let result = shell_branch_diff(tmp.path(), 3, None);
+        let file_diffs = result.expect("shell_branch_diff must return Some");
+        assert_eq!(
+            file_diffs.len(),
+            1,
+            "Expected 1 file diff, got {}",
+            file_diffs.len()
+        );
+        assert_eq!(file_diffs[0].filename, "shell_test.txt");
+        assert_eq!(file_diffs[0].status, "added");
+        assert_eq!(file_diffs[0].additions, 1);
+    }
+
+    /// Test shell_list_commits: directly calling the shell path on a standard repo
+    /// must return commits with the correct count and message.
+    #[tokio::test]
+    async fn shell_list_commits_returns_feature_commits() {
+        let (tmp, _repo, _oids) =
+            make_repo_with_main_and_feature(&[("shell_commit.txt", "data\n")]);
+        let result = shell_list_commits(tmp.path(), None);
+        let commit_list = result.expect("shell_list_commits must return Some");
+        // Exactly 1 real commit (plus possibly Uncommitted/Untracked sentinels).
+        let real_commits: Vec<_> = commit_list
+            .commits
+            .iter()
+            .filter(|c| c.sha != UNCOMMITTED_SHA && c.sha != UNTRACKED_SHA)
+            .collect();
+        assert_eq!(real_commits.len(), 1, "Expected 1 real commit");
+        assert!(
+            real_commits[0].message.contains("feature"),
+            "commit message must contain 'feature', got: {}",
+            real_commits[0].message
+        );
+        assert_eq!(real_commits[0].sha.len(), 40, "sha must be 40 chars");
     }
 
     /// Test 16: both "Uncommitted changes" and "Untracked files" entries are present
