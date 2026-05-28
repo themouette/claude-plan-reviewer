@@ -39,9 +39,10 @@ pub struct Commit {
     pub tags: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CodeReviewState {
     pub repo_path: std::path::PathBuf,
+    pub base_branch: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -95,6 +96,22 @@ pub fn find_base_commit(repo: &git2::Repository) -> Option<git2::Oid> {
     }
 
     None
+}
+
+/// Resolve the base commit, trying an explicit override branch first.
+///
+/// If `base_override` is Some, revparse_single is tried on that ref. Falls back
+/// to `find_base_commit` if the override is absent or does not resolve.
+pub fn resolve_base_commit(
+    repo: &git2::Repository,
+    base_override: Option<&str>,
+) -> Option<git2::Oid> {
+    if let Some(b) = base_override
+        && let Ok(obj) = repo.revparse_single(b)
+    {
+        return obj.peel_to_commit().ok().map(|c| c.id());
+    }
+    find_base_commit(repo)
 }
 
 // --- ISO 8601 date conversion ---
@@ -300,14 +317,25 @@ async fn get_diff_branch(
     Query(params): Query<DiffContextQuery>,
 ) -> impl IntoResponse {
     let context_lines = params.context.unwrap_or(3);
-    Json(try_branch_diff(&state.repo_path, context_lines).unwrap_or_default())
+    Json(
+        try_branch_diff(
+            &state.repo_path,
+            context_lines,
+            state.base_branch.as_deref(),
+        )
+        .unwrap_or_default(),
+    )
 }
 
-fn try_branch_diff(repo_path: &std::path::Path, context_lines: u32) -> Option<Vec<FileDiff>> {
+fn try_branch_diff(
+    repo_path: &std::path::Path,
+    context_lines: u32,
+    base_branch: Option<&str>,
+) -> Option<Vec<FileDiff>> {
     let repo = git2::Repository::open(repo_path).ok()?;
 
     let head = repo.head().ok()?.peel_to_commit().ok()?;
-    let base_candidate = find_base_commit(&repo)?;
+    let base_candidate = resolve_base_commit(&repo, base_branch)?;
     let base_oid = repo.merge_base(head.id(), base_candidate).ok()?;
 
     let base_commit = repo.find_commit(base_oid).ok()?;
@@ -425,13 +453,15 @@ fn try_untracked_diff(repo_path: &std::path::Path) -> Option<Vec<FileDiff>> {
 /// if the repo cannot be opened or no base branch resolves (D-07).
 /// Capped at COMMIT_LIMIT entries; `truncated: true` when the cap is hit.
 async fn get_commits(State(state): State<Arc<CodeReviewState>>) -> impl IntoResponse {
-    Json(try_list_commits(&state.repo_path).unwrap_or(CommitList {
-        commits: vec![],
-        truncated: false,
-    }))
+    Json(
+        try_list_commits(&state.repo_path, state.base_branch.as_deref()).unwrap_or(CommitList {
+            commits: vec![],
+            truncated: false,
+        }),
+    )
 }
 
-fn try_list_commits(repo_path: &std::path::Path) -> Option<CommitList> {
+fn try_list_commits(repo_path: &std::path::Path, base_branch: Option<&str>) -> Option<CommitList> {
     let repo = git2::Repository::open(repo_path).ok()?;
 
     let head = repo.head().ok()?.peel_to_commit().ok()?;
@@ -440,7 +470,7 @@ fn try_list_commits(repo_path: &std::path::Path) -> Option<CommitList> {
     // D-07: no base branch → return empty list (consistent with get_diff_branch).
     // Without this guard the revwalk would traverse the entire repo history,
     // which hangs or OOMs in large monorepos.
-    let base_candidate = find_base_commit(&repo)?;
+    let base_candidate = resolve_base_commit(&repo, base_branch)?;
     let base_oid = repo.merge_base(head_oid, base_candidate).ok()?;
 
     let mut walk = repo.revwalk().ok()?;
@@ -781,6 +811,7 @@ mod tests {
 
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let (status, json) = do_get(state, "/api/diff/branch").await;
         assert_eq!(status, StatusCode::OK);
@@ -796,6 +827,7 @@ mod tests {
         let (tmp, _repo, _oids) = make_repo_with_main_and_feature(&[("new.txt", "hello\n")]);
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let (status, json) = do_get(state, "/api/diff/branch").await;
         assert_eq!(status, StatusCode::OK);
@@ -820,6 +852,7 @@ mod tests {
         let (tmp, _repo, _oids) = make_repo_with_main_and_feature(&[("new.txt", "hello\n")]);
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let (status, json) = do_get(state, "/api/commits").await;
         assert_eq!(status, StatusCode::OK);
@@ -856,6 +889,7 @@ mod tests {
         let (tmp, _repo) = make_repo_with_main();
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let (status, json) = do_get(state, "/api/diff/commit/zzz").await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -871,6 +905,7 @@ mod tests {
         let (tmp, _repo) = make_repo_with_main();
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let unknown = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
         let uri = format!("/api/diff/commit/{unknown}");
@@ -907,6 +942,7 @@ mod tests {
         // Request the diff for that specific commit — it shows todelete.txt as removed.
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let (status, json) = do_get(state, &format!("/api/diff/commit/{delete_oid}")).await;
         assert_eq!(status, StatusCode::OK);
@@ -955,6 +991,7 @@ mod tests {
 
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let uri = format!("/api/diff/commit/{first_oid}");
         let (status, json) = do_get(state, &uri).await;
@@ -982,6 +1019,7 @@ mod tests {
 
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let uri = format!("/api/diff/commit/{second_oid}");
         let (status, json) = do_get(state, &uri).await;
@@ -1080,6 +1118,7 @@ mod tests {
 
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
 
         let (status0, json0) = do_get(Arc::clone(&state), "/api/diff/branch?context=0").await;
@@ -1109,6 +1148,7 @@ mod tests {
         let (tmp, _repo, _oids) = make_repo_with_main_and_feature(&[("x.txt", "a\nb\n")]);
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let (status, _json) = do_get(state, "/api/diff/branch?context=abc").await;
         assert_eq!(
@@ -1125,6 +1165,7 @@ mod tests {
             make_repo_with_main_and_feature(&[("y.txt", "one\ntwo\nthree\n")]);
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
 
         let (status_default, json_default) = do_get(Arc::clone(&state), "/api/diff/branch").await;
@@ -1162,6 +1203,7 @@ mod tests {
         let second_oid = feature_oids[1];
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let uri = format!("/api/diff/commit/{second_oid}?context=999");
         let (status, json) = do_get(state, &uri).await;
@@ -1180,6 +1222,7 @@ mod tests {
         let (tmp, _repo, _feature_oids) = make_repo_with_main_and_feature(&[("a.txt", "x\n")]);
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let (status, json) = do_get(state, "/api/commits").await;
         assert_eq!(status, StatusCode::OK);
@@ -1202,6 +1245,7 @@ mod tests {
         let (tmp, _repo, _oids) = make_repo_with_main_and_feature(&[("a.txt", "x\n")]);
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let (status, json) = do_get(state, "/api/commits").await;
         assert_eq!(status, StatusCode::OK);
@@ -1225,6 +1269,7 @@ mod tests {
 
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let (status, json) = do_get(state, "/api/commits").await;
         assert_eq!(status, StatusCode::OK);
@@ -1248,6 +1293,7 @@ mod tests {
 
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let uri = format!("/api/diff/commit/{UNTRACKED_SHA}");
         let (status, json) = do_get(state, &uri).await;
@@ -1298,6 +1344,7 @@ mod tests {
 
         let state = Arc::new(CodeReviewState {
             repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
         });
         let (status, json) = do_get(state, "/api/commits").await;
         assert_eq!(status, StatusCode::OK);

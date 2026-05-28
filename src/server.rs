@@ -37,6 +37,7 @@ pub async fn start_server(
     approve_label: String,
     deny_label: String,
     port: u16,
+    base_branch: Option<String>,
 ) -> Result<(u16, oneshot::Receiver<Decision>), Box<dyn std::error::Error + Send + Sync>> {
     // 1. Create decision channel
     let (decision_tx, decision_rx) = oneshot::channel::<Decision>();
@@ -55,7 +56,10 @@ pub async fn start_server(
 
     // 4. Build code_review state (repo_path from cwd at startup — not from request)
     let cwd = std::env::current_dir().unwrap_or_default();
-    let code_review_state = Arc::new(diff_api::CodeReviewState { repo_path: cwd });
+    let code_review_state = Arc::new(diff_api::CodeReviewState {
+        repo_path: cwd,
+        base_branch,
+    });
 
     // 5. Build SPA fallback — serves embedded React assets; any unknown path
     //    returns index.html (FallbackBehavior::Ok) to support client-side routing.

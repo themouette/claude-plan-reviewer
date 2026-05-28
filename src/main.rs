@@ -27,8 +27,18 @@ mod tests {
     fn test_cli_code_review_subcommand_parses() {
         let cli = Cli::try_parse_from(["plan-reviewer", "code-review"]).expect("parse failed");
         assert!(
-            matches!(cli.command, Some(Commands::CodeReview)),
-            "expected Commands::CodeReview"
+            matches!(cli.command, Some(Commands::CodeReview { base: None })),
+            "expected Commands::CodeReview with no base"
+        );
+    }
+
+    #[test]
+    fn test_cli_code_review_with_base_flag() {
+        let cli = Cli::try_parse_from(["plan-reviewer", "code-review", "--base", "develop"])
+            .expect("parse failed");
+        assert!(
+            matches!(cli.command, Some(Commands::CodeReview { base: Some(ref b) }) if b == "develop"),
+            "expected Commands::CodeReview with base=develop"
         );
     }
 
@@ -43,7 +53,7 @@ mod tests {
         ])
         .expect("parse failed");
         assert!(
-            matches!(cli.command, Some(Commands::CodeReview)),
+            matches!(cli.command, Some(Commands::CodeReview { .. })),
             "expected Commands::CodeReview"
         );
         assert!(cli.no_browser, "--no-browser should be true");
@@ -96,11 +106,18 @@ mod tests {
             "gh pr create --base main"
         );
         assert!(
-            is_pr_command("git push origin main"),
-            "git push origin main"
+            is_pr_command("  gh pr create"),
+            "leading whitespace + gh pr create"
         );
-        assert!(is_pr_command("  git push"), "leading whitespace + git push");
-        // Negative cases
+        // Negative cases — git push no longer triggers the reviewer
+        assert!(
+            !is_pr_command("git push origin main"),
+            "git push must not trigger review"
+        );
+        assert!(
+            !is_pr_command("git push"),
+            "bare git push must not trigger review"
+        );
         assert!(!is_pr_command("git status"), "git status should not match");
         assert!(
             !is_pr_command("npm install"),
@@ -142,10 +159,10 @@ mod tests {
     }
 
     #[test]
-    fn test_run_pre_pr_hook_flow_triggers_on_git_push() {
+    fn test_run_pre_pr_hook_flow_does_not_trigger_on_git_push() {
         let raw = r#"{"session_id":"s","cwd":"/tmp","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git push origin feature/foo"}}"#;
         let hi: hook::HookInput = serde_json::from_str(raw).unwrap();
-        assert!(should_trigger_code_review(&hi));
+        assert!(!should_trigger_code_review(&hi));
     }
 
     #[test]
@@ -153,46 +170,6 @@ mod tests {
         let raw = r#"{"session_id":"s","cwd":"/tmp","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{}}"#;
         let hi: hook::HookInput = serde_json::from_str(raw).unwrap();
         assert!(!should_trigger_code_review(&hi));
-    }
-
-    #[test]
-    fn test_is_pr_command_excludes_git_push_tags() {
-        assert!(
-            !is_pr_command("git push --tags"),
-            "tag-only push must not trigger review"
-        );
-        assert!(
-            !is_pr_command("git push origin --tags"),
-            "tag-only push must not trigger review"
-        );
-    }
-
-    #[test]
-    fn test_is_pr_command_excludes_git_push_delete() {
-        assert!(
-            !is_pr_command("git push --delete origin feature/foo"),
-            "branch delete must not trigger review"
-        );
-        assert!(
-            !is_pr_command("git push -d origin feature/foo"),
-            "branch delete (-d) must not trigger review"
-        );
-    }
-
-    #[test]
-    fn test_is_pr_command_allows_normal_git_push() {
-        assert!(
-            is_pr_command("git push"),
-            "bare git push must trigger review"
-        );
-        assert!(
-            is_pr_command("git push origin main"),
-            "push with remote/branch must trigger review"
-        );
-        assert!(
-            is_pr_command("git push --set-upstream origin feature/foo"),
-            "push --set-upstream must trigger review"
-        );
     }
 
     #[test]
@@ -495,7 +472,12 @@ enum Commands {
     ///
     /// Starts the local server and opens the browser at /code-review.
     /// Does not read stdin.
-    CodeReview,
+    CodeReview {
+        /// Override the base branch used for the diff (e.g. main, develop, origin/main).
+        /// Defaults to automatic detection via refs/remotes/origin/HEAD or common branch names.
+        #[arg(long)]
+        base: Option<String>,
+    },
     /// Claude Code PreToolUse hook handler.
     ///
     /// Reads stdin JSON, filters by tool_input.command, exits 0 silently when
@@ -622,24 +604,13 @@ fn extract_command_from_tool_input(tool_input: &hook::ToolInput) -> Option<&str>
         .and_then(serde_json::Value::as_str)
 }
 
-/// Return `true` if `cmd` looks like a PR-creating or code push command.
+/// Return `true` if `cmd` is an explicit PR-creation command.
 ///
-/// Matches `gh pr create ...` and `git push ...` (with optional leading whitespace),
-/// but excludes tag-only pushes (`--tags`) and remote branch deletions (`--delete`, `-d`).
-/// Uses explicit `starts_with` / `contains` — no regex dependency.
+/// Only matches `gh pr create ...` — explicit signal of intent to open a PR.
+/// `git push` is intentionally excluded: pushes are too common and trigger the
+/// reviewer on every branch sync, not just PR creation.
 fn is_pr_command(cmd: &str) -> bool {
-    let t = cmd.trim_start();
-    if t.starts_with("gh pr create") {
-        return true;
-    }
-    if let Some(args) = t.strip_prefix("git push") {
-        // Exclude tag-only pushes and branch deletions — they don't create PRs.
-        let excluded = args
-            .split_whitespace()
-            .any(|a| a == "--tags" || a == "--delete" || a == "-d");
-        return !excluded;
-    }
-    false
+    cmd.trim_start().starts_with("gh pr create")
 }
 
 /// Build the review server URL for a given port and path.
@@ -688,6 +659,7 @@ fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
         "Approve".to_string(),
         "Deny".to_string(),
         "/",
+        None,
     ));
 
     // Build opencode output format and write to stdout — THE ONLY stdout write
@@ -737,6 +709,7 @@ fn run_review_flow(no_browser: bool, port: u16, file: &str, approve_label: &str,
         approve_label.to_string(),
         deny_label.to_string(),
         "/",
+        None,
     ));
 
     // Build neutral output format and write to stdout — THE ONLY stdout write
@@ -775,8 +748,8 @@ fn main() {
             // update subcommand: does NOT read stdin
             update::run_update(*check, version.clone(), *yes);
         }
-        Some(Commands::CodeReview) => {
-            run_code_review_flow(cli.no_browser, cli.port);
+        Some(Commands::CodeReview { base }) => {
+            run_code_review_flow(cli.no_browser, cli.port, base.clone());
         }
         Some(Commands::PrePrHook) => {
             run_pre_pr_hook_flow(cli.no_browser, cli.port);
@@ -846,6 +819,7 @@ fn run_hook_flow(no_browser: bool, port: u16) {
         "Approve".to_string(),
         "Deny".to_string(),
         "/",
+        None,
     ));
 
     // 7. Build integration-specific output JSON and write to stdout — THE ONLY stdout write
@@ -878,10 +852,11 @@ async fn async_main(
     approve_label: String,
     deny_label: String,
     path: &str,
+    base_branch: Option<String>,
 ) -> Decision {
     // Start server
     let (port, decision_rx) =
-        match server::start_server(plan_md, approve_label, deny_label, port).await {
+        match server::start_server(plan_md, approve_label, deny_label, port, base_branch).await {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("Failed to start server: {}", e);
@@ -944,7 +919,7 @@ async fn async_main(
 ///
 /// Does NOT read stdin and passes an empty plan_md (the /code-review SPA route
 /// never calls /api/plan). Opens the browser at /code-review.
-fn run_code_review_flow(no_browser: bool, port: u16) {
+fn run_code_review_flow(no_browser: bool, port: u16, base: Option<String>) {
     eprintln!("Starting code review for current git branch");
 
     // In debug mode, verify frontend assets exist before starting the server.
@@ -972,6 +947,7 @@ fn run_code_review_flow(no_browser: bool, port: u16) {
         "Approve".to_string(),
         "Deny".to_string(),
         "/code-review",
+        base,
     ));
 
     // Build opencode output format and write to stdout — THE ONLY stdout write
@@ -1032,6 +1008,7 @@ fn run_pre_pr_hook_flow(no_browser: bool, port: u16) {
         "Approve".to_string(),
         "Deny".to_string(),
         "/code-review",
+        None,
     ));
 
     // Write Claude Code PreToolUse hook output.
