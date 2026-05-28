@@ -1328,6 +1328,41 @@ mod tests {
         );
     }
 
+    /// Test shell_branch_diff: directly calling the shell path on a standard repo
+    /// must return the same single-file result as the git2 path.
+    #[tokio::test]
+    async fn shell_branch_diff_returns_added_file() {
+        let (tmp, _repo, _oids) = make_repo_with_main_and_feature(&[("shell_test.txt", "hello\n")]);
+        let result = shell_branch_diff(tmp.path(), 3, None);
+        let file_diffs = result.expect("shell_branch_diff must return Some");
+        assert_eq!(file_diffs.len(), 1, "Expected 1 file diff, got {}", file_diffs.len());
+        assert_eq!(file_diffs[0].filename, "shell_test.txt");
+        assert_eq!(file_diffs[0].status, "added");
+        assert_eq!(file_diffs[0].additions, 1);
+    }
+
+    /// Test shell_list_commits: directly calling the shell path on a standard repo
+    /// must return commits with the correct count and message.
+    #[tokio::test]
+    async fn shell_list_commits_returns_feature_commits() {
+        let (tmp, _repo, _oids) = make_repo_with_main_and_feature(&[("shell_commit.txt", "data\n")]);
+        let result = shell_list_commits(tmp.path(), None);
+        let commit_list = result.expect("shell_list_commits must return Some");
+        // Exactly 1 real commit (plus possibly Uncommitted/Untracked sentinels).
+        let real_commits: Vec<_> = commit_list
+            .commits
+            .iter()
+            .filter(|c| c.sha != UNCOMMITTED_SHA && c.sha != UNTRACKED_SHA)
+            .collect();
+        assert_eq!(real_commits.len(), 1, "Expected 1 real commit");
+        assert!(
+            real_commits[0].message.contains("feature"),
+            "commit message must contain 'feature', got: {}",
+            real_commits[0].message
+        );
+        assert_eq!(real_commits[0].sha.len(), 40, "sha must be 40 chars");
+    }
+
     /// Test 16: both "Uncommitted changes" and "Untracked files" entries are present
     /// when the workdir has both modified tracked files and new untracked files,
     /// with "Uncommitted changes" at index 0 and "Untracked files" at index 1.
