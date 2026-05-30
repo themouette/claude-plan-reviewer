@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v0.7.0
 milestone_name: Integrations, Annotations & Polish
-status: executing
-stopped_at: context exhaustion at 75% (2026-05-27)
-last_updated: "2026-05-30T21:00:00.000Z"
+status: milestone_complete
+stopped_at: Milestone complete (Phase 30 was final phase)
+last_updated: 2026-05-30T20:53:31.073Z
 last_activity: 2026-05-30 -- Phase 30 completed (hide-whitespace toggle)
 progress:
   total_phases: 35
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Phase 30 — hide-whitespace
+**Current focus:** Milestone complete
 
 ## Current Position
 
-Phase: 30 (hide-whitespace) — COMPLETED
-Plan: 1 of 1 (all done)
-Status: Phase 30 complete; all 78 plans in the milestone completed
-Last activity: 2026-05-30 -- Phase 30 completed (hide-whitespace toggle)
+Phase: 30
+Plan: Not started
+Status: Milestone complete
+Last activity: 2026-05-30
 
 ## Performance Metrics
 
