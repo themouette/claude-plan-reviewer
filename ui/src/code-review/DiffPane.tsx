@@ -22,6 +22,7 @@ function FileDiffRenderer({
   file,
   diffStyle,
   contextExpanded,
+  hideWhitespace,
   comments,
   onAddLineComment,
   onEditComment,
@@ -32,6 +33,7 @@ function FileDiffRenderer({
   file: FileDiff
   diffStyle: 'unified' | 'split'
   contextExpanded: boolean
+  hideWhitespace: boolean
   comments: CodeReviewComment[]
   onAddLineComment?: (file: string, lineNumber: number, side: 'additions' | 'deletions', text: string, endLineNumber?: number) => void
   onEditComment?: (id: string, text: string) => void
@@ -53,8 +55,9 @@ function FileDiffRenderer({
     return parseDiffFromFile(
       { name: file.previous_filename ?? file.filename, contents: file.old_content },
       { name: file.filename, contents: file.new_content },
+      { ignoreWhitespace: hideWhitespace },
     )
-  }, [file.filename, file.previous_filename, file.old_content, file.new_content])
+  }, [file.filename, file.previous_filename, file.old_content, file.new_content, hideWhitespace])
 
   // Memoised so pierre only sees annotationsChanged=true when content actually changes,
   // not on every hover-state re-render.
@@ -231,6 +234,8 @@ export interface DiffPaneProps {
   onAddFileComment?: (file: string, text: string) => void
   onEditComment?: (id: string, text: string) => void
   onDeleteComment?: (id: string) => void
+  // Phase 30: hide whitespace toggle — optional, default false
+  hideWhitespace?: boolean
 }
 
 export default function DiffPane({
@@ -259,6 +264,7 @@ export default function DiffPane({
   onAddFileComment,
   onEditComment,
   onDeleteComment,
+  hideWhitespace = false,
 }: DiffPaneProps): React.JSX.Element {
   // Phase 27: local state for pending annotation anchors (Pattern 4 Option A — DiffPane-local)
   const [pendingLineAnchor, setPendingLineAnchor] = useState<{ file: string; lineNumber: number; endLineNumber?: number; side: AnnotationSide } | null>(null)
@@ -568,6 +574,7 @@ export default function DiffPane({
                       file={file}
                       diffStyle={diffStyle}
                       contextExpanded={contextExpanded}
+                      hideWhitespace={hideWhitespace}
                       comments={comments}
                       onAddLineComment={onAddLineComment}
                       onEditComment={onEditComment}

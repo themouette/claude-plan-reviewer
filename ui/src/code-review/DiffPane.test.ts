@@ -164,6 +164,27 @@ describe('DiffPane', () => {
     expect(source).toContain('file.additions')
     expect(source).toContain('file.deletions')
   })
+
+  // Phase 30: hideWhitespace prop threading
+  it('Phase 30: DiffPaneProps contains hideWhitespace optional prop', () => {
+    expect(source).toContain('hideWhitespace')
+  })
+
+  it('Phase 30: FileDiffRenderer receives hideWhitespace prop', () => {
+    expect(source).toContain('hideWhitespace={hideWhitespace}')
+  })
+
+  it('Phase 30: parseDiffFromFile is called with { ignoreWhitespace: hideWhitespace }', () => {
+    expect(source).toContain('ignoreWhitespace: hideWhitespace')
+  })
+
+  it('Phase 30: hideWhitespace is in the useMemo deps array for fileDiffMetadata', () => {
+    expect(source).toContain('hideWhitespace')
+    // The ignoreWhitespace call must appear before the closing of the useMemo
+    const memoStart = source.indexOf('fileDiffMetadata = useMemo')
+    const ignoreIdx = source.indexOf('ignoreWhitespace: hideWhitespace', memoStart)
+    expect(ignoreIdx).toBeGreaterThan(memoStart)
+  })
 })
 
 describe('DiffPane Phase 27: inline comment wiring', () => {

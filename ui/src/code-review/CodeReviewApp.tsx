@@ -23,6 +23,12 @@ export default function CodeReviewApp(): React.JSX.Element {
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set())
   // anchorCommitSha tracks the last non-shift-click for correct range-select behaviour
   const [anchorCommitSha, setAnchorCommitSha] = useState<string | null>(null)
+  // Phase 30: hide whitespace toggle
+  const [hideWhitespace, setHideWhitespace] = useState(false)
+
+  function handleHideWhitespaceToggle() {
+    setHideWhitespace(v => !v)
+  }
 
   const diffPaneRef = useRef<HTMLDivElement>(null)
 
@@ -253,6 +259,8 @@ export default function CodeReviewApp(): React.JSX.Element {
         comments={comments}
         connectivity={connectivity}
         onReviewSent={() => {}}
+        hideWhitespace={hideWhitespace}
+        onHideWhitespaceToggle={handleHideWhitespaceToggle}
       />
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', position: 'relative' }}>
         {drawerOpen && (
@@ -308,6 +316,7 @@ export default function CodeReviewApp(): React.JSX.Element {
           onAddFileComment={handleAddFileComment}
           onEditComment={editComment}
           onDeleteComment={deleteComment}
+          hideWhitespace={hideWhitespace}
         />
       </div>
     </div>

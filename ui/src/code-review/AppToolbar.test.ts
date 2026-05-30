@@ -190,4 +190,29 @@ describe('AppToolbar', () => {
   it("Phase 28: Test T — source does NOT contain 'reviewer-v2/' (preserves ESLint boundary)", () => {
     expect(source).not.toContain('reviewer-v2/')
   })
+
+  // Phase 30: Hide Whitespace toggle
+  it('Phase 30: AppToolbarProps includes hideWhitespace: boolean', () => {
+    expect(source).toContain('hideWhitespace: boolean')
+  })
+
+  it('Phase 30: AppToolbarProps includes onHideWhitespaceToggle:', () => {
+    expect(source).toContain('onHideWhitespaceToggle:')
+  })
+
+  it("Phase 30: renders 'Hide Whitespace' label when hideWhitespace is false", () => {
+    expect(source).toContain("'Hide Whitespace'")
+  })
+
+  it("Phase 30: renders 'Show Whitespace' label when hideWhitespace is true", () => {
+    expect(source).toContain("'Show Whitespace'")
+  })
+
+  it('Phase 30: Hide Whitespace button uses fontWeight 600 when hideWhitespace is true', () => {
+    expect(source).toMatch(/hideWhitespace\s*\?\s*600\s*:\s*400/)
+  })
+
+  it('Phase 30: Hide Whitespace button uses var(--color-text-primary) when active', () => {
+    expect(source).toMatch(/hideWhitespace\s*\?\s*'var\(--color-text-primary\)'/)
+  })
 })

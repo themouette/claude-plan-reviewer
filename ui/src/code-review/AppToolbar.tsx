@@ -20,6 +20,9 @@ export interface AppToolbarProps {
   comments: CodeReviewComment[]
   connectivity: ConnectivityStatus
   onReviewSent: () => void
+  // Phase 30: hide whitespace toggle
+  hideWhitespace: boolean
+  onHideWhitespaceToggle: () => void
 }
 
 export default function AppToolbar({
@@ -35,6 +38,8 @@ export default function AppToolbar({
   onToggleAllFiles,
   comments,
   connectivity,
+  hideWhitespace,
+  onHideWhitespaceToggle,
 }: AppToolbarProps): React.JSX.Element {
   type SubmitState =
     | 'idle'
@@ -295,6 +300,27 @@ export default function AppToolbar({
           {...makeFocusHandlers()}
         >
           {contextLoading ? 'Loading...' : contextExpanded ? 'Collapse' : 'Expand All'}
+        </button>
+
+        {/* Phase 30: Hide Whitespace / Show Whitespace toggle */}
+        <button
+          type="button"
+          onClick={onHideWhitespaceToggle}
+          style={{
+            height: 32,
+            padding: '0 16px',
+            border: '1px solid var(--color-border)',
+            borderRadius: 6,
+            fontSize: 14,
+            cursor: 'pointer',
+            outline: 'none',
+            background: 'var(--color-surface)',
+            color: hideWhitespace ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+            fontWeight: hideWhitespace ? 600 : 400,
+          }}
+          {...makeFocusHandlers()}
+        >
+          {hideWhitespace ? 'Show Whitespace' : 'Hide Whitespace'}
         </button>
 
         {/* D-08: Expand Files / Collapse Files — toggles per-file collapse state */}
