@@ -700,3 +700,4 @@ Plans:
 | 29. Code Review Integration | v0.7.0 | 2/2 | Complete    | 2026-05-26 |
 | 29.1. Fix POST /api/decide schema mismatch | v0.7.0 | 2/2 | Complete    | 2026-05-27 |
 | 30. Hide Whitespace | v0.7.1 | 1/1 | Complete    | 2026-05-30 |
+| 31. Fix Orphaned Legacy Hook Cleanup on Upgrade | v0.7.2 | 1/1 | Complete    | 2026-05-30 |
