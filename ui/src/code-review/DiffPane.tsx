@@ -129,7 +129,7 @@ function FileDiffRenderer({
                   })
                   // Consume and clear ref so the next single-line "+" click isn't stale.
                   selectionRef.current = null
-                  onAddLineComment?.(file.filename, anchor.lineNumber, ann.side, text, anchor.endLineNumber)
+                  onAddLineComment?.(file.filename, anchor.lineNumber, anchor.side, text, anchor.endLineNumber)
                   setPendingLineAnchor(null)
                 }}
                 onCancel={() => {
