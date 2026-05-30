@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { FileDiff as FileDiffComponent, PatchDiff } from '@pierre/diffs/react'
 import { parseDiffFromFile } from '@pierre/diffs'
 import type { DiffLineAnnotation, AnnotationSide, SelectedLineRange } from '@pierre/diffs'
@@ -269,6 +269,14 @@ export default function DiffPane({
   // Phase 27: local state for pending annotation anchors (Pattern 4 Option A — DiffPane-local)
   const [pendingLineAnchor, setPendingLineAnchor] = useState<{ file: string; lineNumber: number; endLineNumber?: number; side: AnnotationSide } | null>(null)
   const [pendingFileComment, setPendingFileComment] = useState<string | null>(null)
+
+  // WR-01: Reset pending anchor/form whenever the diff content changes (files is a new array
+  // reference on every refetch), so a stale anchor from one diff is never silently applied
+  // to a different diff at the same line number.
+  useEffect(() => {
+    setPendingLineAnchor(null)
+    setPendingFileComment(null)
+  }, [files])
 
   // Lookup the active commit for per-commit title strip (D-06)
   const activeCommit =
