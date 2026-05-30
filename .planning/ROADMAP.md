@@ -619,6 +619,25 @@ Plans:
 
 - [x] 23-01-PLAN.md — Update main.tsx + src/main.rs (drop /v2 routing), delete v1 source/test files, verify npm/cargo tests pass and no residual v1 imports
 
+### Phase 30: Hide Whitespace
+
+**Goal**: Add a "Hide Whitespace" toggle button to the code review toolbar. When active, whitespace-only changes are excluded from the diff via `{ ignoreWhitespace: true }` passed to `parseDiffFromFile`. Entirely client-side — no server changes required.
+**Depends on**: Phase 29
+**Requirements**: none
+**Success Criteria** (what must be TRUE):
+
+  1. `hideWhitespace` state lives in `CodeReviewApp` — single source of truth
+  2. `AppToolbar` receives `hideWhitespace` and `onHideWhitespaceToggle` props
+  3. `DiffPane` receives `hideWhitespace` and passes it to `FileDiffRenderer`
+  4. `parseDiffFromFile` is called with `{ ignoreWhitespace: hideWhitespace }` as third argument
+  5. Toggle button visual style matches existing toolbar buttons with active-state distinction
+  6. Tests pass for AppToolbar toggle rendering and DiffPane prop threading
+
+**Plans:** 1/1 plans complete
+Plans:
+
+- [x] 30-01-PLAN.md — Add hideWhitespace state to CodeReviewApp, toggle button to AppToolbar, thread prop through DiffPane to FileDiffRenderer
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -660,3 +679,4 @@ Plans:
 | 28. Review Submission | v0.7.0 | 3/3 | Complete   | 2026-05-25 |
 | 29. Code Review Integration | v0.7.0 | 2/2 | Complete    | 2026-05-26 |
 | 29.1. Fix POST /api/decide schema mismatch | v0.7.0 | 2/2 | Complete    | 2026-05-27 |
+| 30. Hide Whitespace | v0.7.1 | 1/1 | Complete    | 2026-05-30 |
