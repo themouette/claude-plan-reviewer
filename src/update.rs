@@ -488,6 +488,14 @@ fn write_claude_plugin_files(home: &str, current_version: &str) {
             "PermissionRequest": [{
                 "matcher": "ExitPlanMode",
                 "hooks": [{"type": "command", "command": "plan-reviewer review-hook"}]
+            }],
+            "PreToolUse": [{
+                "matcher": "Bash",
+                "hooks": [{
+                    "type": "command",
+                    "command": "plan-reviewer pre-pr-hook",
+                    "timeout": 600_000
+                }]
             }]
         }
     });
@@ -783,6 +791,12 @@ mod tests {
         assert!(
             content.contains("plan-reviewer review-hook"),
             "hooks.json should contain 'plan-reviewer review-hook', got: {}",
+            content
+        );
+        let hooks_json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert!(
+            hooks_json["hooks"]["PreToolUse"].as_array().is_some(),
+            "hooks.json written by write_claude_plugin_files must include PreToolUse section, got: {}",
             content
         );
     }
