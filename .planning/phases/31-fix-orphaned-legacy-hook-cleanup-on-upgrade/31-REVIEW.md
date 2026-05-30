@@ -1,52 +1,56 @@
 ---
 phase: 31-fix-orphaned-legacy-hook-cleanup-on-upgrade
-reviewed: 2026-05-30T21:31:43Z
+reviewed: 2026-05-30T00:00:00Z
 depth: standard
 files_reviewed: 1
 files_reviewed_list:
   - src/update.rs
 findings:
   critical: 3
-  warning: 2
-  info: 0
-  total: 5
+  warning: 3
+  info: 2
+  total: 8
 status: issues_found
 ---
 
 # Phase 31: Code Review Report
 
-**Reviewed:** 2026-05-30T21:31:43Z
+**Reviewed:** 2026-05-30
 **Depth:** standard
 **Files Reviewed:** 1
 **Status:** issues_found
 
 ## Summary
 
-`src/update.rs` implements the update flow and integration refresh logic, including the new Case 2 legacy-hook migration path (the focus of this phase). The migration detection logic is sound and the new `remove_claude_legacy_hook` / `remove_gemini_legacy_hook` helpers are well-structured. However, three correctness bugs were found: a panic path in `perform_claude_migration`, silent settings-file corruption via `unwrap_or_default()`, and a regression in `write_claude_plugin_files` that drops the `PreToolUse` hook on every update.
+Phase 31 introduced `remove_claude_legacy_hook` and `remove_gemini_legacy_hook` helpers, refactored `perform_claude_migration` and `perform_gemini_migration` to call them, and wired both helpers into the Case 3 (version-stale) path of `refresh_integrations_with_home`. New tests were added and two test names were updated per spec.
+
+The core objective — preventing the hook from firing twice after an upgrade — is correctly implemented. However, three blocker-grade bugs were found: a panic path in `perform_claude_migration` when `settings.json` contains non-object JSON, silent settings-file destruction via `unwrap_or_default()`, and a regression in `write_claude_plugin_files` that clobbers the `PreToolUse` hook on every update. Two further warnings address silent I/O error suppression and missing file refreshes on upgrade.
+
+---
 
 ## Critical Issues
 
-### CR-01: `perform_claude_migration` panics if `settings.json` root is not a JSON object
+### CR-01: `perform_claude_migration` panics when `settings.json` root is not a JSON object
 
 **File:** `src/update.rs:240-264`
 
-**Issue:** Inside the `if let Ok(mut root) = ...` block, the code calls `.unwrap()` twice on `root.as_object_mut()` (lines 240 and 258). The guard only verifies that the file can be read and parses as valid JSON — it does not verify that the JSON value is an object. If `settings.json` contains a valid JSON non-object (e.g., `null`, `[]`, or `"a string"`), `as_object_mut()` returns `None` and the `.unwrap()` panics, crashing the binary mid-migration and leaving the plugin directory files written (step 1 succeeded) but settings.json unpatched.
+**Issue:** Inside the `if let Ok(mut root) = serde_json::from_str::<serde_json::Value>(&content)` block, the code calls `.unwrap()` twice on `root.as_object_mut()` (lines 241 and 259). The outer guard only verifies that the file parses as valid JSON — it does not verify that the parsed value is a JSON object. If `settings.json` contains valid but non-object JSON (e.g., `null`, `[]`, or `"a string"`), `as_object_mut()` returns `None` and the `.unwrap()` panics, crashing the binary. At that point, plugin directory files have already been written (step 1 completed) but `settings.json` is left unpatched, and the legacy hook entry is still present because the function panics before reaching `remove_claude_legacy_hook`.
 
-`ClaudeIntegration::install()` handles this correctly with an explicit object check and reset to `{}`. The migration path must apply the same guard.
+The full install path in `integrations/claude.rs:326-333` handles this correctly with an explicit `if !root.is_object()` guard that resets to `{}`. The migration path omits this guard.
 
 **Fix:**
 ```rust
 if let Ok(content) = std::fs::read_to_string(&settings_path)
     && let Ok(mut root) = serde_json::from_str::<serde_json::Value>(&content)
 {
-    // Guard: if root is not an object (e.g. null, array), start fresh
+    // Guard added: reset to object if root is not one
     if !root.is_object() {
         root = serde_json::json!({});
     }
     let plugin_dir = claude_plugin_dir(home);
 
     root.as_object_mut()
-        .expect("root is always an object at this point")
+        .expect("root is always an object after guard")
         .entry("extraKnownMarketplaces")
         // ...
 ```
@@ -57,37 +61,37 @@ if let Ok(content) = std::fs::read_to_string(&settings_path)
 
 **File:** `src/update.rs:212-215`, `270-271`, `312-313`
 
-**Issue:** Three call sites use `serde_json::to_string_pretty(&root).unwrap_or_default()` and pass the result directly to `std::fs::write`. If `to_string_pretty` ever fails (theoretically possible with extremely unusual serde_json `Value` content), `unwrap_or_default()` produces an empty `String`, and `std::fs::write` replaces the user's `settings.json` with an empty file. This would silently destroy all of the user's Claude or Gemini settings.
+**Issue:** Three call sites use `serde_json::to_string_pretty(&root).unwrap_or_default()` and pass the result directly to `std::fs::write`. If `to_string_pretty` returns an error, `unwrap_or_default()` substitutes an empty `String`, and `std::fs::write` then replaces the user's `settings.json` with a zero-byte file. This destroys all of the user's existing Claude or Gemini settings (theme, other hooks, other plugins, etc.).
 
-While the probability of `to_string_pretty` failing on a `serde_json::Value` is very low, the consequence is data loss and the fix is trivial.
+While `to_string_pretty` failing on a `serde_json::Value` in memory is unlikely in practice, the consequence is catastrophic data loss and the correct fix is trivial.
 
-**Fix:** Bail out instead of writing an empty string:
+**Fix:** Check the serialization result before writing:
 ```rust
-// replace:
+// Replace:
 let _ = std::fs::write(
     &settings_path,
     serde_json::to_string_pretty(&root).unwrap_or_default(),
 );
 
-// with:
+// With:
 match serde_json::to_string_pretty(&root) {
     Ok(output) => { let _ = std::fs::write(&settings_path, output); }
-    Err(e) => {
-        eprintln!("plan-reviewer: failed to serialize settings.json: {}", e);
-        return; // or return early from the calling function
-    }
+    Err(e) => eprintln!("plan-reviewer: failed to serialize settings.json: {}", e),
 }
 ```
 
-Affected lines: `remove_claude_legacy_hook` (line 212–215), `perform_claude_migration` (line 270), `remove_gemini_legacy_hook` (line 312).
+Affected locations:
+- `remove_claude_legacy_hook` (lines 212-215)
+- `perform_claude_migration` (line 270-271)
+- `remove_gemini_legacy_hook` (lines 312-313)
 
 ---
 
-### CR-03: `write_claude_plugin_files` drops `PreToolUse` hook on every update — regression
+### CR-03: `write_claude_plugin_files` drops the `PreToolUse` hook on every update
 
 **File:** `src/update.rs:454-461`
 
-**Issue:** `write_claude_plugin_files` writes a `hooks.json` that contains only the `PermissionRequest / ExitPlanMode` entry:
+**Issue:** `write_claude_plugin_files` writes a `hooks.json` containing only the `PermissionRequest / ExitPlanMode` entry:
 
 ```rust
 let hooks = serde_json::json!({
@@ -100,11 +104,11 @@ let hooks = serde_json::json!({
 });
 ```
 
-But `ClaudeIntegration::install()` (`src/integrations/claude.rs:116-135`) writes a `hooks.json` that also includes a `PreToolUse / Bash` entry for `plan-reviewer pre-pr-hook`. Every time `refresh_integrations_with_home` runs (i.e. on every `plan-reviewer update`), Case 3 calls `write_claude_plugin_files`, which overwrites `hooks.json` with a version that lacks `PreToolUse`. The pre-PR hook silently stops working after the first upgrade.
+But `ClaudeIntegration::install()` in `src/integrations/claude.rs:116-135` writes a `hooks.json` that also includes a `PreToolUse / Bash` entry for `plan-reviewer pre-pr-hook` (added in Plan 29-02). Every time Case 3 (version-stale) or Case 2 (migration) invokes `write_claude_plugin_files`, the existing `hooks.json` is overwritten with a version that lacks `PreToolUse`. As a result, the pre-PR code-review gate silently stops firing after the first `plan-reviewer update`.
 
-The test `test_write_claude_plugin_files_uses_hook_subcommand` does not assert the presence of `PreToolUse`, so this regression goes undetected.
+The test `test_write_claude_plugin_files_uses_hook_subcommand` (line 744) only checks for `"plan-reviewer review-hook"` and does not assert the presence of `PreToolUse`, so the regression is undetected by the test suite.
 
-**Fix:** Add the `PreToolUse` entry to the `hooks` JSON literal in `write_claude_plugin_files`:
+**Fix:** Add the `PreToolUse` section to `write_claude_plugin_files`:
 ```rust
 let hooks = serde_json::json!({
     "hooks": {
@@ -130,37 +134,86 @@ Also update `test_write_claude_plugin_files_uses_hook_subcommand` to assert the 
 
 ## Warnings
 
-### WR-01: `write_claude_plugin_files` does not refresh `marketplace.json` or command files on update
-
-**File:** `src/update.rs:445-479`
-
-**Issue:** `write_claude_plugin_files` only rewrites `plugin.json` and `hooks/hooks.json`. The `install()` path also writes `.claude-plugin/marketplace.json`, `commands/annotate.md`, and `commands/code-review.md`. After an upgrade, these files are never refreshed. If a new version changes the marketplace manifest or updates the command instruction files, users running `plan-reviewer update` will retain the old versions of those files indefinitely until they `uninstall` and reinstall.
-
-**Fix:** Either call the full `ClaudeIntegration::install()` logic from the update path (minus the idempotency short-circuit check and minus settings.json registration mutation), or expand `write_claude_plugin_files` to include the missing files. At minimum, `marketplace.json` should be kept up to date because Claude Code may use it to validate the plugin.
-
----
-
-### WR-02: Case 2 migration silently succeeds even if `write_claude_plugin_files` fails
+### WR-01: `perform_claude_migration` can remove the legacy hook entry even when plugin file writes silently failed
 
 **File:** `src/update.rs:226-276`
 
-**Issue:** `write_claude_plugin_files` and `write_gemini_extension_files` ignore all I/O errors via `let _ = ...` on `create_dir_all` and `write`. The callers `perform_claude_migration` and `perform_gemini_migration` unconditionally proceed to patch `settings.json` (step 2) and print a success message, even if the plugin/extension directory files were never actually created. This leaves the user with `settings.json` registering a plugin that does not exist on disk.
+**Issue:** `write_claude_plugin_files` (called at line 230) discards all I/O errors with `let _ = ...`. If disk is full or permissions are wrong, the plugin directory files are never created, but `perform_claude_migration` continues unconditionally to patch `settings.json` (lines 234-272) and then calls `remove_claude_legacy_hook` (line 274). The result is a state where the legacy hook is gone but the new plugin files do not exist on disk: neither hook fires, and `ExitPlanMode` processing is silently lost.
 
-The same pattern exists in Case 3 (`refresh_integrations_with_home` lines 386-388 and 406-408) but is worse in Case 2 migration because Case 2 also modifies `settings.json`.
-
-**Fix:** Propagate errors from the write helpers so callers can bail out before touching `settings.json`. Change `write_claude_plugin_files` and `write_gemini_extension_files` to return `Result<(), String>` and have `perform_claude_migration` / `perform_gemini_migration` return early on failure:
+**Fix:** Change `write_claude_plugin_files` to return `Result<(), String>` (mirroring the install path) and have `perform_claude_migration` return early on failure:
 ```rust
-fn write_claude_plugin_files(home: &str, current_version: &str) -> Result<(), String> {
-    // ...
-    std::fs::create_dir_all(&manifest_dir)
-        .map_err(|e| format!("cannot create {}: {}", manifest_dir.display(), e))?;
-    // etc.
-    Ok(())
+fn perform_claude_migration(home: &str, current_version: &str) {
+    if let Err(e) = write_claude_plugin_files(home, current_version) {
+        eprintln!("plan-reviewer: migration failed writing plugin files: {}", e);
+        return; // do not remove legacy entry if new files were not written
+    }
+    // ... patch settings.json ...
+    remove_claude_legacy_hook(home);
+}
+```
+
+The same pattern applies to `perform_gemini_migration` / `write_gemini_extension_files`.
+
+---
+
+### WR-02: `write_claude_plugin_files` does not refresh `marketplace.json` or command files on update
+
+**File:** `src/update.rs:445-479`
+
+**Issue:** `write_claude_plugin_files` only rewrites `plugin.json` and `hooks/hooks.json`. The `install()` path also writes `.claude-plugin/marketplace.json`, `commands/annotate.md`, and `commands/code-review.md`. After an upgrade, these files are never refreshed. If a new version changes the command instruction files or the marketplace manifest, users running `plan-reviewer update` retain the old content of those files indefinitely — until they manually uninstall and reinstall.
+
+`marketplace.json` is particularly likely to break Claude Code's plugin loading if its format evolves across releases.
+
+**Fix:** Include the missing files in `write_claude_plugin_files`, or extract a shared helper used by both install and update that writes all plugin directory contents.
+
+---
+
+### WR-03: `test_claude_case2_migration_creates_plugin_and_cleans_settings` does not verify that the updated `hooks.json` contains `PreToolUse`
+
+**File:** `src/update.rs:841-847`
+
+**Issue:** The test verifies `hooks_content.contains("plan-reviewer review-hook")` but does not assert the presence of the `PreToolUse` section. Because `write_claude_plugin_files` is missing `PreToolUse` (CR-03), this omission means the test passes even after the regression is introduced. The test suite should catch the divergence between the update-path and install-path hook files but does not.
+
+**Fix:**
+```rust
+let hooks_json: serde_json::Value = serde_json::from_str(&hooks_content).unwrap();
+assert!(
+    hooks_json["hooks"]["PreToolUse"].as_array().is_some(),
+    "hooks.json written during Case 2 migration must include PreToolUse section"
+);
+```
+
+---
+
+## Info
+
+### IN-01: `write_claude_plugin_files` / `write_gemini_extension_files` silently suppress all I/O errors
+
+**File:** `src/update.rs:465-474`, `508-518`
+
+**Issue:** Every `create_dir_all` and `fs::write` call in the two write helpers uses `let _ = ...`, silently discarding any error. The function prints a success message regardless. This makes debugging upgrade failures impossible and compounds WR-01 above. The full install path in `integrations/claude.rs` propagates errors as `Result<(), String>`.
+
+**Fix:** Return `Result<(), String>` from both write helpers and propagate errors.
+
+### IN-02: `sanitize_version` does not cap the length of the network-sourced version string
+
+**File:** `src/update.rs:161-166`
+
+**Issue:** `sanitize_version` strips non-alphanumeric characters but imposes no length limit. A malicious GitHub release tag composed entirely of allowed characters (e.g., 10,000 `a`s) would pass through unsanitized and be used in `format!` output strings and as a `target_version_tag` argument. The terminal display impact is limited, but adding a length cap is a one-liner defensive improvement.
+
+**Fix:**
+```rust
+fn sanitize_version(version: &str) -> String {
+    version
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c == '.' || *c == '-' || *c == '+')
+        .take(64)
+        .collect()
 }
 ```
 
 ---
 
-_Reviewed: 2026-05-30T21:31:43Z_
+_Reviewed: 2026-05-30_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
