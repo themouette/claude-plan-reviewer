@@ -954,6 +954,12 @@ mod tests {
             "hooks.json should contain 'plan-reviewer review-hook', got: {}",
             hooks_content
         );
+        let hooks_json: serde_json::Value = serde_json::from_str(&hooks_content).unwrap();
+        assert!(
+            hooks_json["hooks"]["PreToolUse"].as_array().is_some(),
+            "hooks.json written during Case 2 migration must include PreToolUse section, got: {}",
+            hooks_content
+        );
 
         // Verify: settings.json has registration entries
         let updated_settings: serde_json::Value = serde_json::from_str(
