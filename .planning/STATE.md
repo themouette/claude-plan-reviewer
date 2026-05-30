@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.7.0
-milestone_name: milestone
-status: completed
+milestone_name: Integrations, Annotations & Polish
+status: executing
 stopped_at: context exhaustion at 75% (2026-05-27)
-last_updated: "2026-05-27T21:16:15.618Z"
-last_activity: 2026-05-26
+last_updated: "2026-05-30T21:00:00.000Z"
+last_activity: 2026-05-30 -- Phase 30 completed (hide-whitespace toggle)
 progress:
-  total_phases: 24
-  completed_phases: 23
-  total_plans: 54
-  completed_plans: 55
-  percent: 96
+  total_phases: 35
+  completed_phases: 33
+  total_plans: 78
+  completed_plans: 78
+  percent: 94
 ---
 
 # Project State
@@ -21,15 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** One `curl | sh` installs a working plan reviewer — no Node.js, no Bun, no workspace setup required.
-**Current focus:** Milestone complete
+**Current focus:** Phase 30 — hide-whitespace
 
 ## Current Position
 
-Phase: 29.1
-Plan: Not started
-Phase: 29 (Code Review Integration) — NEXT
-Status: Milestone complete
-Last activity: 2026-05-28 - Completed quick task 260528-ugq: Fix reftable repos showing empty diffs
+Phase: 30 (hide-whitespace) — COMPLETED
+Plan: 1 of 1 (all done)
+Status: Phase 30 complete; all 78 plans in the milestone completed
+Last activity: 2026-05-30 -- Phase 30 completed (hide-whitespace toggle)
 
 ## Performance Metrics
 
