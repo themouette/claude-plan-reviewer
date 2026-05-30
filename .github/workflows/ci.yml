@@ -56,3 +56,7 @@ jobs:
       - name: ESLint
         run: npm run lint
         working-directory: ui
+
+      - name: Test
+        run: npm test
+        working-directory: ui
