@@ -235,7 +235,11 @@ fn perform_claude_migration(home: &str, current_version: &str) {
     use crate::integrations::claude::claude_plugin_dir;
 
     // 1. Write plugin directory files (hooks.json has "plan-reviewer review-hook" from Plan 01)
-    write_claude_plugin_files(home, current_version);
+    // Return early on failure: do not remove the legacy hook if new files were not written.
+    if let Err(e) = write_claude_plugin_files(home, current_version) {
+        eprintln!("plan-reviewer: migration failed writing plugin files: {}", e);
+        return;
+    }
 
     // 2. Patch settings.json: add registration entries + remove old bare entry
     let settings_path = std::path::PathBuf::from(home).join(".claude/settings.json");
@@ -354,7 +358,11 @@ fn remove_gemini_legacy_hook(home: &str) {
 /// - Old bare BeforeTool entry with name "plan-reviewer" is removed from settings.json
 fn perform_gemini_migration(home: &str, current_version: &str) {
     // 1. Write extension directory files (hooks.json has "plan-reviewer review-hook" from Plan 01)
-    write_gemini_extension_files(home, current_version);
+    // Return early on failure: do not remove the legacy hook if new files were not written.
+    if let Err(e) = write_gemini_extension_files(home, current_version) {
+        eprintln!("plan-reviewer: migration failed writing extension files: {}", e);
+        return;
+    }
 
     // 2. Remove old bare BeforeTool entry from Gemini settings.json
     remove_gemini_legacy_hook(home);
@@ -415,7 +423,9 @@ fn refresh_integrations_with_home(home: &str, current_version: &str) {
                     );
                 }
                 _ => {
-                    write_claude_plugin_files(home, current_version);
+                    if let Err(e) = write_claude_plugin_files(home, current_version) {
+                        eprintln!("plan-reviewer: failed to refresh Claude plugin files: {}", e);
+                    }
                     remove_claude_legacy_hook(home);
                 }
             }
@@ -435,7 +445,9 @@ fn refresh_integrations_with_home(home: &str, current_version: &str) {
                     );
                 }
                 _ => {
-                    write_gemini_extension_files(home, current_version);
+                    if let Err(e) = write_gemini_extension_files(home, current_version) {
+                        eprintln!("plan-reviewer: failed to refresh Gemini extension files: {}", e);
+                    }
                     remove_gemini_legacy_hook(home);
                 }
             }
@@ -474,7 +486,8 @@ fn read_manifest_version(manifest_path: &std::path::Path) -> Option<String> {
 ///
 /// Writes .claude-plugin/plugin.json and hooks/hooks.json.
 /// Used during update to refresh stale plugin files without touching settings.json.
-fn write_claude_plugin_files(home: &str, current_version: &str) {
+/// Returns Err if any I/O operation fails so callers can abort dependent steps.
+fn write_claude_plugin_files(home: &str, current_version: &str) -> Result<(), String> {
     use crate::integrations::claude::claude_plugin_dir;
     let plugin_dir = claude_plugin_dir(home);
 
@@ -502,27 +515,35 @@ fn write_claude_plugin_files(home: &str, current_version: &str) {
 
     let manifest_dir = plugin_dir.join(".claude-plugin");
     let hooks_dir = plugin_dir.join("hooks");
-    let _ = std::fs::create_dir_all(&manifest_dir);
-    let _ = std::fs::create_dir_all(&hooks_dir);
-    let _ = std::fs::write(
-        manifest_dir.join("plugin.json"),
+    std::fs::create_dir_all(&manifest_dir)
+        .map_err(|e| format!("cannot create {}: {}", manifest_dir.display(), e))?;
+    std::fs::create_dir_all(&hooks_dir)
+        .map_err(|e| format!("cannot create {}: {}", hooks_dir.display(), e))?;
+    let manifest_path = manifest_dir.join("plugin.json");
+    std::fs::write(
+        &manifest_path,
         serde_json::to_string_pretty(&manifest).unwrap(),
-    );
-    let _ = std::fs::write(
-        hooks_dir.join("hooks.json"),
+    )
+    .map_err(|e| format!("cannot write {}: {}", manifest_path.display(), e))?;
+    let hooks_path = hooks_dir.join("hooks.json");
+    std::fs::write(
+        &hooks_path,
         serde_json::to_string_pretty(&hooks).unwrap(),
-    );
+    )
+    .map_err(|e| format!("cannot write {}: {}", hooks_path.display(), e))?;
     println!(
         "plan-reviewer: Claude plugin files updated to v{}",
         current_version
     );
+    Ok(())
 }
 
 /// Write Gemini extension directory files with current version.
 ///
 /// Writes gemini-extension.json and hooks/hooks.json.
 /// Used during update to refresh stale extension files.
-fn write_gemini_extension_files(home: &str, current_version: &str) {
+/// Returns Err if any I/O operation fails so callers can abort dependent steps.
+fn write_gemini_extension_files(home: &str, current_version: &str) -> Result<(), String> {
     use crate::integrations::gemini::gemini_extension_dir;
     let ext_dir = gemini_extension_dir(home);
 
@@ -546,20 +567,27 @@ fn write_gemini_extension_files(home: &str, current_version: &str) {
     });
 
     let hooks_dir = ext_dir.join("hooks");
-    let _ = std::fs::create_dir_all(&ext_dir);
-    let _ = std::fs::create_dir_all(&hooks_dir);
-    let _ = std::fs::write(
-        ext_dir.join("gemini-extension.json"),
+    std::fs::create_dir_all(&ext_dir)
+        .map_err(|e| format!("cannot create {}: {}", ext_dir.display(), e))?;
+    std::fs::create_dir_all(&hooks_dir)
+        .map_err(|e| format!("cannot create {}: {}", hooks_dir.display(), e))?;
+    let manifest_path = ext_dir.join("gemini-extension.json");
+    std::fs::write(
+        &manifest_path,
         serde_json::to_string_pretty(&manifest).unwrap(),
-    );
-    let _ = std::fs::write(
-        hooks_dir.join("hooks.json"),
+    )
+    .map_err(|e| format!("cannot write {}: {}", manifest_path.display(), e))?;
+    let hooks_path = hooks_dir.join("hooks.json");
+    std::fs::write(
+        &hooks_path,
         serde_json::to_string_pretty(&hooks).unwrap(),
-    );
+    )
+    .map_err(|e| format!("cannot write {}: {}", hooks_path.display(), e))?;
     println!(
         "plan-reviewer: Gemini extension files updated to v{}",
         current_version
     );
+    Ok(())
 }
 
 /// Write OpenCode plugin file with current version.
@@ -784,7 +812,7 @@ mod tests {
     fn test_write_claude_plugin_files_uses_hook_subcommand() {
         let dir = tempdir().unwrap();
         let home = dir.path().to_str().unwrap().to_string();
-        write_claude_plugin_files(&home, "0.3.0");
+        write_claude_plugin_files(&home, "0.3.0").unwrap();
         let hooks_path =
             crate::integrations::claude::claude_plugin_dir(&home).join("hooks/hooks.json");
         let content = std::fs::read_to_string(&hooks_path).unwrap();
@@ -805,7 +833,7 @@ mod tests {
     fn test_write_gemini_extension_files_uses_hook_subcommand() {
         let dir = tempdir().unwrap();
         let home = dir.path().to_str().unwrap().to_string();
-        write_gemini_extension_files(&home, "0.3.0");
+        write_gemini_extension_files(&home, "0.3.0").unwrap();
         let hooks_path =
             crate::integrations::gemini::gemini_extension_dir(&home).join("hooks/hooks.json");
         let content = std::fs::read_to_string(&hooks_path).unwrap();
