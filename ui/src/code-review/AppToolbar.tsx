@@ -38,6 +38,7 @@ export default function AppToolbar({
   onToggleAllFiles,
   comments,
   connectivity,
+  onReviewSent,
   hideWhitespace,
   onHideWhitespaceToggle,
 }: AppToolbarProps): React.JSX.Element {
@@ -93,6 +94,7 @@ export default function AppToolbar({
       })
       if (res.ok || res.status === 409) {
         setSubmitState('confirmed')
+        onReviewSent()
         return
       }
     } catch {
