@@ -484,17 +484,32 @@ fn read_manifest_version(manifest_path: &std::path::Path) -> Option<String> {
 
 /// Write Claude plugin directory files with current version.
 ///
-/// Writes .claude-plugin/plugin.json and hooks/hooks.json.
-/// Used during update to refresh stale plugin files without touching settings.json.
+/// Writes .claude-plugin/plugin.json, .claude-plugin/marketplace.json,
+/// hooks/hooks.json, commands/annotate.md, and commands/code-review.md.
+/// Mirrors all plugin directory files written by the install path so that
+/// updates keep the plugin consistent with the installed binary version.
 /// Returns Err if any I/O operation fails so callers can abort dependent steps.
 fn write_claude_plugin_files(home: &str, current_version: &str) -> Result<(), String> {
-    use crate::integrations::claude::claude_plugin_dir;
+    use crate::integrations::claude::{claude_plugin_dir, ANNOTATE_MD, CODE_REVIEW_MD};
     let plugin_dir = claude_plugin_dir(home);
 
     let manifest = serde_json::json!({
         "name": "plan-reviewer",
         "version": current_version,
         "description": "Plan review hook for Claude Code"
+    });
+    let marketplace = serde_json::json!({
+        "name": "plan-reviewer-local",
+        "owner": {
+            "name": "plan-reviewer authors"
+        },
+        "plugins": [
+            {
+                "name": "plan-reviewer",
+                "source": "./",
+                "description": "Plan review hook for Claude Code"
+            }
+        ]
     });
     let hooks = serde_json::json!({
         "hooks": {
@@ -515,22 +530,43 @@ fn write_claude_plugin_files(home: &str, current_version: &str) -> Result<(), St
 
     let manifest_dir = plugin_dir.join(".claude-plugin");
     let hooks_dir = plugin_dir.join("hooks");
+    let commands_dir = plugin_dir.join("commands");
     std::fs::create_dir_all(&manifest_dir)
         .map_err(|e| format!("cannot create {}: {}", manifest_dir.display(), e))?;
     std::fs::create_dir_all(&hooks_dir)
         .map_err(|e| format!("cannot create {}: {}", hooks_dir.display(), e))?;
+    std::fs::create_dir_all(&commands_dir)
+        .map_err(|e| format!("cannot create {}: {}", commands_dir.display(), e))?;
+
     let manifest_path = manifest_dir.join("plugin.json");
     std::fs::write(
         &manifest_path,
         serde_json::to_string_pretty(&manifest).unwrap(),
     )
     .map_err(|e| format!("cannot write {}: {}", manifest_path.display(), e))?;
+
+    let marketplace_path = manifest_dir.join("marketplace.json");
+    std::fs::write(
+        &marketplace_path,
+        serde_json::to_string_pretty(&marketplace).unwrap(),
+    )
+    .map_err(|e| format!("cannot write {}: {}", marketplace_path.display(), e))?;
+
     let hooks_path = hooks_dir.join("hooks.json");
     std::fs::write(
         &hooks_path,
         serde_json::to_string_pretty(&hooks).unwrap(),
     )
     .map_err(|e| format!("cannot write {}: {}", hooks_path.display(), e))?;
+
+    let annotate_path = commands_dir.join("annotate.md");
+    std::fs::write(&annotate_path, ANNOTATE_MD)
+        .map_err(|e| format!("cannot write {}: {}", annotate_path.display(), e))?;
+
+    let code_review_path = commands_dir.join("code-review.md");
+    std::fs::write(&code_review_path, CODE_REVIEW_MD)
+        .map_err(|e| format!("cannot write {}: {}", code_review_path.display(), e))?;
+
     println!(
         "plan-reviewer: Claude plugin files updated to v{}",
         current_version
