@@ -29,7 +29,7 @@ Full code review mode shipped. 9 phases (24–29.1), 22 plans, ~297 commits. Dif
 
 ## Current State
 
-v0.6.0 shipped 2026-05-22. v0.7.0 milestone (Code Review) complete — Phase 29 done (code review integration: `code-review` + `pre-pr-hook` subcommands, install/uninstall wiring). Phase 29.1 complete — fixed POST /api/decide schema mismatch: handler now accepts `serde_json::Value` with key-presence dispatch, unblocking code-review submit path.
+v0.6.0 shipped 2026-05-22. v0.7.0 milestone (Code Review) complete — Phase 29 done (code review integration: `code-review` + `pre-pr-hook` subcommands, install/uninstall wiring). Phase 29.1 complete — fixed POST /api/decide schema mismatch: handler now accepts `serde_json::Value` with key-presence dispatch, unblocking code-review submit path. Phase 30 complete — added client-side "Hide Whitespace" toggle to code review toolbar; whitespace-only diff hunks suppressed via `parseDiffFromFile({ ignoreWhitespace: true })`.
 
 - **Binary**: `plan-reviewer` — single static Rust binary
 - **Subcommands**: `install [integration]`, `uninstall [integration]`, `update [--check] [--version X] [-y]`, `review <file>`, `review-hook`, `code-review`, `pre-pr-hook`
@@ -171,4 +171,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-27 after v0.7.0 milestone*
+*Last updated: 2026-05-30 after Phase 30 (hide-whitespace)*
