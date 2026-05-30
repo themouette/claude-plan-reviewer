@@ -186,6 +186,36 @@ pub fn refresh_integrations() {
     refresh_integrations_with_home(&home, current_version);
 }
 
+/// Remove the bare ExitPlanMode hook entry from Claude settings.json if present.
+///
+/// Returns early silently if settings.json is missing or unparseable.
+/// Only rewrites the file if a removal actually occurred.
+fn remove_claude_legacy_hook(home: &str) {
+    let settings_path = std::path::PathBuf::from(home).join(".claude/settings.json");
+    let content = match std::fs::read_to_string(&settings_path) {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+    let mut root = match serde_json::from_str::<serde_json::Value>(&content) {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+    if let Some(arr) = root["hooks"]["PermissionRequest"].as_array_mut() {
+        let before = arr.len();
+        arr.retain(|e| e["matcher"].as_str() != Some("ExitPlanMode"));
+        if arr.len() == before {
+            return; // nothing removed — skip rewrite
+        }
+    } else {
+        return; // no PermissionRequest array — nothing to remove
+    }
+    let _ = std::fs::write(
+        &settings_path,
+        serde_json::to_string_pretty(&root).unwrap_or_default(),
+    );
+    println!("plan-reviewer: removed legacy ExitPlanMode hook entry from Claude settings");
+}
+
 /// Migrate a pre-plugin Claude install to the plugin model (Case 2).
 ///
 /// Called when settings.json has an old bare ExitPlanMode entry but no plugin
@@ -235,17 +265,53 @@ fn perform_claude_migration(home: &str, current_version: &str) {
             .entry("plan-reviewer@plan-reviewer-local")
             .or_insert(serde_json::Value::Bool(true));
 
-        // Remove old bare ExitPlanMode hook entry
-        if let Some(arr) = root["hooks"]["PermissionRequest"].as_array_mut() {
-            arr.retain(|e| e["matcher"].as_str() != Some("ExitPlanMode"));
-        }
-
         let _ = std::fs::write(
             &settings_path,
             serde_json::to_string_pretty(&root).unwrap_or_default(),
         );
     }
+    // Remove old bare ExitPlanMode hook entry
+    remove_claude_legacy_hook(home);
     println!("plan-reviewer: Claude integration migrated from legacy hook to plugin model");
+}
+
+/// Remove BeforeTool hook entries with name "plan-reviewer" from Gemini settings.json if present.
+///
+/// Returns early silently if settings.json is missing or unparseable.
+/// Only rewrites the file if a removal actually occurred.
+fn remove_gemini_legacy_hook(home: &str) {
+    let settings_path = std::path::PathBuf::from(home).join(".gemini/settings.json");
+    let content = match std::fs::read_to_string(&settings_path) {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+    let mut root = match serde_json::from_str::<serde_json::Value>(&content) {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+    if let Some(arr) = root["hooks"]["BeforeTool"].as_array_mut() {
+        let before = arr.len();
+        arr.retain(|entry| {
+            entry["hooks"]
+                .as_array()
+                .map(|hooks| {
+                    !hooks
+                        .iter()
+                        .any(|h| h["name"].as_str() == Some("plan-reviewer"))
+                })
+                .unwrap_or(true)
+        });
+        if arr.len() == before {
+            return; // nothing removed — skip rewrite
+        }
+    } else {
+        return; // no BeforeTool array — nothing to remove
+    }
+    let _ = std::fs::write(
+        &settings_path,
+        serde_json::to_string_pretty(&root).unwrap_or_default(),
+    );
+    println!("plan-reviewer: removed legacy BeforeTool hook entry from Gemini settings");
 }
 
 /// Migrate a pre-extension Gemini install to the extension model (Case 2).
@@ -258,30 +324,8 @@ fn perform_gemini_migration(home: &str, current_version: &str) {
     // 1. Write extension directory files (hooks.json has "plan-reviewer review-hook" from Plan 01)
     write_gemini_extension_files(home, current_version);
 
-    // 2. Patch Gemini settings.json: remove old bare entry
-    let settings_path = std::path::PathBuf::from(home).join(".gemini/settings.json");
-    if let Ok(content) = std::fs::read_to_string(&settings_path)
-        && let Ok(mut root) = serde_json::from_str::<serde_json::Value>(&content)
-    {
-        // Remove old BeforeTool entries whose hooks[] array contains name "plan-reviewer"
-        if let Some(arr) = root["hooks"]["BeforeTool"].as_array_mut() {
-            arr.retain(|entry| {
-                entry["hooks"]
-                    .as_array()
-                    .map(|hooks| {
-                        !hooks
-                            .iter()
-                            .any(|h| h["name"].as_str() == Some("plan-reviewer"))
-                    })
-                    .unwrap_or(true)
-            });
-        }
-
-        let _ = std::fs::write(
-            &settings_path,
-            serde_json::to_string_pretty(&root).unwrap_or_default(),
-        );
-    }
+    // 2. Remove old bare BeforeTool entry from Gemini settings.json
+    remove_gemini_legacy_hook(home);
     println!("plan-reviewer: Gemini integration migrated from legacy hook to extension model");
 }
 
@@ -340,6 +384,7 @@ fn refresh_integrations_with_home(home: &str, current_version: &str) {
                 }
                 _ => {
                     write_claude_plugin_files(home, current_version);
+                    remove_claude_legacy_hook(home);
                 }
             }
         }
@@ -359,6 +404,7 @@ fn refresh_integrations_with_home(home: &str, current_version: &str) {
                 }
                 _ => {
                     write_gemini_extension_files(home, current_version);
+                    remove_gemini_legacy_hook(home);
                 }
             }
         }
@@ -855,11 +901,11 @@ mod tests {
     }
 
     #[test]
-    fn test_claude_case2_skips_when_manifest_exists() {
+    fn test_claude_case3_removes_bare_entry_when_manifest_exists() {
         let dir = tempdir().unwrap();
         let home = dir.path().to_str().unwrap().to_string();
 
-        // Plugin manifest exists (Case 3 territory) AND old entry in settings.json
+        // Plugin manifest exists (Case 3 territory) with stale version AND old entry in settings.json
         let plugin_dir = crate::integrations::claude::claude_plugin_dir(&home);
         let manifest_dir = plugin_dir.join(".claude-plugin");
         std::fs::create_dir_all(&manifest_dir).unwrap();
@@ -885,19 +931,20 @@ mod tests {
         )
         .unwrap();
 
+        // Run with a newer version to trigger Case 3 (version stale)
         refresh_integrations_with_home(&home, "0.3.0");
 
-        // Old entry should still be in settings.json (Case 2 didn't run, Case 3 doesn't touch settings.json)
+        // Case 3 now calls remove_claude_legacy_hook -- old entry should be gone
         let updated: serde_json::Value = serde_json::from_str(
             &std::fs::read_to_string(claude_dir.join("settings.json")).unwrap(),
         )
         .unwrap();
         let perm_arr = updated["hooks"]["PermissionRequest"].as_array().unwrap();
         assert!(
-            perm_arr
+            !perm_arr
                 .iter()
                 .any(|e| e["matcher"].as_str() == Some("ExitPlanMode")),
-            "Case 2 should NOT run when manifest exists -- old entry should remain for manual cleanup"
+            "Case 3 should remove the bare ExitPlanMode entry from settings.json"
         );
     }
 
@@ -1001,11 +1048,11 @@ mod tests {
     }
 
     #[test]
-    fn test_gemini_case2_skips_when_manifest_exists() {
+    fn test_gemini_case3_removes_bare_entry_when_manifest_exists() {
         let dir = tempdir().unwrap();
         let home = dir.path().to_str().unwrap().to_string();
 
-        // Extension manifest exists
+        // Extension manifest exists with stale version AND old entry in settings.json
         let ext_dir = crate::integrations::gemini::gemini_extension_dir(&home);
         std::fs::create_dir_all(&ext_dir).unwrap();
         std::fs::write(
@@ -1031,9 +1078,10 @@ mod tests {
         )
         .unwrap();
 
+        // Run with a newer version to trigger Case 3 (version stale)
         refresh_integrations_with_home(&home, "0.3.0");
 
-        // Old entry should still exist (Case 2 didn't fire)
+        // Case 3 now calls remove_gemini_legacy_hook -- old entry should be gone
         let updated: serde_json::Value = serde_json::from_str(
             &std::fs::read_to_string(gemini_dir.join("settings.json")).unwrap(),
         )
@@ -1048,6 +1096,101 @@ mod tests {
                 })
                 .unwrap_or(false)
         });
-        assert!(has_pr, "Case 2 should NOT run when manifest exists");
+        assert!(
+            !has_pr,
+            "Case 3 should remove the bare BeforeTool plan-reviewer entry from settings.json"
+        );
+    }
+
+    #[test]
+    fn test_remove_claude_legacy_hook_noop_when_absent() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+
+        // settings.json with no ExitPlanMode entry
+        let claude_dir = dir.path().join(".claude");
+        std::fs::create_dir_all(&claude_dir).unwrap();
+        let settings_path = claude_dir.join("settings.json");
+        std::fs::write(
+            &settings_path,
+            r#"{"hooks":{"PermissionRequest":[{"matcher":"OtherThing","hooks":[]}]}}"#,
+        )
+        .unwrap();
+
+        let before_meta = std::fs::metadata(&settings_path).unwrap();
+        let before_modified = before_meta.modified().unwrap();
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        remove_claude_legacy_hook(&home);
+
+        let after_meta = std::fs::metadata(&settings_path).unwrap();
+        let after_modified = after_meta.modified().unwrap();
+
+        assert_eq!(
+            before_modified, after_modified,
+            "settings.json mtime should be unchanged when no ExitPlanMode entry present"
+        );
+    }
+
+    #[test]
+    fn test_remove_gemini_legacy_hook_noop_when_absent() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+
+        // .gemini/settings.json with no plan-reviewer BeforeTool entry
+        let gemini_dir = dir.path().join(".gemini");
+        std::fs::create_dir_all(&gemini_dir).unwrap();
+        let settings_path = gemini_dir.join("settings.json");
+        std::fs::write(
+            &settings_path,
+            r#"{"hooks":{"BeforeTool":[{"matcher":"other","hooks":[{"name":"something-else","type":"command","command":"other"}]}]}}"#,
+        )
+        .unwrap();
+
+        let before_meta = std::fs::metadata(&settings_path).unwrap();
+        let before_modified = before_meta.modified().unwrap();
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        remove_gemini_legacy_hook(&home);
+
+        let after_meta = std::fs::metadata(&settings_path).unwrap();
+        let after_modified = after_meta.modified().unwrap();
+
+        assert_eq!(
+            before_modified, after_modified,
+            "settings.json mtime should be unchanged when no plan-reviewer BeforeTool entry present"
+        );
+    }
+
+    #[test]
+    fn test_remove_claude_legacy_hook_missing_settings() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+
+        // No .claude/settings.json exists — should return without error and not create the file
+        remove_claude_legacy_hook(&home);
+
+        let settings_path = dir.path().join(".claude/settings.json");
+        assert!(
+            !settings_path.exists(),
+            "settings.json should NOT be created when it was absent"
+        );
+    }
+
+    #[test]
+    fn test_remove_gemini_legacy_hook_missing_settings() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap().to_string();
+
+        // No .gemini/settings.json exists — should return without error and not create the file
+        remove_gemini_legacy_hook(&home);
+
+        let settings_path = dir.path().join(".gemini/settings.json");
+        assert!(
+            !settings_path.exists(),
+            "settings.json should NOT be created when it was absent"
+        );
     }
 }
