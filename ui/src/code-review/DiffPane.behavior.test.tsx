@@ -11,7 +11,7 @@
  * with filename headers. The tests below focus on the loading / empty states
  * which are fully DiffPane-owned and always safe to render.
  */
-import React, { createRef } from 'react'
+import { createRef } from 'react'
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import DiffPane from './DiffPane'

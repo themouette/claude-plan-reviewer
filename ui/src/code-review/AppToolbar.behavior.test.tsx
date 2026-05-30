@@ -5,7 +5,6 @@
  * source-text literals.  They complement the source-text snapshot tests in
  * AppToolbar.test.ts.
  */
-import React from 'react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
