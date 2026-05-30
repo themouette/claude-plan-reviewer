@@ -214,10 +214,7 @@ fn remove_claude_legacy_hook(home: &str) {
             let _ = std::fs::write(&settings_path, output);
         }
         Err(e) => {
-            eprintln!(
-                "plan-reviewer: failed to serialize settings.json: {}",
-                e
-            );
+            eprintln!("plan-reviewer: failed to serialize settings.json: {}", e);
             return;
         }
     }
@@ -237,7 +234,10 @@ fn perform_claude_migration(home: &str, current_version: &str) {
     // 1. Write plugin directory files (hooks.json has "plan-reviewer review-hook" from Plan 01)
     // Return early on failure: do not remove the legacy hook if new files were not written.
     if let Err(e) = write_claude_plugin_files(home, current_version) {
-        eprintln!("plan-reviewer: migration failed writing plugin files: {}", e);
+        eprintln!(
+            "plan-reviewer: migration failed writing plugin files: {}",
+            e
+        );
         return;
     }
 
@@ -291,10 +291,7 @@ fn perform_claude_migration(home: &str, current_version: &str) {
                 let _ = std::fs::write(&settings_path, output);
             }
             Err(e) => {
-                eprintln!(
-                    "plan-reviewer: failed to serialize settings.json: {}",
-                    e
-                );
+                eprintln!("plan-reviewer: failed to serialize settings.json: {}", e);
             }
         }
     }
@@ -340,10 +337,7 @@ fn remove_gemini_legacy_hook(home: &str) {
             let _ = std::fs::write(&settings_path, output);
         }
         Err(e) => {
-            eprintln!(
-                "plan-reviewer: failed to serialize settings.json: {}",
-                e
-            );
+            eprintln!("plan-reviewer: failed to serialize settings.json: {}", e);
             return;
         }
     }
@@ -360,7 +354,10 @@ fn perform_gemini_migration(home: &str, current_version: &str) {
     // 1. Write extension directory files (hooks.json has "plan-reviewer review-hook" from Plan 01)
     // Return early on failure: do not remove the legacy hook if new files were not written.
     if let Err(e) = write_gemini_extension_files(home, current_version) {
-        eprintln!("plan-reviewer: migration failed writing extension files: {}", e);
+        eprintln!(
+            "plan-reviewer: migration failed writing extension files: {}",
+            e
+        );
         return;
     }
 
@@ -424,7 +421,10 @@ fn refresh_integrations_with_home(home: &str, current_version: &str) {
                 }
                 _ => {
                     if let Err(e) = write_claude_plugin_files(home, current_version) {
-                        eprintln!("plan-reviewer: failed to refresh Claude plugin files: {}", e);
+                        eprintln!(
+                            "plan-reviewer: failed to refresh Claude plugin files: {}",
+                            e
+                        );
                     }
                     remove_claude_legacy_hook(home);
                 }
@@ -446,7 +446,10 @@ fn refresh_integrations_with_home(home: &str, current_version: &str) {
                 }
                 _ => {
                     if let Err(e) = write_gemini_extension_files(home, current_version) {
-                        eprintln!("plan-reviewer: failed to refresh Gemini extension files: {}", e);
+                        eprintln!(
+                            "plan-reviewer: failed to refresh Gemini extension files: {}",
+                            e
+                        );
                     }
                     remove_gemini_legacy_hook(home);
                 }
@@ -490,7 +493,7 @@ fn read_manifest_version(manifest_path: &std::path::Path) -> Option<String> {
 /// updates keep the plugin consistent with the installed binary version.
 /// Returns Err if any I/O operation fails so callers can abort dependent steps.
 fn write_claude_plugin_files(home: &str, current_version: &str) -> Result<(), String> {
-    use crate::integrations::claude::{claude_plugin_dir, ANNOTATE_MD, CODE_REVIEW_MD};
+    use crate::integrations::claude::{ANNOTATE_MD, CODE_REVIEW_MD, claude_plugin_dir};
     let plugin_dir = claude_plugin_dir(home);
 
     let manifest = serde_json::json!({
@@ -553,11 +556,8 @@ fn write_claude_plugin_files(home: &str, current_version: &str) -> Result<(), St
     .map_err(|e| format!("cannot write {}: {}", marketplace_path.display(), e))?;
 
     let hooks_path = hooks_dir.join("hooks.json");
-    std::fs::write(
-        &hooks_path,
-        serde_json::to_string_pretty(&hooks).unwrap(),
-    )
-    .map_err(|e| format!("cannot write {}: {}", hooks_path.display(), e))?;
+    std::fs::write(&hooks_path, serde_json::to_string_pretty(&hooks).unwrap())
+        .map_err(|e| format!("cannot write {}: {}", hooks_path.display(), e))?;
 
     let annotate_path = commands_dir.join("annotate.md");
     std::fs::write(&annotate_path, ANNOTATE_MD)
@@ -614,11 +614,8 @@ fn write_gemini_extension_files(home: &str, current_version: &str) -> Result<(),
     )
     .map_err(|e| format!("cannot write {}: {}", manifest_path.display(), e))?;
     let hooks_path = hooks_dir.join("hooks.json");
-    std::fs::write(
-        &hooks_path,
-        serde_json::to_string_pretty(&hooks).unwrap(),
-    )
-    .map_err(|e| format!("cannot write {}: {}", hooks_path.display(), e))?;
+    std::fs::write(&hooks_path, serde_json::to_string_pretty(&hooks).unwrap())
+        .map_err(|e| format!("cannot write {}: {}", hooks_path.display(), e))?;
     println!(
         "plan-reviewer: Gemini extension files updated to v{}",
         current_version
