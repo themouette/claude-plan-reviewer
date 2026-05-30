@@ -209,10 +209,18 @@ fn remove_claude_legacy_hook(home: &str) {
     } else {
         return; // no PermissionRequest array — nothing to remove
     }
-    let _ = std::fs::write(
-        &settings_path,
-        serde_json::to_string_pretty(&root).unwrap_or_default(),
-    );
+    match serde_json::to_string_pretty(&root) {
+        Ok(output) => {
+            let _ = std::fs::write(&settings_path, output);
+        }
+        Err(e) => {
+            eprintln!(
+                "plan-reviewer: failed to serialize settings.json: {}",
+                e
+            );
+            return;
+        }
+    }
     println!("plan-reviewer: removed legacy ExitPlanMode hook entry from Claude settings");
 }
 
@@ -274,10 +282,17 @@ fn perform_claude_migration(home: &str, current_version: &str) {
             .entry("plan-reviewer@plan-reviewer-local")
             .or_insert(serde_json::Value::Bool(true));
 
-        let _ = std::fs::write(
-            &settings_path,
-            serde_json::to_string_pretty(&root).unwrap_or_default(),
-        );
+        match serde_json::to_string_pretty(&root) {
+            Ok(output) => {
+                let _ = std::fs::write(&settings_path, output);
+            }
+            Err(e) => {
+                eprintln!(
+                    "plan-reviewer: failed to serialize settings.json: {}",
+                    e
+                );
+            }
+        }
     }
     // Remove old bare ExitPlanMode hook entry
     remove_claude_legacy_hook(home);
@@ -316,10 +331,18 @@ fn remove_gemini_legacy_hook(home: &str) {
     } else {
         return; // no BeforeTool array — nothing to remove
     }
-    let _ = std::fs::write(
-        &settings_path,
-        serde_json::to_string_pretty(&root).unwrap_or_default(),
-    );
+    match serde_json::to_string_pretty(&root) {
+        Ok(output) => {
+            let _ = std::fs::write(&settings_path, output);
+        }
+        Err(e) => {
+            eprintln!(
+                "plan-reviewer: failed to serialize settings.json: {}",
+                e
+            );
+            return;
+        }
+    }
     println!("plan-reviewer: removed legacy BeforeTool hook entry from Gemini settings");
 }
 
