@@ -638,6 +638,26 @@ Plans:
 
 - [x] 30-01-PLAN.md — Add hideWhitespace state to CodeReviewApp, toggle button to AppToolbar, thread prop through DiffPane to FileDiffRenderer
 
+### Phase 31: Fix Orphaned Legacy Hook Cleanup on Upgrade
+
+**Goal**: When `plan-reviewer update` runs and the plugin manifest already exists (Case 3), any lingering bare `ExitPlanMode` / `BeforeTool` entry from a pre-plugin install is silently left in `settings.json`, causing double-invocation of the review hook. This phase extracts the bare-entry removal into a shared helper and calls it during the Case 3 version-stale refresh path so the ghost entry is cleaned up regardless of upgrade path.
+**Depends on**: Phase 30
+**Requirements**: none
+**Success Criteria** (what must be TRUE):
+
+  1. `refresh_integrations_with_home` removes the bare `ExitPlanMode` entry from Claude `settings.json` whenever the entry is present, regardless of whether the plugin manifest existed before or was just created
+  2. `refresh_integrations_with_home` removes the bare `BeforeTool` entry from Gemini `settings.json` under the same condition
+  3. The removal is idempotent — running refresh when no bare entry exists leaves `settings.json` unchanged
+  4. The existing test `test_claude_case2_skips_when_manifest_exists` is updated to reflect the new behavior
+  5. A new test `test_claude_case3_cleans_bare_entry_when_manifest_exists` passes: manifest present + stale version + bare entry → bare entry removed after refresh
+  6. Equivalent Gemini tests pass
+  7. `cargo test` exits 0; `cargo clippy -- -D warnings` exits 0
+
+**Plans:** 1/1 plans complete
+Plans:
+
+- [x] 31-01-PLAN.md — Extract legacy hook removal into shared helpers, call from Case 3 refresh, update tests
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |

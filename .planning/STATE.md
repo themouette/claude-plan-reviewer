@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.7.0
 milestone_name: Integrations, Annotations & Polish
-status: milestone_complete
-stopped_at: Milestone complete (Phase 30 was final phase)
-last_updated: 2026-05-30T20:53:31.073Z
-last_activity: 2026-05-30 -- Phase 30 completed (hide-whitespace toggle)
+status: completed
+stopped_at: context exhaustion at 75% (2026-05-27)
+last_updated: "2026-05-30T21:28:48.786Z"
+last_activity: 2026-05-30
 progress:
-  total_phases: 35
-  completed_phases: 33
-  total_plans: 78
-  completed_plans: 78
+  total_phases: 36
+  completed_phases: 34
+  total_plans: 79
+  completed_plans: 79
   percent: 94
 ---
 
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 ## Current Position
 
-Phase: 30
-Plan: Not started
-Status: Milestone complete
+Phase: 31
+Plan: 01 (complete)
+Status: Phase 31 complete
 Last activity: 2026-05-30
 
 ## Performance Metrics
@@ -82,9 +82,10 @@ None yet.
 - [Phase 25]: ESLint rule uses group ['../reviewer-v2/**', '*/reviewer-v2/**'] not '../**' to allow code-review/hooks/useDiff.ts to import from ../types
 - [Phase 25]: Deferred setActiveIndex via setTimeout(0) in useEffect — satisfies react-hooks/set-state-in-effect; same semantic
 - [Phase 25]: Added #[allow(dead_code)] to hook.rs cwd field — field is part of hook protocol deserialization contract even if unused at runtime
+- [Phase 31]: Extracted remove_claude_legacy_hook and remove_gemini_legacy_hook as idempotent helpers; both called from Case 3 version-stale path to clean orphaned settings.json hook entries on upgrade
 
 ## Session Continuity
 
-Last session: 2026-05-27T21:16:15.613Z
-Stopped at: context exhaustion at 75% (2026-05-27)
+Last session: 2026-05-30T21:28:48.773Z
+Stopped at: Completed 31-01-PLAN.md (Fix Orphaned Legacy Hook Cleanup on Upgrade)
 Resume file: None
