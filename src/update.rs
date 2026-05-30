@@ -234,16 +234,25 @@ fn perform_claude_migration(home: &str, current_version: &str) {
     if let Ok(content) = std::fs::read_to_string(&settings_path)
         && let Ok(mut root) = serde_json::from_str::<serde_json::Value>(&content)
     {
+        // Guard: reset to empty object if root is not a JSON object (mirrors install path)
+        if !root.is_object() {
+            eprintln!(
+                "plan-reviewer: {} root is not a JSON object; starting from empty object",
+                settings_path.display()
+            );
+            root = serde_json::json!({});
+        }
+
         let plugin_dir = claude_plugin_dir(home);
 
         // Add extraKnownMarketplaces entry (idempotent via entry())
         root.as_object_mut()
-            .unwrap()
+            .expect("root is always an object after guard")
             .entry("extraKnownMarketplaces")
             .or_insert_with(|| serde_json::json!({}));
         root["extraKnownMarketplaces"]
             .as_object_mut()
-            .unwrap()
+            .expect("extraKnownMarketplaces is always an object after insert")
             .entry("plan-reviewer-local")
             .or_insert_with(|| {
                 serde_json::json!({
@@ -256,12 +265,12 @@ fn perform_claude_migration(home: &str, current_version: &str) {
 
         // Add enabledPlugins entry (idempotent via entry())
         root.as_object_mut()
-            .unwrap()
+            .expect("root is always an object after guard")
             .entry("enabledPlugins")
             .or_insert_with(|| serde_json::json!({}));
         root["enabledPlugins"]
             .as_object_mut()
-            .unwrap()
+            .expect("enabledPlugins is always an object after insert")
             .entry("plan-reviewer@plan-reviewer-local")
             .or_insert(serde_json::Value::Bool(true));
 
