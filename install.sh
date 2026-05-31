@@ -49,7 +49,9 @@ fi
 echo "Installing ${BINARY} ${LATEST_TAG} for ${TARGET}..."
 
 # --- Download and extract ---
-ARCHIVE_NAME="${BINARY}-${LATEST_TAG}-${TARGET}.tar.gz"
+# cargo-dist names archives as "{package}-{target}.tar.gz (no version in filename)
+PACKAGE="claude-plan-reviewer"
+ARCHIVE_NAME="${PACKAGE}-${TARGET}.tar.gz"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${LATEST_TAG}/${ARCHIVE_NAME}"
 
 TMPDIR="$(mktemp -d)"
@@ -63,7 +65,7 @@ tar -xzf "${TMPDIR}/${ARCHIVE_NAME}" -C "${TMPDIR}"
 
 # --- Install binary ---
 mkdir -p "${INSTALL_DIR}"
-cp "${TMPDIR}/${BINARY}-${LATEST_TAG}-${TARGET}/${BINARY}" "${INSTALL_DIR}/${BINARY}"
+cp "${TMPDIR}/${PACKAGE}-${TARGET}/${BINARY}" "${INSTALL_DIR}/${BINARY}"
 chmod +x "${INSTALL_DIR}/${BINARY}"
 echo "Installed ${BINARY} to ${INSTALL_DIR}/${BINARY}"
 

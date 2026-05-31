@@ -77,12 +77,15 @@ fn perform_update(target_version: Option<String>, skip_confirm: bool) {
     println!("\nDownloading update...");
 
     let platform = current_platform();
+    // cargo-dist nests the binary inside a directory named "{package}-{target}/"
+    let bin_path_in_archive = format!("claude-plan-reviewer-{}/{}", platform, BIN_NAME);
 
     let mut builder = self_update::backends::github::Update::configure();
     builder
         .repo_owner(REPO_OWNER)
         .repo_name(REPO_NAME)
         .bin_name(BIN_NAME)
+        .bin_path_in_archive(&bin_path_in_archive)
         .target(platform)
         .current_version(cargo_crate_version!())
         .show_download_progress(true)
