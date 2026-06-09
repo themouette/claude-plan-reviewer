@@ -631,7 +631,7 @@ fn write_gemini_extension_files(home: &str, current_version: &str) -> Result<(),
 /// Re-embeds the plugin source with both placeholders replaced.
 /// Uses "plan-reviewer" as binary name (it's in PATH after update).
 fn write_opencode_plugin_file(home: &str, current_version: &str) {
-    use crate::integrations::opencode::opencode_plugin_path;
+    use crate::integrations::opencode::{opencode_plugin_path, write_opencode_command_files};
     let plugin_path = opencode_plugin_path(home);
 
     let source = include_str!("integrations/opencode_plugin.mjs")
@@ -639,6 +639,9 @@ fn write_opencode_plugin_file(home: &str, current_version: &str) {
         .replace("__PLAN_REVIEWER_VERSION__", current_version);
 
     let _ = std::fs::write(&plugin_path, source);
+    if let Err(e) = write_opencode_command_files(home, "plan-reviewer") {
+        eprintln!("plan-reviewer: failed to update OpenCode commands: {}", e);
+    }
     println!(
         "plan-reviewer: OpenCode plugin file updated to v{}",
         current_version
@@ -815,6 +818,18 @@ mod tests {
         assert!(
             !content.contains("__PLAN_REVIEWER_VERSION__"),
             "placeholder should be replaced"
+        );
+        assert!(
+            dir.path()
+                .join(".config/opencode/commands/plan-reviewer-annotate.md")
+                .exists(),
+            "annotate slash command should be refreshed with stale OpenCode plugin"
+        );
+        assert!(
+            dir.path()
+                .join(".config/opencode/commands/plan-reviewer-code-review.md")
+                .exists(),
+            "code-review slash command should be refreshed with stale OpenCode plugin"
         );
     }
 

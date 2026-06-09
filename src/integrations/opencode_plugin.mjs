@@ -15,16 +15,12 @@ export default (ctx) => {
       submit_plan: {
         description:
           "Submit a plan for human review before implementation. The reviewer opens a browser UI where the user can approve, deny, or annotate the plan.",
-        parameters: {
-          type: "object",
-          properties: {
-            plan: {
-              type: "string",
-              description:
-                "The complete plan markdown text to submit for review",
-            },
+        args: {
+          plan: {
+            type: "string",
+            description:
+              "The complete plan markdown text to submit for review",
           },
-          required: ["plan"],
         },
         execute: async ({ plan }) => {
           const tmpFile = join(
