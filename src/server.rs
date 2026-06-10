@@ -29,7 +29,7 @@ async fn get_ping() -> impl IntoResponse {
 
 // --- Server entry point ---
 
-/// Bind to the specified port on 127.0.0.1 (0 = OS-assigned), spawn the axum server,
+/// Bind to the specified port on `bind_addr` (0 = OS-assigned port), spawn the axum server,
 /// and return (port, decision_rx) so the caller can open a browser and await
 /// the decision.
 pub async fn start_server(
@@ -37,6 +37,7 @@ pub async fn start_server(
     approve_label: String,
     deny_label: String,
     port: u16,
+    bind_addr: &str,
     base_branch: Option<String>,
 ) -> Result<(u16, oneshot::Receiver<Decision>), Box<dyn std::error::Error + Send + Sync>> {
     // 1. Create decision channel
@@ -78,7 +79,8 @@ pub async fn start_server(
         .fallback_service(spa);
 
     // 7. Bind to specified port (0 = OS-assigned)
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).await?;
+    let ip: std::net::IpAddr = bind_addr.parse().expect("validated by clap");
+    let listener = TcpListener::bind(std::net::SocketAddr::new(ip, port)).await?;
     let port = listener.local_addr()?.port();
 
     // 8. Spawn axum server with graceful shutdown

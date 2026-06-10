@@ -11,8 +11,8 @@ mod update;
 mod tests {
     use super::{
         Cli, Commands, build_gemini_output, build_opencode_output, build_review_url,
-        extract_command_from_tool_input, extract_plan_content, is_pr_command,
-        should_trigger_code_review,
+        extract_command_from_tool_input, extract_plan_content, is_pr_command, parse_base_url,
+        parse_bind_addr, should_trigger_code_review,
     };
     use crate::hook;
     use crate::hook::HookOutput;
@@ -133,14 +133,34 @@ mod tests {
 
     #[test]
     fn test_async_main_builds_url_with_path() {
-        assert_eq!(build_review_url(8080, "/"), "http://127.0.0.1:8080/");
+        assert_eq!(build_review_url(8080, "/", None), "http://127.0.0.1:8080/");
         assert_eq!(
-            build_review_url(3000, "/code-review"),
+            build_review_url(3000, "/code-review", None),
             "http://127.0.0.1:3000/code-review"
         );
         assert_eq!(
-            build_review_url(0, "/code-review"),
+            build_review_url(0, "/code-review", None),
             "http://127.0.0.1:0/code-review"
+        );
+    }
+
+    #[test]
+    fn test_build_review_url_with_base_url() {
+        assert_eq!(
+            build_review_url(8080, "/", Some("http://192.168.1.42")),
+            "http://192.168.1.42:8080/"
+        );
+        assert_eq!(
+            build_review_url(3000, "/code-review", Some("http://192.168.1.42")),
+            "http://192.168.1.42:3000/code-review"
+        );
+    }
+
+    #[test]
+    fn test_build_review_url_strips_trailing_slash_from_base_url() {
+        assert_eq!(
+            build_review_url(8080, "/", Some("http://192.168.1.42/")),
+            "http://192.168.1.42:8080/"
         );
     }
 
@@ -174,14 +194,189 @@ mod tests {
 
     #[test]
     fn test_cli_port_flag_default_zero() {
+        let _guard = env_lock().lock().unwrap();
         let cli = Cli::try_parse_from(["plan-reviewer"]).expect("parse failed");
         assert_eq!(cli.port, 0, "--port default should be 0");
     }
 
     #[test]
     fn test_cli_port_flag_accepts_value() {
+        let _guard = env_lock().lock().unwrap();
         let cli = Cli::try_parse_from(["plan-reviewer", "--port", "8080"]).expect("parse failed");
         assert_eq!(cli.port, 8080, "--port should accept 8080");
+    }
+
+    /// Mutex that serializes tests that mutate `PLAN_REVIEWER_BIND` in the process
+    /// environment. The Rust test harness runs unit tests in parallel by default; without
+    /// this lock, `test_cli_bind_env_var` (which sets then removes the var) races with
+    /// `test_cli_bind_default` (which parses Cli and reads the same var via clap).
+    fn env_lock() -> &'static std::sync::Mutex<()> {
+        static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+        LOCK.get_or_init(|| std::sync::Mutex::new(()))
+    }
+
+    #[test]
+    fn test_cli_bind_default() {
+        let _guard = env_lock().lock().unwrap();
+        let cli = Cli::try_parse_from(["plan-reviewer"]).expect("parse failed");
+        assert_eq!(cli.bind, "127.0.0.1", "--bind default should be 127.0.0.1");
+    }
+
+    #[test]
+    fn test_cli_bind_flag_accepts_value() {
+        let _guard = env_lock().lock().unwrap();
+        let cli =
+            Cli::try_parse_from(["plan-reviewer", "--bind", "0.0.0.0"]).expect("parse failed");
+        assert_eq!(cli.bind, "0.0.0.0");
+    }
+
+    #[test]
+    fn test_cli_bind_flag_overrides_env_var() {
+        let _guard = env_lock().lock().unwrap();
+        unsafe { std::env::set_var("PLAN_REVIEWER_BIND", "10.0.0.1") };
+        let cli =
+            Cli::try_parse_from(["plan-reviewer", "--bind", "0.0.0.0"]).expect("parse failed");
+        unsafe { std::env::remove_var("PLAN_REVIEWER_BIND") };
+        assert_eq!(
+            cli.bind, "0.0.0.0",
+            "--bind flag must take precedence over PLAN_REVIEWER_BIND env var"
+        );
+    }
+
+    #[test]
+    fn test_cli_bind_rejects_invalid_address() {
+        let result = Cli::try_parse_from(["plan-reviewer", "--bind", "not-an-ip"]);
+        assert!(result.is_err(), "--bind should reject non-IP values");
+    }
+
+    #[test]
+    fn test_cli_bind_env_var() {
+        let _guard = env_lock().lock().unwrap();
+        // SAFETY: env mutation is serialized by env_lock(); no other test reads
+        // PLAN_REVIEWER_BIND concurrently while this guard is held.
+        unsafe { std::env::set_var("PLAN_REVIEWER_BIND", "0.0.0.0") };
+        let cli = Cli::try_parse_from(["plan-reviewer"]).expect("parse failed");
+        unsafe { std::env::remove_var("PLAN_REVIEWER_BIND") };
+        assert_eq!(cli.bind, "0.0.0.0");
+    }
+
+    #[test]
+    fn test_cli_base_url_default_none() {
+        let _guard = env_lock().lock().unwrap();
+        let cli = Cli::try_parse_from(["plan-reviewer"]).expect("parse failed");
+        assert!(cli.base_url.is_none());
+    }
+
+    #[test]
+    fn test_cli_base_url_flag_accepts_value() {
+        let _guard = env_lock().lock().unwrap();
+        let cli = Cli::try_parse_from(["plan-reviewer", "--base-url", "http://192.168.1.42"])
+            .expect("parse failed");
+        assert_eq!(cli.base_url.as_deref(), Some("http://192.168.1.42"));
+    }
+
+    #[test]
+    fn test_cli_base_url_accepts_https() {
+        let _guard = env_lock().lock().unwrap();
+        let cli = Cli::try_parse_from(["plan-reviewer", "--base-url", "https://myserver.local"])
+            .expect("parse failed");
+        assert_eq!(cli.base_url.as_deref(), Some("https://myserver.local"));
+    }
+
+    #[test]
+    fn test_cli_base_url_rejects_missing_scheme() {
+        let result = Cli::try_parse_from(["plan-reviewer", "--base-url", "192.168.1.42"]);
+        assert!(
+            result.is_err(),
+            "bare host without scheme should be rejected"
+        );
+    }
+
+    #[test]
+    fn test_cli_base_url_rejects_embedded_port() {
+        let result =
+            Cli::try_parse_from(["plan-reviewer", "--base-url", "http://192.168.1.42:9000"]);
+        assert!(result.is_err(), "--base-url with port should be rejected");
+    }
+
+    #[test]
+    fn test_parse_base_url_valid() {
+        assert!(parse_base_url("http://192.168.1.42").is_ok());
+        assert!(parse_base_url("https://myserver.local").is_ok());
+        // IPv6 without port must be accepted
+        assert!(parse_base_url("http://[::1]").is_ok());
+        assert!(parse_base_url("https://[::1]").is_ok());
+    }
+
+    #[test]
+    fn test_parse_base_url_rejects_bad_scheme() {
+        assert!(parse_base_url("ftp://192.168.1.42").is_err());
+        assert!(parse_base_url("javascript:alert(1)").is_err());
+        assert!(parse_base_url("file:///etc/passwd").is_err());
+        assert!(parse_base_url("192.168.1.42").is_err());
+    }
+
+    #[test]
+    fn test_parse_base_url_rejects_empty_host() {
+        assert!(
+            parse_base_url("http://").is_err(),
+            "http:// with no host should be rejected"
+        );
+        assert!(
+            parse_base_url("https://").is_err(),
+            "https:// with no host should be rejected"
+        );
+    }
+
+    #[test]
+    fn test_parse_base_url_rejects_embedded_port() {
+        let err = parse_base_url("http://192.168.1.42:9000").unwrap_err();
+        assert!(err.contains("port"), "error should mention port: {err}");
+    }
+
+    #[test]
+    fn test_parse_base_url_rejects_ipv6_with_port() {
+        let err = parse_base_url("http://[::1]:9000").unwrap_err();
+        assert!(
+            err.contains("port"),
+            "IPv6 with port should be rejected: {err}"
+        );
+    }
+
+    #[test]
+    fn test_parse_base_url_rejects_unclosed_ipv6_bracket() {
+        let err = parse_base_url("http://[::1").unwrap_err();
+        assert!(
+            err.contains("bracket"),
+            "unclosed IPv6 bracket should be rejected: {err}"
+        );
+    }
+
+    #[test]
+    fn test_build_review_url_with_ipv6_base_url() {
+        assert_eq!(
+            build_review_url(8080, "/", Some("http://[::1]")),
+            "http://[::1]:8080/"
+        );
+        assert_eq!(
+            build_review_url(3000, "/code-review", Some("http://[::1]")),
+            "http://[::1]:3000/code-review"
+        );
+    }
+
+    #[test]
+    fn test_parse_bind_addr_valid() {
+        assert!(parse_bind_addr("127.0.0.1").is_ok());
+        assert!(parse_bind_addr("0.0.0.0").is_ok());
+        assert!(parse_bind_addr("::1").is_ok());
+        assert!(parse_bind_addr("::").is_ok());
+    }
+
+    #[test]
+    fn test_parse_bind_addr_rejects_invalid() {
+        assert!(parse_bind_addr("not-an-ip").is_err());
+        assert!(parse_bind_addr("127.0.0.1:8080").is_err());
+        assert!(parse_bind_addr("").is_err());
     }
 
     #[test]
@@ -354,6 +549,26 @@ mod tests {
     }
 
     #[test]
+    fn test_opencode_deny_with_comments_includes_comments_in_message() {
+        let decision = server::Decision {
+            behavior: "deny".to_string(),
+            message: Some("needs work".to_string()),
+            comments: vec![serde_json::json!({
+                "file": "src/main.rs",
+                "line": 1,
+                "text": "this is problematic"
+            })],
+        };
+        let output = build_opencode_output(&decision);
+        assert_eq!(output["behavior"].as_str(), Some("deny"));
+        let msg = output["message"].as_str().unwrap_or("");
+        assert!(
+            msg.contains("this is problematic"),
+            "deny with inline comments should include comment text in message, got: {msg}"
+        );
+    }
+
+    #[test]
     fn test_cli_review_hook_subcommand_parses() {
         let cli = Cli::try_parse_from(["plan-reviewer", "review-hook"]).expect("parse failed");
         assert!(matches!(cli.command, Some(Commands::ReviewHook)));
@@ -418,6 +633,20 @@ struct Cli {
     /// Bind the review server to this port (0 = OS-assigned, default)
     #[arg(long, default_value_t = 0)]
     port: u16,
+
+    /// IP address to bind the review server on (e.g. 0.0.0.0 to accept connections from all
+    /// interfaces). Defaults to 127.0.0.1 (loopback only). When binding to 0.0.0.0 or another
+    /// non-loopback address, also set --base-url so the printed URL is reachable from the browser.
+    #[arg(long, default_value = "127.0.0.1", env = "PLAN_REVIEWER_BIND", value_parser = parse_bind_addr)]
+    bind: String,
+
+    /// Base URL shown to the user and opened in the browser (e.g. http://192.168.1.42).
+    /// Useful when the bind address is not directly reachable from the browser (e.g. inside a VM:
+    /// use --bind 0.0.0.0 --base-url http://<vm-ip> so the server accepts connections from the
+    /// host and the printed URL points to the right address).
+    /// Must use http:// or https:// and must not include a port number (it is appended automatically).
+    #[arg(long, value_parser = parse_base_url)]
+    base_url: Option<String>,
 
     /// Read plan content from a file instead of stdin (used by opencode plugin)
     #[arg(long)]
@@ -581,13 +810,11 @@ fn build_opencode_output(decision: &Decision) -> serde_json::Value {
             }
         }
         _ => {
-            let mut obj = serde_json::json!({
-                "behavior": "deny"
-            });
-            if let Some(ref msg) = decision.message {
-                obj["message"] = serde_json::Value::String(msg.clone());
+            if let Some(feedback) = build_code_review_feedback(decision) {
+                serde_json::json!({ "behavior": "deny", "message": feedback })
+            } else {
+                serde_json::json!({ "behavior": "deny" })
             }
-            obj
         }
     }
 }
@@ -613,11 +840,63 @@ fn is_pr_command(cmd: &str) -> bool {
     cmd.trim_start().starts_with("gh pr create")
 }
 
+/// Validate a `--bind` address: must parse as a valid IP address.
+///
+/// Used as a clap `value_parser` so errors surface at argument-parse time.
+fn parse_bind_addr(s: &str) -> Result<String, String> {
+    s.parse::<std::net::IpAddr>()
+        .map(|_| s.to_string())
+        .map_err(|_| format!("'{s}' is not a valid IP address (e.g. 127.0.0.1 or 0.0.0.0 or ::1)"))
+}
+
+fn parse_base_url(s: &str) -> Result<String, String> {
+    let after_scheme = if let Some(rest) = s.strip_prefix("https://") {
+        rest
+    } else if let Some(rest) = s.strip_prefix("http://") {
+        rest
+    } else {
+        return Err(format!(
+            "'{s}' is not a valid base URL: must start with http:// or https://"
+        ));
+    };
+    // Reject empty host (e.g. "http://")
+    let host_segment = after_scheme.split('/').next().unwrap_or("");
+    if host_segment.is_empty() {
+        return Err(format!("'{s}' is missing a host"));
+    }
+    // Reject embedded port. IPv6 addresses use bracket notation ([::1]) so the host
+    // segment may contain ':' inside brackets — those are valid. A port appears as a
+    // bare ':' after the closing bracket (e.g. [::1]:9000) or after a plain hostname.
+    // Simple rule: a ':' that is NOT inside [...] indicates a port.
+    let has_port = if host_segment.starts_with('[') {
+        // Reject malformed IPv6 addresses missing the closing bracket.
+        if !host_segment.contains(']') {
+            return Err(format!("'{s}' contains an unclosed IPv6 bracket"));
+        }
+        // IPv6: port is present only if there is a ':' after the closing ']'
+        host_segment
+            .find(']')
+            .map(|i| host_segment[i + 1..].contains(':'))
+            .unwrap_or(false)
+    } else {
+        host_segment.contains(':')
+    };
+    if has_port {
+        return Err(format!(
+            "'{s}' contains a port number — omit the port from --base-url \
+             (the server port is appended automatically)"
+        ));
+    }
+    Ok(s.to_string())
+}
+
 /// Build the review server URL for a given port and path.
 ///
 /// Pure helper — unit-testable without starting the server.
-fn build_review_url(port: u16, path: &str) -> String {
-    format!("http://127.0.0.1:{}{}", port, path)
+/// `base_url` overrides the host (e.g. `http://192.168.1.42`); trailing slashes are stripped.
+fn build_review_url(port: u16, path: &str, base_url: Option<&str>) -> String {
+    let base = base_url.unwrap_or("http://127.0.0.1").trim_end_matches('/');
+    format!("{}:{}{}", base, port, path)
 }
 
 /// Return `true` if a PreToolUse hook event should trigger the code-review flow.
@@ -631,7 +910,16 @@ fn should_trigger_code_review(hook_input: &hook::HookInput) -> bool {
         .unwrap_or(false)
 }
 
-fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
+/// Server configuration derived from CLI flags, passed through all flow functions into `async_main`.
+#[derive(Debug)]
+struct ServerConfig {
+    no_browser: bool,
+    port: u16,
+    bind: String,
+    base_url: Option<String>,
+}
+
+fn run_opencode_flow(config: ServerConfig, plan_file: &str) {
     // Read plan content from file — does NOT read stdin
     let plan_md = match std::fs::read_to_string(plan_file) {
         Ok(content) => content,
@@ -653,8 +941,7 @@ fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
         .unwrap();
 
     let decision = rt.block_on(async_main(
-        no_browser,
-        port,
+        config,
         plan_md,
         "Approve".to_string(),
         "Deny".to_string(),
@@ -673,7 +960,7 @@ fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
 /// review UI, and writes neutral `{"behavior":"allow"|"deny"}` JSON to stdout.
 /// This enables scripts and agent workflows to invoke plan-reviewer without
 /// constructing hook-specific JSON.
-fn run_review_flow(no_browser: bool, port: u16, file: &str, approve_label: &str, deny_label: &str) {
+fn run_review_flow(config: ServerConfig, file: &str, approve_label: &str, deny_label: &str) {
     // Read plan content from file — does NOT read stdin
     let plan_md = match std::fs::read_to_string(file) {
         Ok(content) => content,
@@ -703,8 +990,7 @@ fn run_review_flow(no_browser: bool, port: u16, file: &str, approve_label: &str,
         .unwrap();
 
     let decision = rt.block_on(async_main(
-        no_browser,
-        port,
+        config,
         plan_md,
         approve_label.to_string(),
         deny_label.to_string(),
@@ -721,16 +1007,27 @@ fn main() {
     // 1. Parse CLI args FIRST — before stdin read (Pitfall 5: install must not hang on stdin)
     let cli = Cli::parse();
 
+    macro_rules! config {
+        () => {
+            ServerConfig {
+                no_browser: cli.no_browser,
+                port: cli.port,
+                bind: cli.bind.clone(),
+                base_url: cli.base_url.clone(),
+            }
+        };
+    }
+
     match &cli.command {
         Some(Commands::ReviewHook) => {
-            run_hook_flow(cli.no_browser, cli.port);
+            run_hook_flow(config!());
         }
         Some(Commands::Review {
             file,
             approve_label,
             deny_label,
         }) => {
-            run_review_flow(cli.no_browser, cli.port, file, approve_label, deny_label);
+            run_review_flow(config!(), file, approve_label, deny_label);
         }
         Some(Commands::Install { integrations }) => {
             // install subcommand: does NOT read stdin
@@ -749,15 +1046,15 @@ fn main() {
             update::run_update(*check, version.clone(), *yes);
         }
         Some(Commands::CodeReview { base }) => {
-            run_code_review_flow(cli.no_browser, cli.port, base.clone());
+            run_code_review_flow(config!(), base.clone());
         }
         Some(Commands::PrePrHook) => {
-            run_pre_pr_hook_flow(cli.no_browser, cli.port);
+            run_pre_pr_hook_flow(config!());
         }
         None => {
             if let Some(ref plan_file) = cli.plan_file {
                 // opencode uses --plan-file flag directly (no subcommand, no deprecation)
-                run_opencode_flow(cli.no_browser, cli.port, plan_file);
+                run_opencode_flow(config!(), plan_file);
             } else {
                 // Deprecated: bare plan-reviewer invocation without 'review-hook' subcommand.
                 eprintln!(
@@ -766,13 +1063,13 @@ fn main() {
                      major version. Use 'plan-reviewer review-hook' instead. \
                      Run 'plan-reviewer update' to upgrade all integration files automatically."
                 );
-                run_hook_flow(cli.no_browser, cli.port);
+                run_hook_flow(config!());
             }
         }
     }
 }
 
-fn run_hook_flow(no_browser: bool, port: u16) {
+fn run_hook_flow(config: ServerConfig) {
     // 2. Read all of stdin synchronously (before any async runtime)
     let input_json = match std::io::read_to_string(std::io::stdin()) {
         Ok(s) => s,
@@ -813,8 +1110,7 @@ fn run_hook_flow(no_browser: bool, port: u16) {
         .unwrap();
 
     let decision = rt.block_on(async_main(
-        no_browser,
-        port,
+        config,
         plan_md,
         "Approve".to_string(),
         "Deny".to_string(),
@@ -846,8 +1142,7 @@ fn run_hook_flow(no_browser: bool, port: u16) {
 }
 
 async fn async_main(
-    no_browser: bool,
-    port: u16,
+    config: ServerConfig,
     plan_md: String,
     approve_label: String,
     deny_label: String,
@@ -855,26 +1150,36 @@ async fn async_main(
     base_branch: Option<String>,
 ) -> Decision {
     // Start server
-    let (port, decision_rx) =
-        match server::start_server(plan_md, approve_label, deny_label, port, base_branch).await {
-            Ok(v) => v,
-            Err(e) => {
-                eprintln!("Failed to start server: {}", e);
-                return Decision {
-                    behavior: "deny".to_string(),
-                    message: Some(format!("Internal error: {}", e)),
-                    comments: vec![],
-                };
-            }
-        };
+    let (port, decision_rx) = match server::start_server(
+        plan_md,
+        approve_label,
+        deny_label,
+        config.port,
+        &config.bind,
+        base_branch,
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Failed to start server: {}", e);
+            return Decision {
+                behavior: "deny".to_string(),
+                message: Some(format!("Internal error: {}", e)),
+                comments: vec![],
+            };
+        }
+    };
 
-    let url = build_review_url(port, path);
+    let url = build_review_url(port, path, config.base_url.as_deref());
 
     // Always print URL to stderr (UI-06)
     eprintln!("Review UI: {}", url);
 
     // Open browser unless --no-browser (CONF-02)
-    if !no_browser && let Err(e) = webbrowser::open(&url) {
+    if !config.no_browser
+        && let Err(e) = webbrowser::open(&url)
+    {
         eprintln!("Failed to open browser: {}", e);
         eprintln!("Open manually: {}", url);
     }
@@ -919,7 +1224,7 @@ async fn async_main(
 ///
 /// Does NOT read stdin and passes an empty plan_md (the /code-review SPA route
 /// never calls /api/plan). Opens the browser at /code-review.
-fn run_code_review_flow(no_browser: bool, port: u16, base: Option<String>) {
+fn run_code_review_flow(config: ServerConfig, base: Option<String>) {
     eprintln!("Starting code review for current git branch");
 
     // In debug mode, verify frontend assets exist before starting the server.
@@ -941,9 +1246,8 @@ fn run_code_review_flow(no_browser: bool, port: u16, base: Option<String>) {
         .unwrap();
 
     let decision = rt.block_on(async_main(
-        no_browser,
-        port,
-        String::new(), // /code-review SPA route does not use /api/plan
+        config,
+        String::new(),
         "Approve".to_string(),
         "Deny".to_string(),
         "/code-review",
@@ -960,7 +1264,7 @@ fn run_code_review_flow(no_browser: bool, port: u16, base: Option<String>) {
 /// Reads stdin JSON, filters by tool_input.command, exits 0 silently (with NO
 /// stdout output) when the command is not a PR/push. When the command matches,
 /// delegates to run_code_review_flow.
-fn run_pre_pr_hook_flow(no_browser: bool, port: u16) {
+fn run_pre_pr_hook_flow(config: ServerConfig) {
     // Read all of stdin synchronously (before any async runtime)
     let input_json = match std::io::read_to_string(std::io::stdin()) {
         Ok(s) => s,
@@ -1002,8 +1306,7 @@ fn run_pre_pr_hook_flow(no_browser: bool, port: u16) {
         .unwrap();
 
     let decision = rt.block_on(async_main(
-        no_browser,
-        port,
+        config,
         String::new(),
         "Approve".to_string(),
         "Deny".to_string(),
