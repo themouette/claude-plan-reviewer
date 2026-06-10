@@ -29,13 +29,15 @@ async fn get_ping() -> impl IntoResponse {
 
 // --- Server entry point ---
 
-/// Bind to the specified port on 127.0.0.1 (0 = OS-assigned), spawn the axum server,
-/// and return (port, decision_rx) so the caller can open a browser and await
-/// the decision.
+/// Bind to the specified host and port (port 0 = OS-assigned), spawn the axum
+/// server, and return (port, decision_rx) so the caller can open a browser and
+/// await the decision. `host` defaults to 127.0.0.1 at the CLI layer; pass
+/// 0.0.0.0 to accept connections from other machines on the network.
 pub async fn start_server(
     plan_md: String,
     approve_label: String,
     deny_label: String,
+    host: &str,
     port: u16,
     base_branch: Option<String>,
 ) -> Result<(u16, oneshot::Receiver<Decision>), Box<dyn std::error::Error + Send + Sync>> {
@@ -77,8 +79,8 @@ pub async fn start_server(
         .route("/api/ping", get(get_ping))
         .fallback_service(spa);
 
-    // 7. Bind to specified port (0 = OS-assigned)
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).await?;
+    // 7. Bind to specified host and port (port 0 = OS-assigned)
+    let listener = TcpListener::bind(format!("{}:{}", host, port)).await?;
     let port = listener.local_addr()?.port();
 
     // 8. Spawn axum server with graceful shutdown

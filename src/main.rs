@@ -133,15 +133,39 @@ mod tests {
 
     #[test]
     fn test_async_main_builds_url_with_path() {
-        assert_eq!(build_review_url(8080, "/"), "http://127.0.0.1:8080/");
         assert_eq!(
-            build_review_url(3000, "/code-review"),
+            build_review_url("127.0.0.1", 8080, "/"),
+            "http://127.0.0.1:8080/"
+        );
+        assert_eq!(
+            build_review_url("127.0.0.1", 3000, "/code-review"),
             "http://127.0.0.1:3000/code-review"
         );
         assert_eq!(
-            build_review_url(0, "/code-review"),
+            build_review_url("127.0.0.1", 0, "/code-review"),
             "http://127.0.0.1:0/code-review"
         );
+    }
+
+    #[test]
+    fn test_build_review_url_uses_custom_host() {
+        // A concrete LAN address is reachable by a browser — used verbatim.
+        assert_eq!(
+            build_review_url("192.168.1.50", 8080, "/code-review"),
+            "http://192.168.1.50:8080/code-review"
+        );
+    }
+
+    #[test]
+    fn test_build_review_url_normalizes_wildcard_hosts() {
+        // 0.0.0.0 / :: mean "all interfaces" at bind time but are not valid
+        // browser destinations, so the URL falls back to loopback.
+        assert_eq!(
+            build_review_url("0.0.0.0", 8080, "/"),
+            "http://127.0.0.1:8080/"
+        );
+        assert_eq!(build_review_url("::", 8080, "/"), "http://[::1]:8080/");
+        assert_eq!(build_review_url("[::]", 8080, "/"), "http://[::1]:8080/");
     }
 
     #[test]
@@ -182,6 +206,22 @@ mod tests {
     fn test_cli_port_flag_accepts_value() {
         let cli = Cli::try_parse_from(["plan-reviewer", "--port", "8080"]).expect("parse failed");
         assert_eq!(cli.port, 8080, "--port should accept 8080");
+    }
+
+    #[test]
+    fn test_cli_host_flag_default_loopback() {
+        let cli = Cli::try_parse_from(["plan-reviewer"]).expect("parse failed");
+        assert_eq!(
+            cli.host, "127.0.0.1",
+            "--host default should preserve local-only binding"
+        );
+    }
+
+    #[test]
+    fn test_cli_host_flag_accepts_value() {
+        let cli =
+            Cli::try_parse_from(["plan-reviewer", "--host", "0.0.0.0"]).expect("parse failed");
+        assert_eq!(cli.host, "0.0.0.0", "--host should accept 0.0.0.0");
     }
 
     #[test]
@@ -415,6 +455,11 @@ struct Cli {
     #[arg(long, default_value_t = false)]
     no_browser: bool,
 
+    /// Bind the review server to this address (use 0.0.0.0 to allow access from
+    /// other machines on the network; default 127.0.0.1 keeps it local-only)
+    #[arg(long, default_value = "127.0.0.1")]
+    host: String,
+
     /// Bind the review server to this port (0 = OS-assigned, default)
     #[arg(long, default_value_t = 0)]
     port: u16,
@@ -613,11 +658,20 @@ fn is_pr_command(cmd: &str) -> bool {
     cmd.trim_start().starts_with("gh pr create")
 }
 
-/// Build the review server URL for a given port and path.
+/// Build the review server URL for a given host, port, and path.
+///
+/// The bind host (e.g. 0.0.0.0 or :: meaning "all interfaces") is not a usable
+/// destination for a browser, so it is normalized to a loopback address for the
+/// URL we print and open. Any other host is used verbatim.
 ///
 /// Pure helper — unit-testable without starting the server.
-fn build_review_url(port: u16, path: &str) -> String {
-    format!("http://127.0.0.1:{}{}", port, path)
+fn build_review_url(host: &str, port: u16, path: &str) -> String {
+    let browser_host = match host {
+        "0.0.0.0" => "127.0.0.1",
+        "::" | "[::]" => "[::1]",
+        other => other,
+    };
+    format!("http://{}:{}{}", browser_host, port, path)
 }
 
 /// Return `true` if a PreToolUse hook event should trigger the code-review flow.
@@ -631,7 +685,7 @@ fn should_trigger_code_review(hook_input: &hook::HookInput) -> bool {
         .unwrap_or(false)
 }
 
-fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
+fn run_opencode_flow(no_browser: bool, host: &str, port: u16, plan_file: &str) {
     // Read plan content from file — does NOT read stdin
     let plan_md = match std::fs::read_to_string(plan_file) {
         Ok(content) => content,
@@ -654,6 +708,7 @@ fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
 
     let decision = rt.block_on(async_main(
         no_browser,
+        host,
         port,
         plan_md,
         "Approve".to_string(),
@@ -673,7 +728,14 @@ fn run_opencode_flow(no_browser: bool, port: u16, plan_file: &str) {
 /// review UI, and writes neutral `{"behavior":"allow"|"deny"}` JSON to stdout.
 /// This enables scripts and agent workflows to invoke plan-reviewer without
 /// constructing hook-specific JSON.
-fn run_review_flow(no_browser: bool, port: u16, file: &str, approve_label: &str, deny_label: &str) {
+fn run_review_flow(
+    no_browser: bool,
+    host: &str,
+    port: u16,
+    file: &str,
+    approve_label: &str,
+    deny_label: &str,
+) {
     // Read plan content from file — does NOT read stdin
     let plan_md = match std::fs::read_to_string(file) {
         Ok(content) => content,
@@ -704,6 +766,7 @@ fn run_review_flow(no_browser: bool, port: u16, file: &str, approve_label: &str,
 
     let decision = rt.block_on(async_main(
         no_browser,
+        host,
         port,
         plan_md,
         approve_label.to_string(),
@@ -723,14 +786,21 @@ fn main() {
 
     match &cli.command {
         Some(Commands::ReviewHook) => {
-            run_hook_flow(cli.no_browser, cli.port);
+            run_hook_flow(cli.no_browser, &cli.host, cli.port);
         }
         Some(Commands::Review {
             file,
             approve_label,
             deny_label,
         }) => {
-            run_review_flow(cli.no_browser, cli.port, file, approve_label, deny_label);
+            run_review_flow(
+                cli.no_browser,
+                &cli.host,
+                cli.port,
+                file,
+                approve_label,
+                deny_label,
+            );
         }
         Some(Commands::Install { integrations }) => {
             // install subcommand: does NOT read stdin
@@ -749,15 +819,15 @@ fn main() {
             update::run_update(*check, version.clone(), *yes);
         }
         Some(Commands::CodeReview { base }) => {
-            run_code_review_flow(cli.no_browser, cli.port, base.clone());
+            run_code_review_flow(cli.no_browser, &cli.host, cli.port, base.clone());
         }
         Some(Commands::PrePrHook) => {
-            run_pre_pr_hook_flow(cli.no_browser, cli.port);
+            run_pre_pr_hook_flow(cli.no_browser, &cli.host, cli.port);
         }
         None => {
             if let Some(ref plan_file) = cli.plan_file {
                 // opencode uses --plan-file flag directly (no subcommand, no deprecation)
-                run_opencode_flow(cli.no_browser, cli.port, plan_file);
+                run_opencode_flow(cli.no_browser, &cli.host, cli.port, plan_file);
             } else {
                 // Deprecated: bare plan-reviewer invocation without 'review-hook' subcommand.
                 eprintln!(
@@ -766,13 +836,13 @@ fn main() {
                      major version. Use 'plan-reviewer review-hook' instead. \
                      Run 'plan-reviewer update' to upgrade all integration files automatically."
                 );
-                run_hook_flow(cli.no_browser, cli.port);
+                run_hook_flow(cli.no_browser, &cli.host, cli.port);
             }
         }
     }
 }
 
-fn run_hook_flow(no_browser: bool, port: u16) {
+fn run_hook_flow(no_browser: bool, host: &str, port: u16) {
     // 2. Read all of stdin synchronously (before any async runtime)
     let input_json = match std::io::read_to_string(std::io::stdin()) {
         Ok(s) => s,
@@ -814,6 +884,7 @@ fn run_hook_flow(no_browser: bool, port: u16) {
 
     let decision = rt.block_on(async_main(
         no_browser,
+        host,
         port,
         plan_md,
         "Approve".to_string(),
@@ -847,6 +918,7 @@ fn run_hook_flow(no_browser: bool, port: u16) {
 
 async fn async_main(
     no_browser: bool,
+    host: &str,
     port: u16,
     plan_md: String,
     approve_label: String,
@@ -856,7 +928,9 @@ async fn async_main(
 ) -> Decision {
     // Start server
     let (port, decision_rx) =
-        match server::start_server(plan_md, approve_label, deny_label, port, base_branch).await {
+        match server::start_server(plan_md, approve_label, deny_label, host, port, base_branch)
+            .await
+        {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("Failed to start server: {}", e);
@@ -868,7 +942,7 @@ async fn async_main(
             }
         };
 
-    let url = build_review_url(port, path);
+    let url = build_review_url(host, port, path);
 
     // Always print URL to stderr (UI-06)
     eprintln!("Review UI: {}", url);
@@ -919,7 +993,7 @@ async fn async_main(
 ///
 /// Does NOT read stdin and passes an empty plan_md (the /code-review SPA route
 /// never calls /api/plan). Opens the browser at /code-review.
-fn run_code_review_flow(no_browser: bool, port: u16, base: Option<String>) {
+fn run_code_review_flow(no_browser: bool, host: &str, port: u16, base: Option<String>) {
     eprintln!("Starting code review for current git branch");
 
     // In debug mode, verify frontend assets exist before starting the server.
@@ -942,6 +1016,7 @@ fn run_code_review_flow(no_browser: bool, port: u16, base: Option<String>) {
 
     let decision = rt.block_on(async_main(
         no_browser,
+        host,
         port,
         String::new(), // /code-review SPA route does not use /api/plan
         "Approve".to_string(),
@@ -960,7 +1035,7 @@ fn run_code_review_flow(no_browser: bool, port: u16, base: Option<String>) {
 /// Reads stdin JSON, filters by tool_input.command, exits 0 silently (with NO
 /// stdout output) when the command is not a PR/push. When the command matches,
 /// delegates to run_code_review_flow.
-fn run_pre_pr_hook_flow(no_browser: bool, port: u16) {
+fn run_pre_pr_hook_flow(no_browser: bool, host: &str, port: u16) {
     // Read all of stdin synchronously (before any async runtime)
     let input_json = match std::io::read_to_string(std::io::stdin()) {
         Ok(s) => s,
@@ -1003,6 +1078,7 @@ fn run_pre_pr_hook_flow(no_browser: bool, port: u16) {
 
     let decision = rt.block_on(async_main(
         no_browser,
+        host,
         port,
         String::new(),
         "Approve".to_string(),
