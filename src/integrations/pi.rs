@@ -344,6 +344,27 @@ mod tests {
             }
         }
         assert!(
+            PI_EXTENSION_SOURCE.contains("pi.registerCommand(\"plan-reviewer:annotate\""),
+            "Pi extension must register the /plan-reviewer:annotate slash command"
+        );
+        assert!(
+            PI_EXTENSION_SOURCE.contains("pi.registerCommand(\"plan-reviewer:code-review\""),
+            "Pi extension must register the /plan-reviewer:code-review slash command"
+        );
+        assert!(
+            PI_EXTENSION_SOURCE.contains("pi.sendUserMessage(prompt"),
+            "Pi slash commands must hand off command prompts to the agent"
+        );
+        assert!(
+            PI_EXTENSION_SOURCE
+                .contains("review --approve-label \"No issues\" --deny-label \"Leave feedback\""),
+            "Pi annotate command must launch plan-reviewer review with feedback labels"
+        );
+        assert!(
+            PI_EXTENSION_SOURCE.contains("code-review"),
+            "Pi code-review command must launch plan-reviewer code-review"
+        );
+        assert!(
             PI_EXTENSION_SOURCE.contains("pi.registerTool({"),
             "Pi extension must use Pi's current registerTool({{ ... }}) API"
         );
