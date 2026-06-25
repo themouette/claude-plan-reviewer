@@ -360,6 +360,27 @@ mod tests {
             "Pi before_agent_start hook must return an object that modifies the system prompt"
         );
         assert!(
+            PI_EXTENSION_SOURCE.contains("Before starting implementation work"),
+            "Pi plan-review prompt must gate implementation work, not every action"
+        );
+        assert!(
+            PI_EXTENSION_SOURCE
+                .contains("Do not call\nplan_reviewer_submit_plan for read-only inspection"),
+            "Pi plan-review prompt must exempt read-only inspection"
+        );
+        assert!(
+            PI_EXTENSION_SOURCE.contains("a single explicit user-requested command"),
+            "Pi plan-review prompt must exempt single explicit user-requested commands"
+        );
+        assert!(
+            PI_EXTENSION_SOURCE.contains("opening the plan-reviewer\ncode-review UI itself"),
+            "Pi plan-review prompt must exempt the code-review UI command"
+        );
+        assert!(
+            !PI_EXTENSION_SOURCE.contains("Before taking any action or running any commands"),
+            "Pi plan-review prompt must not require review before every action/command"
+        );
+        assert!(
             PI_EXTENSION_SOURCE.contains("[\"review\", filePath]"),
             "Pi extension must use file-based plan-reviewer review command"
         );

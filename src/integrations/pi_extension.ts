@@ -7,18 +7,24 @@ import { Type } from "typebox";
 
 const PLAN_REVIEWER_BIN = "__PLAN_REVIEWER_BIN__";
 
-const SYSTEM_PROMPT_INJECTION = `Before taking any action or running any commands, you MUST:
-1. Write a detailed markdown plan describing what you intend to do and how.
+const SYSTEM_PROMPT_INJECTION = `Before starting implementation work, you MUST:
+1. Write a detailed markdown plan describing what you intend to implement and how.
    Save it to a file (e.g., /tmp/plan-<short-description>.md).
 2. Call the plan_reviewer_submit_plan tool with the file path.
-3. Wait for the tool to return before proceeding.
+3. Wait for the tool to return before implementing changes.
 
-If the tool returns an approval message, proceed with execution.
+Implementation work means creating, editing, or deleting files; applying patches;
+or carrying out a planned multi-step change. Do not call
+plan_reviewer_submit_plan for read-only inspection, answering questions, running
+a single explicit user-requested command, or opening the plan-reviewer
+code-review UI itself.
+
+If the tool returns an approval message, proceed with the implementation.
 If the tool returns a denial message, revise the plan based on the feedback
-and resubmit before doing any work.
+and resubmit before implementing changes.
 
-Do NOT execute any commands or make any changes until the plan has been
-explicitly approved through plan_reviewer_submit_plan.`;
+Do NOT make repository changes until the implementation plan has been explicitly
+approved through plan_reviewer_submit_plan.`;
 
 export default function planReviewer(pi: any): void {
   pi.registerTool({
@@ -28,7 +34,7 @@ export default function planReviewer(pi: any): void {
       "Submit a markdown plan file for human review before implementation. The reviewer opens a browser UI where the user can approve, deny, or annotate the plan.",
     promptSnippet: "Submit a markdown plan file for human approval before implementation.",
     promptGuidelines: [
-      "Use plan_reviewer_submit_plan before running commands or making file changes. Wait for approval before proceeding.",
+      "Use plan_reviewer_submit_plan before implementation work that changes files or carries out a planned multi-step change. Do not use it for read-only inspection, answering questions, single explicit no-change commands, or opening the code-review UI itself.",
     ],
     parameters: Type.Object({
       filePath: Type.String({
