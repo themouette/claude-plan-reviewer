@@ -169,6 +169,21 @@ pub fn resolve_integrations(given: &[String], prompt: &str) -> Vec<IntegrationSl
 ///
 /// Pre-checks already-installed integrations so the user sees current state.
 /// Returns the user's selection or exits(0) if nothing is selected / cancelled.
+/// Read the plan-reviewer version comment from an installed extension file.
+///
+/// Parses the `// plan-reviewer-version: X.Y.Z` line present in both `.mjs`
+/// and `.ts` extension files. Returns `None` if the file cannot be read or the
+/// version line is absent.
+pub(crate) fn read_version_comment(path: &std::path::Path) -> Option<String> {
+    let content = std::fs::read_to_string(path).ok()?;
+    for line in content.lines() {
+        if let Some(version) = line.strip_prefix("// plan-reviewer-version: ") {
+            return Some(version.trim().to_string());
+        }
+    }
+    None
+}
+
 pub fn show_integration_picker(prompt: &str) -> Vec<IntegrationSlug> {
     use dialoguer::console::Term;
     use dialoguer::{MultiSelect, theme::ColorfulTheme};

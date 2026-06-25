@@ -382,16 +382,9 @@ fn remove_legacy_opencode_command_files(home: &str) -> Result<(), String> {
 
 /// Read the plan-reviewer version from an installed .mjs plugin file.
 ///
-/// Parses the `// plan-reviewer-version: X.Y.Z` comment line.
-/// Returns None if the file cannot be read or the version line is absent.
+/// Thin wrapper around the shared `read_version_comment` utility in `mod.rs`.
 pub(crate) fn read_mjs_version(plugin_path: &std::path::Path) -> Option<String> {
-    let content = std::fs::read_to_string(plugin_path).ok()?;
-    for line in content.lines() {
-        if let Some(version) = line.strip_prefix("// plan-reviewer-version: ") {
-            return Some(version.trim().to_string());
-        }
-    }
-    None
+    super::read_version_comment(plugin_path)
 }
 
 /// Returns `true` if `plugin_path_str` is present in `config["plugin"]` array.

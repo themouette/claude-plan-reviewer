@@ -481,10 +481,11 @@ fn refresh_integrations_with_home(home: &str, current_version: &str) {
 
     // Pi: check version comment in .ts file
     {
-        use crate::integrations::pi::{pi_extension_path, read_ts_version};
+        use crate::integrations::pi::pi_extension_path;
+        use crate::integrations::read_version_comment;
         let extension_path = pi_extension_path(home);
         if extension_path.exists() {
-            match read_ts_version(&extension_path) {
+            match read_version_comment(&extension_path) {
                 Some(ref v) if v == current_version => {
                     println!(
                         "plan-reviewer: Pi extension already at v{}",
@@ -672,10 +673,10 @@ fn write_opencode_plugin_file(home: &str, current_version: &str) {
 /// Re-embeds the extension source with both placeholders replaced.
 /// Uses "plan-reviewer" as binary name (it's in PATH after update).
 fn write_pi_extension_file(home: &str, current_version: &str) {
-    use crate::integrations::pi::pi_extension_path;
+    use crate::integrations::pi::{PI_EXTENSION_SOURCE, pi_extension_path};
     let extension_path = pi_extension_path(home);
 
-    let source = include_str!("integrations/pi_extension.ts")
+    let source = PI_EXTENSION_SOURCE
         .replace("__PLAN_REVIEWER_BIN__", "plan-reviewer")
         .replace("__PLAN_REVIEWER_VERSION__", current_version);
 

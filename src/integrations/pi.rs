@@ -10,7 +10,7 @@ use std::path::PathBuf;
 /// The `__PLAN_REVIEWER_BIN__` and `__PLAN_REVIEWER_VERSION__` placeholders
 /// are replaced with the real binary path and current version at install time
 /// before writing to disk.
-const PI_EXTENSION_SOURCE: &str = include_str!("pi_extension.ts");
+pub(crate) const PI_EXTENSION_SOURCE: &str = include_str!("pi_extension.ts");
 
 /// Full install/uninstall implementation for Pi.
 ///
@@ -95,20 +95,6 @@ impl Integration for PiIntegration {
 /// pub(crate) — used by update.rs for version-aware refresh.
 pub(crate) fn pi_extension_path(home: &str) -> PathBuf {
     PathBuf::from(home).join(".pi/agent/extensions/plan-reviewer-pi.ts")
-}
-
-/// Read the plan-reviewer version from an installed .ts extension file.
-///
-/// Parses the `// plan-reviewer-version: X.Y.Z` comment line.
-/// Returns None if the file cannot be read or the version line is absent.
-pub(crate) fn read_ts_version(extension_path: &std::path::Path) -> Option<String> {
-    let content = std::fs::read_to_string(extension_path).ok()?;
-    for line in content.lines() {
-        if let Some(version) = line.strip_prefix("// plan-reviewer-version: ") {
-            return Some(version.trim().to_string());
-        }
-    }
-    None
 }
 
 #[cfg(test)]
@@ -347,10 +333,16 @@ mod tests {
 
     #[test]
     fn pi_extension_uses_dependency_free_ts() {
-        assert!(
-            !PI_EXTENSION_SOURCE.contains("@earendil-works/pi-coding-agent"),
-            "installed Pi extension must not require external package dependencies"
-        );
+        // Only node: built-ins are permitted — assert positively rather than
+        // blocking one specific package name.
+        for line in PI_EXTENSION_SOURCE.lines() {
+            if let Some(path) = line.trim().strip_prefix("import") {
+                assert!(
+                    path.contains("\"node:"),
+                    "Pi extension must only import from node: built-ins, found: {line}"
+                );
+            }
+        }
         assert!(
             PI_EXTENSION_SOURCE.contains("registerTool"),
             "Pi extension must register a tool via registerTool"
@@ -366,11 +358,11 @@ mod tests {
     }
 
     // ---------------------------------------------------------------------------
-    // read_ts_version tests
+    // read_version_comment tests (shared utility via mod.rs)
     // ---------------------------------------------------------------------------
 
     #[test]
-    fn read_ts_version_extracts_version() {
+    fn read_version_comment_extracts_version() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("test.ts");
         std::fs::write(
@@ -379,26 +371,26 @@ mod tests {
         )
         .unwrap();
 
-        let result = read_ts_version(&file_path);
+        let result = super::super::read_version_comment(&file_path);
         assert_eq!(result, Some("1.2.3".to_string()));
     }
 
     #[test]
-    fn read_ts_version_returns_none_without_comment() {
+    fn read_version_comment_returns_none_without_comment() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("test.ts");
         std::fs::write(&file_path, "// no version here\nconst x = 1;\n").unwrap();
 
-        let result = read_ts_version(&file_path);
+        let result = super::super::read_version_comment(&file_path);
         assert_eq!(result, None);
     }
 
     #[test]
-    fn read_ts_version_returns_none_for_missing_file() {
+    fn read_version_comment_returns_none_for_missing_file() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("nonexistent.ts");
 
-        let result = read_ts_version(&file_path);
+        let result = super::super::read_version_comment(&file_path);
         assert_eq!(result, None);
     }
 }
