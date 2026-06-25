@@ -3,6 +3,7 @@
 // Installed by plan-reviewer. Binary path injected at install time.
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { Type } from "typebox";
 
 const PLAN_REVIEWER_BIN = "__PLAN_REVIEWER_BIN__";
 
@@ -20,51 +21,71 @@ Do NOT execute any commands or make any changes until the plan has been
 explicitly approved through plan_reviewer_submit_plan.`;
 
 export default function planReviewer(pi: any): void {
-  pi.registerTool("plan_reviewer_submit_plan", {
+  pi.registerTool({
+    name: "plan_reviewer_submit_plan",
+    label: "Plan Review",
     description:
-      "Submit a plan file for human review before implementation. The reviewer opens a browser UI where the user can approve, deny, or annotate the plan.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        filePath: {
-          type: "string",
-          description: "Path to the markdown plan file to submit for review",
-        },
-      },
-      required: ["filePath"],
-    },
-    execute: ({ filePath }: { filePath: string }) => {
-      let content: string;
+      "Submit a markdown plan file for human review before implementation. The reviewer opens a browser UI where the user can approve, deny, or annotate the plan.",
+    promptSnippet: "Submit a markdown plan file for human approval before implementation.",
+    promptGuidelines: [
+      "Use plan_reviewer_submit_plan before running commands or making file changes. Wait for approval before proceeding.",
+    ],
+    parameters: Type.Object({
+      filePath: Type.String({
+        description: "Path to the markdown plan file to submit for review",
+      }),
+    }),
+    async execute(_toolCallId: string, params: { filePath: string }) {
+      const filePath = params.filePath.replace(/^@/, "");
       try {
-        content = readFileSync(filePath, "utf-8");
+        readFileSync(filePath, "utf-8");
       } catch (err: any) {
-        return `Plan review failed: could not read plan file at '${filePath}': ${err.message}`;
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Plan review failed: could not read plan file at '${filePath}': ${err.message}`,
+            },
+          ],
+          details: { approved: false, error: err.message },
+        };
       }
-      const stdinJson = JSON.stringify({
-        tool_name: "exit_plan_mode",
-        tool_input: { plan: content },
-      });
       try {
-        const stdout = execFileSync(PLAN_REVIEWER_BIN, ["review-hook"], {
-          input: stdinJson,
+        const stdout = execFileSync(PLAN_REVIEWER_BIN, ["review", filePath], {
           encoding: "utf-8",
           timeout: 600000,
         });
         const result = JSON.parse((stdout as string).trim());
         if (result.behavior === "allow") {
-          return "Plan APPROVED by reviewer.";
-        } else {
-          return `Plan DENIED by reviewer. Feedback:\n${
-            result.message || "No message provided."
-          }`;
+          return {
+            content: [{ type: "text", text: "Plan APPROVED by reviewer." }],
+            details: { approved: true },
+          };
         }
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Plan DENIED by reviewer. Feedback:\n${
+                result.message || "No message provided."
+              }`,
+            },
+          ],
+          details: { approved: false, message: result.message || null },
+          terminate: true,
+        };
       } catch (err: any) {
-        return `Plan review failed: ${err.message}`;
+        return {
+          content: [{ type: "text", text: `Plan review failed: ${err.message}` }],
+          details: { approved: false, error: err.message },
+        };
       }
     },
   });
 
-  pi.on("before_agent_start", () => {
-    return SYSTEM_PROMPT_INJECTION;
+  pi.on("before_agent_start", (event: any) => {
+    return {
+      systemPrompt: `${event.systemPrompt}\n\n${SYSTEM_PROMPT_INJECTION}`,
+    };
   });
 }

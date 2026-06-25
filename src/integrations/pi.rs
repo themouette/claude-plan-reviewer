@@ -332,20 +332,48 @@ mod tests {
     // ---------------------------------------------------------------------------
 
     #[test]
-    fn pi_extension_uses_dependency_free_ts() {
-        // Only node: built-ins are permitted — assert positively rather than
-        // blocking one specific package name.
+    fn pi_extension_uses_supported_imports_and_modern_pi_api() {
+        // Keep the installed shim dependency-light: Pi documents node built-ins
+        // and typebox as runtime-available extension imports.
         for line in PI_EXTENSION_SOURCE.lines() {
-            if let Some(path) = line.trim().strip_prefix("import") {
+            if line.trim().starts_with("import") {
                 assert!(
-                    path.contains("\"node:"),
-                    "Pi extension must only import from node: built-ins, found: {line}"
+                    line.contains("\"node:") || line.contains("\"typebox\""),
+                    "Pi extension must only import supported lightweight modules, found: {line}"
                 );
             }
         }
         assert!(
-            PI_EXTENSION_SOURCE.contains("registerTool"),
-            "Pi extension must register a tool via registerTool"
+            PI_EXTENSION_SOURCE.contains("pi.registerTool({"),
+            "Pi extension must use Pi's current registerTool({{ ... }}) API"
+        );
+        assert!(
+            PI_EXTENSION_SOURCE.contains("name: \"plan_reviewer_submit_plan\""),
+            "Pi extension must register the plan_reviewer_submit_plan tool name"
+        );
+        assert!(
+            PI_EXTENSION_SOURCE.contains("parameters: Type.Object"),
+            "Pi extension must use Pi's current TypeBox parameters field"
+        );
+        assert!(
+            PI_EXTENSION_SOURCE.contains("systemPrompt: `${event.systemPrompt}"),
+            "Pi before_agent_start hook must return an object that modifies the system prompt"
+        );
+        assert!(
+            PI_EXTENSION_SOURCE.contains("[\"review\", filePath]"),
+            "Pi extension must use file-based plan-reviewer review command"
+        );
+        assert!(
+            !PI_EXTENSION_SOURCE.contains("[\"review-hook\"]"),
+            "Pi extension must not call Claude-specific review-hook"
+        );
+        assert!(
+            !PI_EXTENSION_SOURCE.contains("tool_name: \"exit_plan_mode\""),
+            "Pi extension must not fabricate Claude hook JSON"
+        );
+        assert!(
+            !PI_EXTENSION_SOURCE.contains("inputSchema"),
+            "Pi extension must not use the obsolete inputSchema field"
         );
         assert!(
             PI_EXTENSION_SOURCE.contains("__PLAN_REVIEWER_BIN__"),
