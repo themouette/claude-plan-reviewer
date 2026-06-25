@@ -1,6 +1,7 @@
 pub mod claude;
 pub mod gemini;
 pub mod opencode;
+pub mod pi;
 
 use std::fmt;
 use std::io::IsTerminal;
@@ -49,6 +50,7 @@ pub enum IntegrationSlug {
     Claude,
     Gemini,
     Opencode,
+    Pi,
 }
 
 impl IntegrationSlug {
@@ -57,6 +59,7 @@ impl IntegrationSlug {
             Self::Claude => "claude",
             Self::Gemini => "gemini",
             Self::Opencode => "opencode",
+            Self::Pi => "pi",
         }
     }
 
@@ -66,6 +69,7 @@ impl IntegrationSlug {
             Self::Claude => "Claude Code",
             Self::Gemini => "Gemini CLI",
             Self::Opencode => "OpenCode",
+            Self::Pi => "Pi",
         }
     }
 
@@ -77,6 +81,7 @@ impl IntegrationSlug {
             Self::Claude => true,
             Self::Gemini => true,
             Self::Opencode => true,
+            Self::Pi => true,
         }
     }
 
@@ -86,13 +91,14 @@ impl IntegrationSlug {
             "claude" => Some(Self::Claude),
             "gemini" => Some(Self::Gemini),
             "opencode" => Some(Self::Opencode),
+            "pi" => Some(Self::Pi),
             _ => None,
         }
     }
 
     /// All known integration slugs in display order.
     pub fn all() -> &'static [IntegrationSlug] {
-        &[Self::Claude, Self::Gemini, Self::Opencode]
+        &[Self::Claude, Self::Gemini, Self::Opencode, Self::Pi]
     }
 }
 
@@ -116,6 +122,7 @@ pub fn get_integration(slug: &IntegrationSlug) -> Box<dyn Integration> {
         IntegrationSlug::Claude => Box::new(claude::ClaudeIntegration),
         IntegrationSlug::Gemini => Box::new(gemini::GeminiIntegration),
         IntegrationSlug::Opencode => Box::new(opencode::OpenCodeIntegration),
+        IntegrationSlug::Pi => Box::new(pi::PiIntegration),
     }
 }
 
@@ -136,7 +143,7 @@ pub fn resolve_integrations(given: &[String], prompt: &str) -> Vec<IntegrationSl
                 Some(slug) => slugs.push(slug),
                 None => {
                     eprintln!(
-                        "plan-reviewer: unknown integration '{}'. Valid: claude, gemini, opencode",
+                        "plan-reviewer: unknown integration '{}'. Valid: claude, gemini, opencode, pi",
                         s
                     );
                     std::process::exit(1);
@@ -150,7 +157,7 @@ pub fn resolve_integrations(given: &[String], prompt: &str) -> Vec<IntegrationSl
     if !std::io::stdin().is_terminal() {
         eprintln!(
             "No integrations specified. Run interactively or pass integration names: \
-             plan-reviewer install claude gemini opencode"
+             plan-reviewer install claude gemini opencode pi"
         );
         std::process::exit(1);
     }
@@ -246,6 +253,8 @@ mod tests {
             IntegrationSlug::from_str("opencode"),
             Some(IntegrationSlug::Opencode)
         );
+        assert_eq!(IntegrationSlug::from_str("pi"), Some(IntegrationSlug::Pi));
+        assert_eq!(IntegrationSlug::from_str("PI"), Some(IntegrationSlug::Pi));
         assert_eq!(IntegrationSlug::from_str("codestral"), None);
         assert_eq!(IntegrationSlug::from_str("unknown"), None);
     }
@@ -259,7 +268,7 @@ mod tests {
 
     #[test]
     fn all_slugs_count() {
-        assert_eq!(IntegrationSlug::all().len(), 3);
+        assert_eq!(IntegrationSlug::all().len(), 4);
     }
 
     #[test]
@@ -297,6 +306,21 @@ mod tests {
         assert!(
             !integration.is_installed(&ctx),
             "is_installed should be false for missing dir"
+        );
+    }
+
+    #[test]
+    fn pi_integration_requires_binary_path() {
+        let integration = pi::PiIntegration;
+        let ctx = InstallContext {
+            home: "/tmp/nonexistent-pi-test".to_string(),
+            binary_path: None,
+        };
+        let result = integration.install(&ctx);
+        assert!(result.is_err(), "install without binary_path should fail");
+        assert!(
+            !integration.is_installed(&ctx),
+            "is_installed should be false for missing file"
         );
     }
 }

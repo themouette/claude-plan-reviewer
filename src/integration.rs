@@ -10,6 +10,7 @@ pub enum IntegrationSlug {
     Claude,
     Opencode,
     Codestral,
+    Pi,
 }
 
 impl IntegrationSlug {
@@ -18,6 +19,7 @@ impl IntegrationSlug {
             Self::Claude => "claude",
             Self::Opencode => "opencode",
             Self::Codestral => "codestral",
+            Self::Pi => "pi",
         }
     }
 
@@ -27,13 +29,14 @@ impl IntegrationSlug {
             "claude" => Some(Self::Claude),
             "opencode" => Some(Self::Opencode),
             "codestral" => Some(Self::Codestral),
+            "pi" => Some(Self::Pi),
             _ => None,
         }
     }
 
     /// All known integration slugs in display order.
     pub fn all() -> &'static [IntegrationSlug] {
-        &[Self::Claude, Self::Opencode, Self::Codestral]
+        &[Self::Claude, Self::Opencode, Self::Codestral, Self::Pi]
     }
 }
 
@@ -80,6 +83,15 @@ pub fn get_integration(slug: &IntegrationSlug) -> Integration {
             unsupported_reason: Some(
                 "Codestral is a model, not a coding agent with hook infrastructure. \
                  No settings file to configure.",
+            ),
+        },
+        IntegrationSlug::Pi => Integration {
+            slug: IntegrationSlug::Pi,
+            display_name: "Pi",
+            supported: false,
+            unsupported_reason: Some(
+                "Pi integration is managed via the integrations module. \
+                 Use 'plan-reviewer install pi' instead.",
             ),
         },
     }
@@ -153,7 +165,7 @@ pub fn resolve_integrations(given: &[String], prompt: &str) -> Vec<IntegrationSl
                 Some(slug) => slugs.push(slug),
                 None => {
                     eprintln!(
-                        "plan-reviewer: unknown integration '{}'. Valid: claude, opencode, codestral",
+                        "plan-reviewer: unknown integration '{}'. Valid: claude, opencode, codestral, pi",
                         s
                     );
                     std::process::exit(1);
@@ -167,7 +179,7 @@ pub fn resolve_integrations(given: &[String], prompt: &str) -> Vec<IntegrationSl
     if !std::io::stdin().is_terminal() {
         eprintln!(
             "No integrations specified. Run interactively or pass integration names: \
-             plan-reviewer install claude opencode codestral"
+             plan-reviewer install claude opencode codestral pi"
         );
         std::process::exit(1);
     }
@@ -265,6 +277,7 @@ mod tests {
             IntegrationSlug::from_str("codestral"),
             Some(IntegrationSlug::Codestral)
         );
+        assert_eq!(IntegrationSlug::from_str("pi"), Some(IntegrationSlug::Pi));
         assert_eq!(IntegrationSlug::from_str("unknown"), None);
     }
 
@@ -273,6 +286,7 @@ mod tests {
         assert_eq!(IntegrationSlug::Claude.to_string(), "claude");
         assert_eq!(IntegrationSlug::Opencode.to_string(), "opencode");
         assert_eq!(IntegrationSlug::Codestral.to_string(), "codestral");
+        assert_eq!(IntegrationSlug::Pi.to_string(), "pi");
     }
 
     #[test]
@@ -352,8 +366,8 @@ mod tests {
     }
 
     #[test]
-    fn all_integrations_returns_all_three() {
+    fn all_integrations_returns_all_four() {
         let all = all_integrations();
-        assert_eq!(all.len(), 3);
+        assert_eq!(all.len(), 4);
     }
 }
