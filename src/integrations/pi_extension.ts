@@ -1,11 +1,12 @@
 // plan-reviewer-pi.ts
 // plan-reviewer-version: __PLAN_REVIEWER_VERSION__
 // Installed by plan-reviewer. Binary path injected at install time.
-import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { Type } from "typebox";
 
 const PLAN_REVIEWER_BIN = "__PLAN_REVIEWER_BIN__";
+// Prompt-only shell snippet for slash-command instructions. Subprocess execution
+// below intentionally uses the raw binary path with execFileSync argv separation.
 const PLAN_REVIEWER_COMMAND = shellQuote(PLAN_REVIEWER_BIN);
 
 function shellQuote(value: string): string {
@@ -126,19 +127,6 @@ export default function planReviewer(pi: any): void {
     async execute(_toolCallId: string, params: { filePath: string }) {
       const filePath = params.filePath.replace(/^@/, "");
       try {
-        readFileSync(filePath, "utf-8");
-      } catch (err: any) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Plan review failed: could not read plan file at '${filePath}': ${err.message}`,
-            },
-          ],
-          details: { approved: false, error: err.message },
-        };
-      }
-      try {
         const stdout = execFileSync(PLAN_REVIEWER_BIN, ["review", filePath], {
           encoding: "utf-8",
           timeout: 600000,
@@ -162,10 +150,15 @@ export default function planReviewer(pi: any): void {
           details: { approved: false, message: result.message || null },
           terminate: true,
         };
-      } catch (err: any) {
+      } catch (_err: any) {
         return {
-          content: [{ type: "text", text: `Plan review failed: ${err.message}` }],
-          details: { approved: false, error: err.message },
+          content: [
+            {
+              type: "text",
+              text: "Plan review failed. Check that the plan file exists and retry.",
+            },
+          ],
+          details: { approved: false, error: "plan_review_failed" },
         };
       }
     },

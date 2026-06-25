@@ -165,10 +165,6 @@ pub fn resolve_integrations(given: &[String], prompt: &str) -> Vec<IntegrationSl
     show_integration_picker(prompt)
 }
 
-/// Show a TUI multi-select picker for integrations, rendered on stderr.
-///
-/// Pre-checks already-installed integrations so the user sees current state.
-/// Returns the user's selection or exits(0) if nothing is selected / cancelled.
 /// Read the plan-reviewer version comment from an installed extension file.
 ///
 /// Parses the `// plan-reviewer-version: X.Y.Z` line present in both `.mjs`
@@ -184,6 +180,10 @@ pub(crate) fn read_version_comment(path: &std::path::Path) -> Option<String> {
     None
 }
 
+/// Show a TUI multi-select picker for integrations, rendered on stderr.
+///
+/// Pre-checks already-installed integrations so the user sees current state.
+/// Returns the user's selection or exits(0) if nothing is selected / cancelled.
 pub fn show_integration_picker(prompt: &str) -> Vec<IntegrationSlug> {
     use dialoguer::console::Term;
     use dialoguer::{MultiSelect, theme::ColorfulTheme};

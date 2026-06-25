@@ -332,7 +332,7 @@ mod tests {
     // ---------------------------------------------------------------------------
 
     #[test]
-    fn pi_extension_uses_supported_imports_and_modern_pi_api() {
+    fn pi_extension_imports_only_supported_modules() {
         // Keep the installed shim dependency-light: Pi documents node built-ins
         // and typebox as runtime-available extension imports.
         for line in PI_EXTENSION_SOURCE.lines() {
@@ -343,6 +343,10 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn pi_extension_registers_slash_commands() {
         assert!(
             PI_EXTENSION_SOURCE.contains("pi.registerCommand(\"plan-reviewer:annotate\""),
             "Pi extension must register the /plan-reviewer:annotate slash command"
@@ -355,6 +359,10 @@ mod tests {
             PI_EXTENSION_SOURCE.contains("pi.sendUserMessage(prompt"),
             "Pi slash commands must hand off command prompts to the agent"
         );
+    }
+
+    #[test]
+    fn pi_extension_slash_commands_prompt_for_expected_cli_invocations() {
         assert!(
             PI_EXTENSION_SOURCE
                 .contains("review --approve-label \"No issues\" --deny-label \"Leave feedback\""),
@@ -364,6 +372,18 @@ mod tests {
             PI_EXTENSION_SOURCE.contains("code-review"),
             "Pi code-review command must launch plan-reviewer code-review"
         );
+        assert!(
+            PI_EXTENSION_SOURCE.contains("PLAN_REVIEWER_COMMAND = shellQuote"),
+            "Pi prompt commands must shell-quote the binary path for copied bash snippets"
+        );
+        assert!(
+            PI_EXTENSION_SOURCE.contains("Prompt-only shell snippet"),
+            "Pi extension must document that shell quoting is only for prompt snippets"
+        );
+    }
+
+    #[test]
+    fn pi_extension_registers_tool_with_modern_pi_api() {
         assert!(
             PI_EXTENSION_SOURCE.contains("pi.registerTool({"),
             "Pi extension must use Pi's current registerTool({{ ... }}) API"
@@ -376,6 +396,10 @@ mod tests {
             PI_EXTENSION_SOURCE.contains("parameters: Type.Object"),
             "Pi extension must use Pi's current TypeBox parameters field"
         );
+    }
+
+    #[test]
+    fn pi_extension_system_prompt_gates_only_implementation_work() {
         assert!(
             PI_EXTENSION_SOURCE.contains("systemPrompt: `${event.systemPrompt}"),
             "Pi before_agent_start hook must return an object that modifies the system prompt"
@@ -401,10 +425,30 @@ mod tests {
             !PI_EXTENSION_SOURCE.contains("Before taking any action or running any commands"),
             "Pi plan-review prompt must not require review before every action/command"
         );
+    }
+
+    #[test]
+    fn pi_extension_uses_plan_file_review_command_without_pre_read() {
         assert!(
             PI_EXTENSION_SOURCE.contains("[\"review\", filePath]"),
             "Pi extension must use file-based plan-reviewer review command"
         );
+        assert!(
+            !PI_EXTENSION_SOURCE.contains("readFileSync"),
+            "Pi extension must let plan-reviewer handle file access instead of pre-reading the file"
+        );
+        assert!(
+            PI_EXTENSION_SOURCE.contains("plan_review_failed"),
+            "Pi extension must expose a stable sanitized error code on review failure"
+        );
+        assert!(
+            !PI_EXTENSION_SOURCE.contains("err.message"),
+            "Pi extension must not expose raw OS/subprocess errors to the agent"
+        );
+    }
+
+    #[test]
+    fn pi_extension_avoids_obsolete_and_claude_specific_apis() {
         assert!(
             !PI_EXTENSION_SOURCE.contains("[\"review-hook\"]"),
             "Pi extension must not call Claude-specific review-hook"
@@ -417,6 +461,10 @@ mod tests {
             !PI_EXTENSION_SOURCE.contains("inputSchema"),
             "Pi extension must not use the obsolete inputSchema field"
         );
+    }
+
+    #[test]
+    fn pi_extension_source_contains_install_placeholders() {
         assert!(
             PI_EXTENSION_SOURCE.contains("__PLAN_REVIEWER_BIN__"),
             "Pi extension source must contain __PLAN_REVIEWER_BIN__ placeholder"

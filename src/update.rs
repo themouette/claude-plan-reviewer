@@ -680,6 +680,17 @@ fn write_pi_extension_file(home: &str, current_version: &str) {
         .replace("__PLAN_REVIEWER_BIN__", "plan-reviewer")
         .replace("__PLAN_REVIEWER_VERSION__", current_version);
 
+    if let Some(parent) = extension_path.parent()
+        && let Err(e) = std::fs::create_dir_all(parent)
+    {
+        eprintln!(
+            "plan-reviewer: failed to create Pi extension directory {}: {}",
+            parent.display(),
+            e
+        );
+        return;
+    }
+
     if let Err(e) = std::fs::write(&extension_path, source) {
         eprintln!("plan-reviewer: failed to update Pi extension: {}", e);
     } else {
@@ -929,6 +940,25 @@ mod tests {
         assert!(
             !content.contains("__PLAN_REVIEWER_VERSION__"),
             "placeholder should be replaced"
+        );
+    }
+
+    #[test]
+    fn test_write_pi_extension_file_creates_missing_parent_dir() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap();
+        let extension_path = dir.path().join(".pi/agent/extensions/plan-reviewer-pi.ts");
+
+        write_pi_extension_file(home, "9.9.9");
+
+        assert!(
+            extension_path.exists(),
+            "Pi extension refresh should recreate the parent directory before writing"
+        );
+        let content = std::fs::read_to_string(&extension_path).unwrap();
+        assert!(
+            content.contains("// plan-reviewer-version: 9.9.9"),
+            "Pi extension file should contain the refreshed version comment"
         );
     }
 
