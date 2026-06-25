@@ -88,11 +88,8 @@ pub fn get_integration(slug: &IntegrationSlug) -> Integration {
         IntegrationSlug::Pi => Integration {
             slug: IntegrationSlug::Pi,
             display_name: "Pi",
-            supported: false,
-            unsupported_reason: Some(
-                "Pi integration is managed via the integrations module. \
-                 Use 'plan-reviewer install pi' instead.",
-            ),
+            supported: true,
+            unsupported_reason: None,
         },
     }
 }

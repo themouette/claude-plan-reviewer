@@ -34,7 +34,12 @@ export default function planReviewer(pi: any): void {
       required: ["filePath"],
     },
     execute: ({ filePath }: { filePath: string }) => {
-      const content = readFileSync(filePath, "utf-8");
+      let content: string;
+      try {
+        content = readFileSync(filePath, "utf-8");
+      } catch (err: any) {
+        return `Plan review failed: could not read plan file at '${filePath}': ${err.message}`;
+      }
       const stdinJson = JSON.stringify({
         tool_name: "exit_plan_mode",
         tool_input: { plan: content },

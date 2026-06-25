@@ -679,11 +679,14 @@ fn write_pi_extension_file(home: &str, current_version: &str) {
         .replace("__PLAN_REVIEWER_BIN__", "plan-reviewer")
         .replace("__PLAN_REVIEWER_VERSION__", current_version);
 
-    let _ = std::fs::write(&extension_path, source);
-    println!(
-        "plan-reviewer: Pi extension file updated to v{}",
-        current_version
-    );
+    if let Err(e) = std::fs::write(&extension_path, source) {
+        eprintln!("plan-reviewer: failed to update Pi extension: {}", e);
+    } else {
+        println!(
+            "plan-reviewer: Pi extension file updated to v{}",
+            current_version
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
