@@ -478,6 +478,26 @@ fn refresh_integrations_with_home(home: &str, current_version: &str) {
             }
         }
     }
+
+    // Pi: check version comment in .ts file
+    {
+        use crate::integrations::pi::pi_extension_path;
+        use crate::integrations::read_version_comment;
+        let extension_path = pi_extension_path(home);
+        if extension_path.exists() {
+            match read_version_comment(&extension_path) {
+                Some(ref v) if v == current_version => {
+                    println!(
+                        "plan-reviewer: Pi extension already at v{}",
+                        current_version
+                    );
+                }
+                _ => {
+                    write_pi_extension_file(home, current_version);
+                }
+            }
+        }
+    }
 }
 
 /// Read the "version" field from a JSON manifest file (plugin.json or gemini-extension.json).
@@ -648,6 +668,39 @@ fn write_opencode_plugin_file(home: &str, current_version: &str) {
     );
 }
 
+/// Write Pi extension file with current version.
+///
+/// Re-embeds the extension source with both placeholders replaced.
+/// Uses "plan-reviewer" as binary name (it's in PATH after update).
+fn write_pi_extension_file(home: &str, current_version: &str) {
+    use crate::integrations::pi::{PI_EXTENSION_SOURCE, pi_extension_path};
+    let extension_path = pi_extension_path(home);
+
+    let source = PI_EXTENSION_SOURCE
+        .replace("__PLAN_REVIEWER_BIN__", "plan-reviewer")
+        .replace("__PLAN_REVIEWER_VERSION__", current_version);
+
+    if let Some(parent) = extension_path.parent()
+        && let Err(e) = std::fs::create_dir_all(parent)
+    {
+        eprintln!(
+            "plan-reviewer: failed to create Pi extension directory {}: {}",
+            parent.display(),
+            e
+        );
+        return;
+    }
+
+    if let Err(e) = std::fs::write(&extension_path, source) {
+        eprintln!("plan-reviewer: failed to update Pi extension: {}", e);
+    } else {
+        println!(
+            "plan-reviewer: Pi extension file updated to v{}",
+            current_version
+        );
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -670,6 +723,16 @@ mod tests {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         let content = format!(
             "// plan-reviewer-opencode.mjs\n// plan-reviewer-version: {}\n// rest of file\n",
+            version
+        );
+        std::fs::write(path, content).unwrap();
+    }
+
+    // Helper: write a minimal .ts extension file with a version comment
+    fn write_ts_with_version(path: &std::path::Path, version: &str) {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let content = format!(
+            "// plan-reviewer-pi.ts\n// plan-reviewer-version: {}\n// rest of file\n",
             version
         );
         std::fs::write(path, content).unwrap();
@@ -860,6 +923,70 @@ mod tests {
     }
 
     #[test]
+    fn test_refresh_rewrites_pi_when_stale() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap();
+
+        let extension_path = dir.path().join(".pi/agent/extensions/plan-reviewer-pi.ts");
+        write_ts_with_version(&extension_path, "0.0.1");
+
+        refresh_integrations_with_home(home, "9.9.9");
+
+        let content = std::fs::read_to_string(&extension_path).unwrap();
+        assert!(
+            content.contains("// plan-reviewer-version: 9.9.9"),
+            "ts file should be rewritten with new version comment"
+        );
+        assert!(
+            !content.contains("__PLAN_REVIEWER_VERSION__"),
+            "placeholder should be replaced"
+        );
+    }
+
+    #[test]
+    fn test_write_pi_extension_file_creates_missing_parent_dir() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap();
+        let extension_path = dir.path().join(".pi/agent/extensions/plan-reviewer-pi.ts");
+
+        write_pi_extension_file(home, "9.9.9");
+
+        assert!(
+            extension_path.exists(),
+            "Pi extension refresh should recreate the parent directory before writing"
+        );
+        let content = std::fs::read_to_string(&extension_path).unwrap();
+        assert!(
+            content.contains("// plan-reviewer-version: 9.9.9"),
+            "Pi extension file should contain the refreshed version comment"
+        );
+    }
+
+    #[test]
+    fn test_refresh_skips_pi_when_current() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_str().unwrap();
+
+        let extension_path = dir.path().join(".pi/agent/extensions/plan-reviewer-pi.ts");
+        write_ts_with_version(&extension_path, "1.2.3");
+
+        let before_meta = std::fs::metadata(&extension_path).unwrap();
+        let before_modified = before_meta.modified().unwrap();
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        refresh_integrations_with_home(home, "1.2.3");
+
+        let after_meta = std::fs::metadata(&extension_path).unwrap();
+        let after_modified = after_meta.modified().unwrap();
+
+        assert_eq!(
+            before_modified, after_modified,
+            "ts file should NOT be rewritten when version matches"
+        );
+    }
+
+    #[test]
     fn test_write_claude_plugin_files_uses_hook_subcommand() {
         let dir = tempdir().unwrap();
         let home = dir.path().to_str().unwrap().to_string();
@@ -920,6 +1047,12 @@ mod tests {
                 .join(".config/opencode/plugins/plan-reviewer-opencode.mjs")
                 .exists(),
             "OpenCode plugin should NOT be created when absent"
+        );
+        assert!(
+            !dir.path()
+                .join(".pi/agent/extensions/plan-reviewer-pi.ts")
+                .exists(),
+            "Pi extension should NOT be created when absent"
         );
     }
 

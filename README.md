@@ -55,7 +55,8 @@ Run `plan-reviewer install` for an interactive picker, or target a specific inte
 ```sh
 plan-reviewer install claude    # Claude Code
 plan-reviewer install gemini    # Gemini CLI
-plan-reviewer install opencode  # opencode
+plan-reviewer install opencode  # OpenCode
+plan-reviewer install pi        # Pi (pi.dev)
 ```
 
 To remove an integration:
@@ -64,7 +65,14 @@ To remove an integration:
 plan-reviewer uninstall claude
 plan-reviewer uninstall gemini
 plan-reviewer uninstall opencode
+plan-reviewer uninstall pi
 ```
+
+### Pi integration
+
+The Pi integration writes a TypeScript extension shim to `~/.pi/agent/extensions/plan-reviewer-pi.ts`. Pi auto-discovers extensions in that directory — no additional configuration is required.
+
+The shim registers a `plan_reviewer_submit_plan` tool that Pi's LLM calls explicitly. When invoked, it shells out to the `plan-reviewer` binary, passes the plan content, and blocks until you approve or deny in the browser UI. A `before_agent_start` hook injects a system prompt that instructs Pi to write a markdown plan and call the tool before implementation work that changes files or carries out a planned multi-step change. Read-only inspection, answering questions, single explicit no-change commands, and opening the code-review UI itself are exempt.
 
 ## Subcommands reference
 
@@ -74,8 +82,8 @@ plan-reviewer uninstall opencode
 | `review` | `plan-reviewer review <file>` | Review any markdown file; outputs neutral `{"behavior":"allow"\|"deny"}` JSON to stdout. |
 | `code-review` | `plan-reviewer code-review` | Open the diff viewer for the current git branch. Does not read stdin. |
 | `pre-pr-hook` | `plan-reviewer pre-pr-hook` | Claude Code `PreToolUse` hook handler. Reads stdin; triggers code review on `git push` or `gh pr create`, exits silently otherwise. |
-| `install` | `plan-reviewer install [claude\|gemini\|opencode]` | Wire ExitPlanMode hook. Omit argument for interactive picker. |
-| `uninstall` | `plan-reviewer uninstall [claude\|gemini\|opencode]` | Remove hook wiring. Omit argument for interactive picker. |
+| `install` | `plan-reviewer install [claude\|gemini\|opencode\|pi]` | Wire ExitPlanMode hook. Omit argument for interactive picker. |
+| `uninstall` | `plan-reviewer uninstall [claude\|gemini\|opencode\|pi]` | Remove hook wiring. Omit argument for interactive picker. |
 | `update` | `plan-reviewer update [flags]` | Self-update binary from GitHub Releases; refreshes installed integration files. |
 
 **review flags:**

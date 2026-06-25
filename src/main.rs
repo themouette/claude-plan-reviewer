@@ -623,7 +623,7 @@ use server::Decision;
 #[derive(Parser, Debug)]
 #[command(
     version,
-    about = "Plan reviewer hook binary (supports: claude, gemini, opencode)"
+    about = "Plan reviewer hook binary (supports: claude, gemini, opencode, pi)"
 )]
 struct Cli {
     /// Skip opening the browser and print the review URL to stderr only
@@ -677,12 +677,12 @@ enum Commands {
     },
     /// Wire the ExitPlanMode hook into one or more integrations (default: interactive picker)
     Install {
-        /// Integration names: claude, gemini, opencode (omit for interactive picker)
+        /// Integration names: claude, gemini, opencode, pi (omit for interactive picker)
         integrations: Vec<String>,
     },
     /// Remove the ExitPlanMode hook from one or more integrations
     Uninstall {
-        /// Integration names: claude, gemini, opencode (omit for interactive picker)
+        /// Integration names: claude, gemini, opencode, pi (omit for interactive picker)
         integrations: Vec<String>,
     },
     /// Update plan-reviewer to the latest version from GitHub releases
