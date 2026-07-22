@@ -486,9 +486,15 @@ fn shell_parse_unified_diff(
             } else if let Some(rest) = line.strip_prefix("rename from ") {
                 status = "renamed".to_string();
                 previous_filename = Some(rest.to_string());
+                old_path = rest.to_string();
+            } else if let Some(rest) = line.strip_prefix("rename to ") {
+                new_path = rest.to_string();
             } else if let Some(rest) = line.strip_prefix("copy from ") {
                 status = "copied".to_string();
                 previous_filename = Some(rest.to_string());
+                old_path = rest.to_string();
+            } else if let Some(rest) = line.strip_prefix("copy to ") {
+                new_path = rest.to_string();
             } else if line.starts_with("Binary files") || line.starts_with("GIT binary patch") {
                 is_binary = true;
             } else if line.starts_with("--- ") {
@@ -1789,6 +1795,33 @@ mod tests {
             Some(""),
             "old_content must be \"\" for untracked files so FileDiffComponent can render them"
         );
+    }
+
+    /// A pure rename (100% similarity, no content change) omits "--- a/"/"+++ b/"
+    /// lines entirely, so new_path must come from "rename to " — regression test
+    /// for the bug where such renames were filed under their old path/directory.
+    #[test]
+    fn shell_parse_unified_diff_pure_rename_uses_new_path() {
+        let diff_text = "diff --git a/src/foo/handler.rs b/src/bar/handler.rs\n\
+similarity index 100%\n\
+rename from src/foo/handler.rs\n\
+rename to src/bar/handler.rs\n";
+        let result = shell_parse_unified_diff(diff_text, std::path::Path::new("."), "HEAD");
+        assert_eq!(
+            result.len(),
+            1,
+            "Expected 1 file diff, got {}",
+            result.len()
+        );
+        assert_eq!(
+            result[0].filename, "src/bar/handler.rs",
+            "pure rename must be filed under its new path, not the old one"
+        );
+        assert_eq!(
+            result[0].previous_filename,
+            Some("src/foo/handler.rs".to_string())
+        );
+        assert_eq!(result[0].status, "renamed");
     }
 
     /// Test shell_branch_diff: directly calling the shell path on a standard repo
