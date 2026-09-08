@@ -66,25 +66,6 @@ If stdout contains \`{"behavior":"deny","message":"<feedback>"}\`, say: \`Review
 
 If there is no stdout, say: \`The code review process exited without a result.\` and ask whether to proceed.`;
 
-const SYSTEM_PROMPT_INJECTION = `Before starting implementation work, you MUST:
-1. Write a detailed markdown plan describing what you intend to implement and how.
-   Save it to a file (e.g., /tmp/plan-<short-description>.md).
-2. Call the plan_reviewer_submit_plan tool with the file path.
-3. Wait for the tool to return before implementing changes.
-
-Implementation work means creating, editing, or deleting files; applying patches;
-or carrying out a planned multi-step change. Do not call
-plan_reviewer_submit_plan for read-only inspection, answering questions, running
-a single explicit user-requested command, or opening the plan-reviewer
-code-review UI itself.
-
-If the tool returns an approval message, proceed with the implementation.
-If the tool returns a denial message, revise the plan based on the feedback
-and resubmit before implementing changes.
-
-Do NOT make repository changes until the implementation plan has been explicitly
-approved through plan_reviewer_submit_plan.`;
-
 export default function planReviewer(pi: any): void {
   pi.registerCommand("plan-reviewer:annotate", {
     description: "Open a markdown file in the plan-reviewer browser UI for feedback",
@@ -162,11 +143,5 @@ export default function planReviewer(pi: any): void {
         };
       }
     },
-  });
-
-  pi.on("before_agent_start", (event: any) => {
-    return {
-      systemPrompt: `${event.systemPrompt}\n\n${SYSTEM_PROMPT_INJECTION}`,
-    };
   });
 }
