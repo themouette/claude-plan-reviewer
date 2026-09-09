@@ -78,8 +78,18 @@ describe('CodeReviewApp', () => {
     expect(source).toContain('display: \'flex\'')
   })
 
-  it("file list sidebar is 240px wide (UI-SPEC override of ReviewerV2 200px)", () => {
-    expect(source).toContain('width: 240')
+  it("file list sidebar defaults to 240px via useResizableWidth (UI-SPEC override of ReviewerV2 200px; resizable)", () => {
+    expect(source).toContain('useResizableWidth')
+    expect(source).toContain('initialWidth: 240')
+    expect(source).toContain('minWidth: 180')
+    expect(source).toContain('maxWidth: 480')
+    expect(source).toContain('width: sidebarWidth')
+  })
+
+  it('renders a col-resize drag handle with separator semantics between sidebar and DiffPane', () => {
+    expect(source).toContain("cursor: 'col-resize'")
+    expect(source).toContain('role="separator"')
+    expect(source).toContain('{...sidebarHandleProps}')
   })
 
   it('does NOT import from reviewer-v2/', () => {

@@ -5,6 +5,7 @@ import FileListPane from './FileListPane'
 import DiffPane from './DiffPane'
 import { useDiff } from './hooks/useDiff'
 import type { DiffFetchSelector } from './hooks/useDiff'
+import { useResizableWidth } from './hooks/useResizableWidth'
 import { useCommits } from './hooks/useCommits'
 import { useCodeReviewAnnotations } from './hooks/useCodeReviewAnnotations'
 import { buildTree, flattenTree } from './fileTree'
@@ -25,6 +26,12 @@ export default function CodeReviewApp(): React.JSX.Element {
   const [anchorCommitSha, setAnchorCommitSha] = useState<string | null>(null)
   // Phase 30: hide whitespace toggle
   const [hideWhitespace, setHideWhitespace] = useState(false)
+  // Resizable file-list sidebar (session-scoped width, min 180 / max 480, default 240)
+  const {
+    width: sidebarWidth,
+    isResizing: sidebarResizing,
+    handleProps: sidebarHandleProps,
+  } = useResizableWidth({ initialWidth: 240, minWidth: 180, maxWidth: 480 })
 
   function handleHideWhitespaceToggle() {
     setHideWhitespace(v => !v)
@@ -274,7 +281,7 @@ export default function CodeReviewApp(): React.JSX.Element {
         )}
         <aside
           style={{
-            width: 240,
+            width: sidebarWidth,
             flexShrink: 0,
             borderRight: '1px solid var(--color-border)',
             background: 'var(--color-surface)',
@@ -290,6 +297,22 @@ export default function CodeReviewApp(): React.JSX.Element {
             commentCounts={commentCounts}
           />
         </aside>
+        {/* Drag handle between the file list and the diff pane; overlaps the
+            aside's 1px border via a negative margin so it doesn't shift layout. */}
+        <div
+          {...sidebarHandleProps}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize file list"
+          tabIndex={0}
+          style={{
+            width: 4,
+            flexShrink: 0,
+            marginLeft: -2,
+            cursor: 'col-resize',
+            background: sidebarResizing ? 'var(--color-border)' : 'transparent',
+          }}
+        />
         <DiffPane
           files={sortedFiles}
           loading={loading}
