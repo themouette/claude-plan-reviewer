@@ -85,6 +85,9 @@ fn perform_update(target_version: Option<String>, skip_confirm: bool) {
         .current_version(cargo_crate_version!())
         .show_download_progress(true)
         .no_confirm(skip_confirm);
+    if let Some(base) = github_api_base() {
+        builder.api_base_url(base);
+    }
 
     if let Some(ref version) = resolved_target {
         builder.release_tag(format!("v{}", version));
@@ -128,16 +131,28 @@ fn current_platform() -> &'static str {
     }
 }
 
-/// Fetch the latest release version string from GitHub releases API.
+/// Optional override for the GitHub API base URL (default: https://api.github.com).
+/// Used by integration tests to point the update flow at a local mock server;
+/// also usable against GitHub Enterprise (e.g. `https://github.example.com/api/v3`).
+fn github_api_base() -> Option<String> {
+    std::env::var("PLAN_REVIEWER_GITHUB_API_BASE")
+        .ok()
+        .filter(|s| !s.is_empty())
+}
+
+/// Fetch the latest release version string from the GitHub releases API.
 /// Returns None if the API is unreachable or returns no releases.
+///
+/// Note: `Releases::latest()` returns the *first* entry as ordered by the
+/// backend — GitHub's API returns releases newest-first — not the semver
+/// maximum. This matches our repo (releases tagged `vX.Y.Z`, newest first).
 fn get_latest_version() -> Option<String> {
-    let releases = self_update::backends::github::ReleaseList::configure()
-        .repo_owner(REPO_OWNER)
-        .repo_name(REPO_NAME)
-        .build()
-        .ok()?
-        .fetch()
-        .ok()?;
+    let mut builder = self_update::backends::github::ReleaseList::configure();
+    builder.repo_owner(REPO_OWNER).repo_name(REPO_NAME);
+    if let Some(base) = github_api_base() {
+        builder.api_base_url(base);
+    }
+    let releases = builder.build().ok()?.fetch().ok()?;
 
     releases
         .latest()
