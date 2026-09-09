@@ -47,12 +47,7 @@ fn perform_update(target_version: Option<String>, skip_confirm: bool) {
     let current = cargo_crate_version!();
     println!("Current version: {}", current);
 
-    // Normalize target version: strip 'v' prefix, treat "latest" as None
-    let resolved_target = match target_version {
-        Some(v) if v == "latest" => None,
-        Some(v) => Some(v.trim_start_matches('v').to_string()),
-        None => None,
-    };
+    let resolved_target = normalize_target_version(target_version);
 
     // If no specific version was requested, fetch latest and check if already current
     let resolved_target = if resolved_target.is_none() {
@@ -92,7 +87,7 @@ fn perform_update(target_version: Option<String>, skip_confirm: bool) {
         .no_confirm(skip_confirm);
 
     if let Some(ref version) = resolved_target {
-        builder.target_version_tag(&format!("v{}", version));
+        builder.release_tag(format!("v{}", version));
     }
 
     match builder.build().and_then(|u| u.update()) {
@@ -145,17 +140,33 @@ fn get_latest_version() -> Option<String> {
         .ok()?;
 
     releases
-        .first()
-        .map(|r| r.version.trim_start_matches('v').to_string())
+        .latest()
+        .map(|r| r.version().trim_start_matches('v').to_string())
 }
 
 /// Delete the version check cache file so the next invocation fetches fresh data. (D-12)
 fn clear_update_cache() {
     if let Ok(home) = std::env::var("HOME") {
-        let cache_path = std::path::PathBuf::from(home)
-            .join(".plan-reviewer")
-            .join("update-check.json");
-        let _ = std::fs::remove_file(cache_path);
+        clear_update_cache_in(&std::path::PathBuf::from(home));
+    }
+}
+
+/// Testable core of clear_update_cache: removes the cache file under `home`.
+/// Silently succeeds when the file does not exist.
+fn clear_update_cache_in(home: &std::path::Path) {
+    let cache_path = home.join(".plan-reviewer").join("update-check.json");
+    let _ = std::fs::remove_file(cache_path);
+}
+
+/// Normalize a user-supplied target version for perform_update:
+/// - `None` -> `None` (no specific version requested, fetch latest)
+/// - `"latest"` -> `None` (explicit request for latest)
+/// - `"vX.Y.Z"` -> `"X.Y.Z"` (strip leading `v` prefix used by release tags)
+fn normalize_target_version(target_version: Option<String>) -> Option<String> {
+    match target_version {
+        Some(v) if v == "latest" => None,
+        Some(v) => Some(v.trim_start_matches('v').to_string()),
+        None => None,
     }
 }
 
@@ -1455,6 +1466,118 @@ mod tests {
         assert!(
             !settings_path.exists(),
             "settings.json should NOT be created when it was absent"
+        );
+    }
+
+    // --- Self-update core unit tests (tier 1) ---
+
+    #[test]
+    fn test_normalize_target_version_none() {
+        assert_eq!(normalize_target_version(None), None);
+    }
+
+    #[test]
+    fn test_normalize_target_version_latest() {
+        assert_eq!(normalize_target_version(Some("latest".to_string())), None);
+    }
+
+    #[test]
+    fn test_normalize_target_version_strips_v_prefix() {
+        assert_eq!(
+            normalize_target_version(Some("v0.2.0".to_string())),
+            Some("0.2.0".to_string())
+        );
+    }
+
+    #[test]
+    fn test_normalize_target_version_plain_version_unchanged() {
+        assert_eq!(
+            normalize_target_version(Some("0.2.0".to_string())),
+            Some("0.2.0".to_string())
+        );
+    }
+
+    #[test]
+    fn test_normalize_target_version_latest_is_exact_match() {
+        // Case/whitespace variants are NOT treated as "latest" (documents current behavior)
+        assert_eq!(
+            normalize_target_version(Some("Latest".to_string())),
+            Some("Latest".to_string())
+        );
+    }
+
+    #[test]
+    fn test_sanitize_version_plain_semver_passthrough() {
+        assert_eq!(sanitize_version("1.2.3"), "1.2.3");
+    }
+
+    #[test]
+    fn test_sanitize_version_keeps_allowed_punctuation() {
+        assert_eq!(sanitize_version("1.0.0-rc.1+build.2"), "1.0.0-rc.1+build.2");
+    }
+
+    #[test]
+    fn test_sanitize_version_strips_crlf() {
+        // Terminal title/line-move injection via bare CR/LF
+        assert_eq!(sanitize_version("1.0\r\n0"), "1.00");
+    }
+
+    #[test]
+    fn test_sanitize_version_strips_esc_osc_sequence() {
+        // OSC escape sequence (terminal title / palette change) after a real version.
+        // The filter is per-character: ESC and the BEL terminator are stripped,
+        // but alphanumeric chars inside the payload remain as inert debris.
+        let malicious = "v1.0\u{1b}]50;SetFont\u{7}";
+        let sanitized = sanitize_version(malicious);
+        assert_eq!(sanitized, "v1.050SetFont");
+        assert!(
+            sanitized.chars().all(|c| !c.is_control()),
+            "no control characters may survive sanitization"
+        );
+    }
+
+    #[test]
+    fn test_sanitize_version_strips_ansi_csi_sequence() {
+        // Pure CSI sequence (clear screen). ESC and '[' are stripped; '2' and 'J'
+        // are alphanumeric and survive as inert debris.
+        let sanitized = sanitize_version("\u{1b}[2J");
+        assert_eq!(sanitized, "2J");
+        assert!(
+            sanitized.chars().all(|c| !c.is_control()),
+            "no control characters may survive sanitization"
+        );
+    }
+
+    #[test]
+    fn test_sanitize_version_strips_control_chars() {
+        assert_eq!(sanitize_version("1.0\u{0}"), "1.0");
+    }
+
+    #[test]
+    fn test_clear_update_cache_removes_existing_file() {
+        let dir = tempdir().unwrap();
+        let cache_dir = dir.path().join(".plan-reviewer");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        let cache_path = cache_dir.join("update-check.json");
+        std::fs::write(&cache_path, "{}").unwrap();
+
+        clear_update_cache_in(dir.path());
+
+        assert!(
+            !cache_path.exists(),
+            "update-check.json should be removed by clear_update_cache_in"
+        );
+    }
+
+    #[test]
+    fn test_clear_update_cache_missing_file_is_silent_noop() {
+        let dir = tempdir().unwrap();
+        // No cache file exists — should not panic or create anything
+        clear_update_cache_in(dir.path());
+
+        assert!(
+            !dir.path().join(".plan-reviewer").exists(),
+            "cache directory should not be created by clear_update_cache_in"
         );
     }
 }
