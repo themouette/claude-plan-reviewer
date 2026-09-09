@@ -9,7 +9,33 @@ const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Marker bytes placed inside the fake binary served by the mock update archive.
 /// The replacement test asserts the copied binary's content changes to this.
-const FAKE_BIN_MARKER: &[u8] = b"FAKE-UPDATED-BINARY-v0.9.0\n";
+const FAKE_BIN_MARKER: &[u8] = b"FAKE-UPDATED-BINARY-FROM-MOCK\n";
+
+/// A release tag strictly newer than the crate's current version. The tests
+/// must NEVER hardcode a version (e.g. "v0.9.0"): after a release bumps the
+/// crate version, a hardcoded tag becomes the CURRENT version and the update
+/// flow correctly answers "already up to date", failing the test. Deriving
+/// the newer version at test time keeps the suite valid across every future
+/// release bump.
+fn newer_tag() -> String {
+    let mut parts: Vec<u64> = CURRENT_VERSION
+        .split('.')
+        .map(|p| p.split('-').next().unwrap_or(p).parse().unwrap_or(0))
+        .collect();
+    while parts.len() < 3 {
+        parts.push(0);
+    }
+    let last = parts.len() - 1;
+    parts[last] += 1;
+    format!(
+        "v{}",
+        parts
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>()
+            .join(".")
+    )
+}
 
 // ---------------------------------------------------------------------------
 // Mock GitHub releases API
@@ -244,7 +270,8 @@ fn stderr_of(output: &std::process::Output) -> String {
 /// `check_and_display` over the wire.
 #[test]
 fn update_check_reports_new_version() {
-    let mock = MockGitHub::spawn(vec!["v0.9.0".to_string()], Arc::new(Vec::new()));
+    let newer = newer_tag();
+    let mock = MockGitHub::spawn(vec![newer.clone()], Arc::new(Vec::new()));
 
     let output = run_check(&mock.base_url());
 
@@ -256,12 +283,15 @@ fn update_check_reports_new_version() {
         stdout
     );
     assert!(
-        stdout.contains("New version available: 0.9.0"),
+        stdout.contains(&format!(
+            "New version available: {}",
+            newer.trim_start_matches('v')
+        )),
         "stdout should report the new version, got: {}",
         stdout
     );
     assert!(
-        stdout.contains("releases/tag/v0.9.0"),
+        stdout.contains(&format!("releases/tag/{}", newer)),
         "stdout should include the changelog URL, got: {}",
         stdout
     );
@@ -330,8 +360,9 @@ fn update_check_unreachable_reports_friendly_error() {
 /// Guards the ordering assumption documented in `get_latest_version`.
 #[test]
 fn update_check_takes_first_release_from_list() {
+    let newer = newer_tag();
     let mock = MockGitHub::spawn(
-        vec!["v0.9.0".to_string(), "v0.8.5".to_string()],
+        vec![newer.clone(), format!("v{}", CURRENT_VERSION)],
         Arc::new(Vec::new()),
     );
 
@@ -339,7 +370,10 @@ fn update_check_takes_first_release_from_list() {
 
     assert!(output.status.success(), "stderr: {}", stderr_of(&output));
     assert!(
-        stdout_of(&output).contains("New version available: 0.9.0"),
+        stdout_of(&output).contains(&format!(
+            "New version available: {}",
+            newer.trim_start_matches('v')
+        )),
         "the first (newest) release must be reported as latest, got: {}",
         stdout_of(&output)
     );
@@ -361,7 +395,8 @@ fn update_replaces_binary() {
         "sanity: the real binary must not already contain the fake marker"
     );
 
-    let mock = MockGitHub::spawn(vec!["v0.9.0".to_string()], Arc::new(make_release_archive()));
+    let newer = newer_tag();
+    let mock = MockGitHub::spawn(vec![newer.clone()], Arc::new(make_release_archive()));
 
     let output = Command::new(&copy)
         .args(["update", "--yes"])
@@ -377,7 +412,10 @@ fn update_replaces_binary() {
         stderr_of(&output)
     );
     assert!(
-        stdout_of(&output).contains("Successfully updated to version 0.9.0"),
+        stdout_of(&output).contains(&format!(
+            "Successfully updated to version {}",
+            newer.trim_start_matches('v')
+        )),
         "stdout should report the successful replacement, got: {}",
         stdout_of(&output)
     );
@@ -406,25 +444,26 @@ fn update_replaces_binary() {
     );
 }
 
-/// Pinned-version update: `--version v0.9.0` skips the latest-version fetch
+/// Pinned-version update: `--version <newer>` skips the latest-version fetch
 /// and goes straight to the tagged release (exercises the `release_tag` path
 /// end-to-end, including the v-prefix normalization).
 #[test]
 fn update_pinned_version_tag_replaces_binary() {
     let home = tempfile::tempdir().unwrap();
     let copy = copy_binary_to(&home);
+    let newer = newer_tag();
 
     let mock = MockGitHub::spawn(
-        vec!["v0.8.5".to_string(), "v0.9.0".to_string()],
+        vec![format!("v{}", CURRENT_VERSION), newer.clone()],
         Arc::new(make_release_archive()),
     );
 
     let output = Command::new(&copy)
-        .args(["update", "--yes", "--version", "v0.9.0"])
+        .args(["update", "--yes", "--version", &newer])
         .env("HOME", home.path())
         .env("PLAN_REVIEWER_GITHUB_API_BASE", mock.base_url())
         .output()
-        .expect("run copied plan-reviewer update --version v0.9.0 --yes");
+        .expect("run copied plan-reviewer update --version {newer} --yes");
 
     assert!(
         output.status.success(),
@@ -456,7 +495,9 @@ fn update_pinned_version_tag_replaces_binary() {
         requests
     );
     assert!(
-        requests.iter().any(|r| r.contains("/releases/tags/v0.9.0")),
+        requests
+            .iter()
+            .any(|r| r.contains(&format!("/releases/tags/{}", newer))),
         "pinned update must fetch the single-release-by-tag endpoint, got: {:?}",
         requests
     );
