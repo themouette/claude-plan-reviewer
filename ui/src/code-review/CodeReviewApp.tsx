@@ -83,7 +83,7 @@ export default function CodeReviewApp(): React.JSX.Element {
     selectedCommitShas.length === 1
       ? { mode: 'commit', sha: selectedCommitShas[0] }
       : selectedCommitShas.length >= 2 && commits.length > 0 && selectedCommitShas.length < commits.length
-        ? { mode: 'branch-union', shas: selectedCommitShas }
+        ? { mode: 'range', shas: selectedCommitShas }
         : { mode: 'branch' }
 
   const { files, loading, error, refetch } = useDiff({ selector })
@@ -95,8 +95,8 @@ export default function CodeReviewApp(): React.JSX.Element {
   const selectorKey =
     selector.mode === 'commit'
       ? `commit:${selector.sha}`
-      : selector.mode === 'branch-union'
-        ? `branch-union:${[...selectedCommitShas].sort().join(',')}`
+      : selector.mode === 'range'
+        ? `range:${[...selectedCommitShas].sort().join(',')}`
         : 'branch:'
 
   // CR-01: reset contextExpanded whenever the selector changes (sync-during-render)

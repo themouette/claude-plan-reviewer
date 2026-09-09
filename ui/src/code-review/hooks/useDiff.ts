@@ -16,14 +16,14 @@ const SHA_RE = /^[0-9a-f]{7,40}$/i
 
 /**
  * Discriminated union selector for useDiff — controls which endpoint to fetch from.
- *   { mode: 'branch' }                → GET /api/diff/branch
- *   { mode: 'commit', sha: string }   → GET /api/diff/commit/{sha}
- *   { mode: 'branch-union', shas: string[] } → N × GET /api/diff/commit/{sha}, flat union
+ *   { mode: 'branch' }              → GET /api/diff/branch
+ *   { mode: 'commit', sha: string } → GET /api/diff/commit/{sha}
+ *   { mode: 'range', shas: string[] } → GET /api/diff/range?shas=..., one entry per file
  */
 export type DiffFetchSelector =
   | { mode: 'branch' }
   | { mode: 'commit'; sha: string }
-  | { mode: 'branch-union'; shas: string[] }
+  | { mode: 'range'; shas: string[] }
 
 /**
  * Pure function: fetches FileDiff[] from /api/diff/branch.
@@ -82,28 +82,34 @@ export async function fetchCommitDiffOnce(
 }
 
 /**
- * Pure function: fetches FileDiff[] from N /api/diff/commit/{sha} endpoints in parallel
- * and returns the flat union as a FetchDiffResult.
- * Returns { files: [], error: 'all fetches failed' } when every SHA-level fetch fails.
- * Returns { files: [...], error: null } when at least one SHA succeeds.
- * Used for DIFF-05: client-side union for subset-of-commits branch view.
+ * Pure function: fetches FileDiff[] from /api/diff/range for a set of selected commits.
+ * The backend reconciles files touched by more than one of the given commits into a
+ * single FileDiff entry, so callers get one row per file, not one per (commit, file).
+ * Injectable doFetch makes this testable without a React renderer.
  */
-export async function fetchFilteredBranchDiff(
+export async function fetchRangeDiff(
   shas: string[],
   doFetch: DoFetch,
   contextLines?: number,
 ): Promise<FetchDiffResult> {
   if (shas.length === 0) return { files: [], error: null }
-  const settled = await Promise.allSettled(
-    shas.map((sha) => fetchCommitDiffOnce(sha, doFetch, contextLines)),
-  )
-  const allFailed = settled.every((r) => r.status === 'rejected' || r.value.error !== null)
-  if (allFailed) {
-    return { files: [], error: 'all fetches failed' }
+  if (shas.some((sha) => !SHA_RE.test(sha))) {
+    return { files: [], error: 'invalid sha' }
   }
-  return {
-    files: settled.flatMap((r) => (r.status === 'fulfilled' ? r.value.files : [])),
-    error: null,
+  const shasParam = shas.join(',')
+  const url =
+    contextLines !== undefined
+      ? `/api/diff/range?shas=${shasParam}&context=${contextLines}`
+      : `/api/diff/range?shas=${shasParam}`
+  try {
+    const res = await doFetch(url)
+    if (!res.ok) {
+      return { files: [], error: 'fetch failed' }
+    }
+    const data = (await res.json()) as FileDiff[]
+    return { files: data, error: null }
+  } catch {
+    return { files: [], error: 'network error' }
   }
 }
 
@@ -116,7 +122,7 @@ export interface UseDiffResult {
 
 /**
  * React hook: fetches FileDiff[] on mount, exposes { files, loading, error, refetch }.
- * Accepts an optional { selector } to control which endpoint to fetch from (branch / commit / branch-union).
+ * Accepts an optional { selector } to control which endpoint to fetch from (branch / commit / range).
  * refetch(contextLines?) re-fetches with ?context=N using the current selector.
  * Uses a cancelledRef to prevent setState after unmount (avoids React 19 strict-mode warnings).
  *
@@ -136,8 +142,8 @@ export function useDiff(opts?: { selector: DiffFetchSelector }): UseDiffResult {
   const selectorKey =
     selector.mode === 'commit'
       ? `commit:${selector.sha}`
-      : selector.mode === 'branch-union'
-        ? `branch-union:${[...selector.shas].sort().join(',')}`
+      : selector.mode === 'range'
+        ? `range:${[...selector.shas].sort().join(',')}`
         : 'branch:'
 
   // WR-01: keep a ref to the latest selector so memoised callbacks always
@@ -154,8 +160,8 @@ export function useDiff(opts?: { selector: DiffFetchSelector }): UseDiffResult {
     if (sel.mode === 'commit') {
       return fetchCommitDiffOnce(sel.sha, doFetch, contextLines)
     }
-    if (sel.mode === 'branch-union') {
-      return fetchFilteredBranchDiff(sel.shas, doFetch, contextLines)
+    if (sel.mode === 'range') {
+      return fetchRangeDiff(sel.shas, doFetch, contextLines)
     }
     // Default: branch mode
     return fetchDiffOnce(doFetch, contextLines)

@@ -50,6 +50,12 @@ pub struct DiffContextQuery {
     pub context: Option<u32>,
 }
 
+#[derive(Deserialize)]
+pub struct RangeDiffQuery {
+    pub shas: String,
+    pub context: Option<u32>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct CommitList {
     pub commits: Vec<Commit>,
@@ -303,6 +309,157 @@ fn build_file_diffs(diff: &git2::Diff, repo: &git2::Repository) -> Vec<FileDiff>
     }
 
     file_diffs
+}
+
+// --- Range diff reconciliation ---
+
+/// Reconcile per-commit FileDiff lists (ordered oldest→newest) into one FileDiff
+/// per file, so a file touched by several selected commits appears exactly once
+/// with the net change across the whole selection instead of once per commit.
+///
+/// For each file, the "old" side is taken from the earliest selected commit that
+/// touched it and the "new" side from the latest — then re-diffed as a single
+/// patch via `Patch::from_buffers` so stats/patch text reflect the net change,
+/// not a concatenation of per-commit patches.
+fn merge_range_file_diffs(
+    ordered_commit_diffs: Vec<Vec<FileDiff>>,
+    context_lines: u32,
+) -> Vec<FileDiff> {
+    struct Entry {
+        original_name: String,
+        earliest_old_content: Option<String>,
+        earliest_status_added: bool,
+        latest_new_content: Option<String>,
+        latest_filename: String,
+        latest_status_removed: bool,
+        any_rename: bool,
+        any_binary: bool,
+    }
+
+    let mut entries: Vec<Entry> = Vec::new();
+    let mut name_to_idx: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+
+    for commit_diffs in ordered_commit_diffs {
+        for fd in commit_diffs {
+            let is_binary = fd.patch == "[binary file]";
+            let existing_idx = fd
+                .previous_filename
+                .as_ref()
+                .and_then(|p| name_to_idx.get(p).copied())
+                .or_else(|| name_to_idx.get(&fd.filename).copied());
+
+            match existing_idx {
+                Some(idx) => {
+                    let e = &mut entries[idx];
+                    e.latest_new_content = fd.new_content;
+                    e.latest_status_removed = fd.status == "removed";
+                    e.any_rename = e.any_rename || fd.status == "renamed" || fd.status == "copied";
+                    e.any_binary = e.any_binary || is_binary;
+                    if fd.filename != e.latest_filename {
+                        name_to_idx.remove(&e.latest_filename);
+                    }
+                    e.latest_filename = fd.filename.clone();
+                    name_to_idx.insert(fd.filename, idx);
+                }
+                None => {
+                    let idx = entries.len();
+                    let original_name = fd
+                        .previous_filename
+                        .clone()
+                        .unwrap_or_else(|| fd.filename.clone());
+                    entries.push(Entry {
+                        original_name,
+                        earliest_old_content: fd.old_content,
+                        earliest_status_added: fd.status == "added",
+                        latest_new_content: fd.new_content,
+                        latest_filename: fd.filename.clone(),
+                        latest_status_removed: fd.status == "removed",
+                        any_rename: fd.status == "renamed" || fd.status == "copied",
+                        any_binary: is_binary,
+                    });
+                    name_to_idx.insert(fd.filename, idx);
+                }
+            }
+        }
+    }
+
+    entries
+        .into_iter()
+        .map(|e| {
+            let status = if e.latest_status_removed {
+                "removed"
+            } else if e.earliest_status_added {
+                "added"
+            } else if e.any_rename && e.original_name != e.latest_filename {
+                "renamed"
+            } else {
+                "modified"
+            };
+            let previous_filename = if e.original_name != e.latest_filename {
+                Some(e.original_name.clone())
+            } else {
+                None
+            };
+
+            if e.any_binary {
+                return FileDiff {
+                    filename: e.latest_filename,
+                    previous_filename,
+                    status: status.to_string(),
+                    additions: 0,
+                    deletions: 0,
+                    changes: 0,
+                    patch: "[binary file]".to_string(),
+                    old_content: None,
+                    new_content: None,
+                };
+            }
+
+            let old_path_name = previous_filename
+                .clone()
+                .unwrap_or_else(|| e.latest_filename.clone());
+            let old_bytes = e.earliest_old_content.clone().unwrap_or_default();
+            let new_bytes = e.latest_new_content.clone().unwrap_or_default();
+
+            let mut opts = git2::DiffOptions::new();
+            opts.old_prefix("a/").new_prefix("b/");
+            opts.context_lines(context_lines);
+
+            let patch_result = git2::Patch::from_buffers(
+                old_bytes.as_bytes(),
+                Some(std::path::Path::new(&old_path_name)),
+                new_bytes.as_bytes(),
+                Some(std::path::Path::new(&e.latest_filename)),
+                Some(&mut opts),
+            );
+
+            let (additions, deletions, patch_text) = match patch_result {
+                Ok(mut patch) => {
+                    let (_, additions, deletions): (usize, usize, usize) =
+                        patch.line_stats().unwrap_or_default();
+                    let patch_text = patch
+                        .to_buf()
+                        .map(|b| String::from_utf8_lossy(&b).into_owned())
+                        .unwrap_or_default();
+                    (additions as u32, deletions as u32, patch_text)
+                }
+                Err(_) => (0, 0, String::new()),
+            };
+
+            FileDiff {
+                filename: e.latest_filename,
+                previous_filename,
+                status: status.to_string(),
+                additions,
+                deletions,
+                changes: additions + deletions,
+                patch: patch_text,
+                old_content: e.earliest_old_content,
+                new_content: e.latest_new_content,
+            }
+        })
+        .collect()
 }
 
 // --- Shell fallback (reftable) ---
@@ -730,6 +887,36 @@ fn shell_untracked_diff(repo_path: &std::path::Path) -> Option<Vec<FileDiff>> {
     Some(file_diffs)
 }
 
+/// Shell fallback for try_range_diff: resolve each sha's own diff via subprocess,
+/// order chronologically, then reconcile with merge_range_file_diffs.
+fn shell_range_diff(
+    repo_path: &std::path::Path,
+    shas: &[String],
+    context_lines: u32,
+) -> Option<Vec<FileDiff>> {
+    let mut ordered: Vec<(i64, Vec<FileDiff>)> = Vec::new();
+    for sha in shas {
+        if sha == UNCOMMITTED_SHA {
+            let diffs = shell_uncommitted_diff(repo_path, context_lines).unwrap_or_default();
+            ordered.push((i64::MAX, diffs));
+            continue;
+        }
+        if sha == UNTRACKED_SHA {
+            let diffs = shell_untracked_diff(repo_path).unwrap_or_default();
+            ordered.push((i64::MAX, diffs));
+            continue;
+        }
+        let diffs = shell_diff_commit(repo_path, sha, context_lines).unwrap_or_default();
+        let ts = shell_run(&["git", "show", "-s", "--format=%ct", sha], repo_path)
+            .and_then(|s| s.trim().parse::<i64>().ok())
+            .unwrap_or(0);
+        ordered.push((ts, diffs));
+    }
+    ordered.sort_by_key(|(t, _)| *t);
+    let ordered_diffs: Vec<Vec<FileDiff>> = ordered.into_iter().map(|(_, d)| d).collect();
+    Some(merge_range_file_diffs(ordered_diffs, context_lines))
+}
+
 /// Shell fallback for get_diff_commit: diff a single commit via subprocess.
 fn shell_diff_commit(
     repo_path: &std::path::Path,
@@ -797,6 +984,63 @@ fn try_branch_diff(
         .ok()?;
 
     Some(build_file_diffs(&diff, &repo))
+}
+
+/// Resolve each sha in `shas` to its own commit-vs-parent (or sentinel) FileDiff list,
+/// order the lists chronologically (oldest first), then reconcile with
+/// merge_range_file_diffs so each file appears exactly once across the whole selection.
+fn try_range_diff(
+    repo_path: &std::path::Path,
+    shas: &[String],
+    context_lines: u32,
+) -> Option<Vec<FileDiff>> {
+    let repo = match git2::Repository::open(repo_path) {
+        Ok(r) => r,
+        Err(e) if is_reftable_error(&e) => {
+            return shell_range_diff(repo_path, shas, context_lines);
+        }
+        Err(_) => return None,
+    };
+
+    let mut ordered: Vec<(i64, Vec<FileDiff>)> = Vec::new();
+    for sha in shas {
+        if sha == UNCOMMITTED_SHA {
+            let diffs = try_uncommitted_diff(repo_path, context_lines).unwrap_or_default();
+            ordered.push((i64::MAX, diffs));
+            continue;
+        }
+        if sha == UNTRACKED_SHA {
+            let diffs = try_untracked_diff(repo_path).unwrap_or_default();
+            ordered.push((i64::MAX, diffs));
+            continue;
+        }
+        let Ok(oid) = git2::Oid::from_str(sha) else {
+            continue;
+        };
+        let Ok(commit) = repo.find_commit(oid) else {
+            continue;
+        };
+        let Ok(commit_tree) = commit.tree() else {
+            continue;
+        };
+        let parent_tree = commit.parent(0).ok().and_then(|p| p.tree().ok());
+
+        let mut opts = git2::DiffOptions::new();
+        opts.old_prefix("a/").new_prefix("b/");
+        opts.context_lines(context_lines);
+
+        let Ok(diff) =
+            repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&commit_tree), Some(&mut opts))
+        else {
+            continue;
+        };
+        let diffs = build_file_diffs(&diff, &repo);
+        ordered.push((commit.time().seconds(), diffs));
+    }
+
+    ordered.sort_by_key(|(t, _)| *t);
+    let ordered_diffs: Vec<Vec<FileDiff>> = ordered.into_iter().map(|(_, d)| d).collect();
+    Some(merge_range_file_diffs(ordered_diffs, context_lines))
 }
 
 fn has_uncommitted_changes(repo: &git2::Repository) -> bool {
@@ -1106,6 +1350,43 @@ async fn get_diff_commit(
     (StatusCode::OK, Json(file_diffs)).into_response()
 }
 
+/// GET /api/diff/range?shas=sha1,sha2,...&context=N — returns FileDiff[] reconciling
+/// changes across the given (possibly non-contiguous) set of selected commits into one
+/// entry per file, instead of one entry per (commit, file) pair.
+/// Returns 400 when any non-sentinel sha is not a valid hex OID (T-24-PT mitigated).
+async fn get_diff_range(
+    State(state): State<Arc<CodeReviewState>>,
+    Query(params): Query<RangeDiffQuery>,
+) -> impl IntoResponse {
+    let shas: Vec<String> = params
+        .shas
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if shas.is_empty() {
+        return (StatusCode::OK, Json(Vec::<FileDiff>::new())).into_response();
+    }
+
+    for sha in &shas {
+        if sha == UNCOMMITTED_SHA || sha == UNTRACKED_SHA {
+            continue;
+        }
+        if git2::Oid::from_str(sha).is_err() {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "invalid sha"})),
+            )
+                .into_response();
+        }
+    }
+
+    let context_lines = params.context.unwrap_or(3);
+    let file_diffs = try_range_diff(&state.repo_path, &shas, context_lines).unwrap_or_default();
+    (StatusCode::OK, Json(file_diffs)).into_response()
+}
+
 // --- Router factory ---
 
 /// Create the diff-api sub-router with state attached.
@@ -1115,6 +1396,7 @@ pub fn router(state: Arc<CodeReviewState>) -> Router<()> {
         .route("/api/diff/branch", get(get_diff_branch))
         .route("/api/commits", get(get_commits))
         .route("/api/diff/commit/{sha}", get(get_diff_commit))
+        .route("/api/diff/range", get(get_diff_range))
         .with_state(state)
 }
 
@@ -1901,5 +2183,111 @@ rename to src/bar/handler.rs\n";
             Some("Untracked files"),
             "Index 1 must be 'Untracked files'"
         );
+    }
+
+    /// Test 17: /api/diff/range reconciles a file touched by two selected commits into
+    /// a single FileDiff entry (the regression this endpoint exists to fix), with the
+    /// net old→new content spanning both commits rather than one entry per commit.
+    #[tokio::test]
+    async fn get_diff_range_merges_file_touched_by_two_commits() {
+        let (tmp, repo, feature_oids) = make_repo_with_main_and_feature(&[
+            ("shared.txt", "line1\nline2\n"),
+            ("other.txt", "hello\n"),
+        ]);
+        // Second commit currently only touches other.txt — add a third commit that
+        // also modifies shared.txt so it is touched by two selected commits.
+        use std::fs;
+        fs::write(tmp.path().join("shared.txt"), "line1\nCHANGED\n").unwrap();
+        let mut index = repo.index().unwrap();
+        index.add_path(std::path::Path::new("shared.txt")).unwrap();
+        index.write().unwrap();
+        let tree_id = index.write_tree().unwrap();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let sig = git2::Signature::now("test", "test@test.com").unwrap();
+        let parent = repo.find_commit(feature_oids[1]).unwrap();
+        let third_oid = repo
+            .commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "feature: modify shared.txt again",
+                &tree,
+                &[&parent],
+            )
+            .unwrap();
+
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
+        });
+        let shas = format!("{},{}", feature_oids[0], third_oid);
+        let uri = format!("/api/diff/range?shas={shas}");
+        let (status, json) = do_get(state, &uri).await;
+        assert_eq!(status, StatusCode::OK);
+
+        let arr = json.as_array().expect("expected JSON array");
+        let shared_entries: Vec<_> = arr
+            .iter()
+            .filter(|e| e["filename"].as_str() == Some("shared.txt"))
+            .collect();
+        assert_eq!(
+            shared_entries.len(),
+            1,
+            "shared.txt touched by both selected commits must appear exactly once, got: {arr:?}"
+        );
+        assert_eq!(shared_entries[0]["status"].as_str(), Some("added"));
+        assert_eq!(
+            shared_entries[0]["new_content"].as_str(),
+            Some("line1\nCHANGED\n"),
+            "merged new_content must reflect the latest selected commit's content"
+        );
+    }
+
+    /// Test 18: /api/diff/range with an invalid sha in the list returns HTTP 400.
+    #[tokio::test]
+    async fn get_diff_range_invalid_sha_returns_400() {
+        let (tmp, _repo) = make_repo_with_main();
+        let state = Arc::new(CodeReviewState {
+            repo_path: tmp.path().to_path_buf(),
+            ..Default::default()
+        });
+        let (status, json) = do_get(state, "/api/diff/range?shas=zzz").await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(json["error"].is_string());
+    }
+
+    /// Test 19: merge_range_file_diffs collapses two per-commit diffs of the same file
+    /// into a single entry using the earliest old_content and latest new_content.
+    #[test]
+    fn merge_range_file_diffs_collapses_same_file_across_commits() {
+        let first = FileDiff {
+            filename: "f.txt".to_string(),
+            previous_filename: None,
+            status: "modified".to_string(),
+            additions: 1,
+            deletions: 1,
+            changes: 2,
+            patch: "irrelevant".to_string(),
+            old_content: Some("a\n".to_string()),
+            new_content: Some("b\n".to_string()),
+        };
+        let second = FileDiff {
+            filename: "f.txt".to_string(),
+            previous_filename: None,
+            status: "modified".to_string(),
+            additions: 1,
+            deletions: 1,
+            changes: 2,
+            patch: "irrelevant".to_string(),
+            old_content: Some("b\n".to_string()),
+            new_content: Some("c\n".to_string()),
+        };
+
+        let merged = merge_range_file_diffs(vec![vec![first], vec![second]], 3);
+        assert_eq!(merged.len(), 1, "expected exactly one merged entry");
+        assert_eq!(merged[0].filename, "f.txt");
+        assert_eq!(merged[0].old_content.as_deref(), Some("a\n"));
+        assert_eq!(merged[0].new_content.as_deref(), Some("c\n"));
+        assert_eq!(merged[0].status, "modified");
     }
 }
